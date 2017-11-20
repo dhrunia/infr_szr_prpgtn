@@ -1,8 +1,6 @@
-#!/usr/bin/env python3
-"""
-Analyze and plot results of model
+# do not use.. convert me to lib functions & notebook workflow
 
-"""
+
 
 #%%
 import argparse
@@ -90,39 +88,6 @@ if args.time_series or args.all:
             fill_between(t, lo, hi, alpha=0.2, facecolor='r', edgecolor='none')
     tight_layout()
     savefig('fig-time-series.png')
-
-# phase space
-if args.phase_space or args.all:
-    figure()
-    x, z = data['x'], data['z']
-    tau0 = npz['tau0']
-    """
-    real dx = (I1 + 1.0) - pow(x[i, t],3.0) - 2.0 * pow(x[i, t], 2.0) - z[i, t];
-    real gx = FC[i,] * (x[,t] - x[i,t]) - Ic[i] * (1.8 + x[i,t]);
-    real dz = inv(tau0) * (4 * (x[i, t] - x0[i]) - z[i, t] - K * gx);
-    """
-    X, Z = np.mgrid[-5.0:5.0:50j, -5.0:5.0:50j]
-    dX = (npz['I1'] + 1.0) - X**3.0 - 2.0*X**2.0 - Z
-    x0mean = data['x0'].mean(axis=0)
-    Kmean = data['K'].mean(axis=0)
-    def nullclines(i):
-        contour(X, Z, dX, 0, colors='r')
-        dZ = (1.0/tau0) * (4.0 * (X - x0mean[i])) - Z - Kmean*(-npz['Ic'][i]*(1.8 + X))
-        contour(X, Z, dZ, 0, colors='b')
-    for i in range(x.shape[-1]):
-        subplot(2, 3, i + 1)
-        if opt:
-            plot(x[0, :, i], z[0, :, i], 'k', alpha=0.5)
-        else:
-            for j in range(1 if opt else 10):
-                plot(x[-j, :, i], z[-j, :, i], 'k', alpha=0.2, linewidth=0.5)
-        nullclines(i)
-        pl.grid(True)
-        xlabel('x(t)')
-        ylabel('z(t)')
-        title(f'node {i}')
-    tight_layout()
-    savefig('fig-phase-space.png')
 
 if 0:
     figure()

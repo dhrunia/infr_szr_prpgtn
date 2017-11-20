@@ -111,7 +111,7 @@ parameters {
     real epsilon_star;
     real<lower=0.0> amplitude;
     real offset;
-    real<lower=0.0, upper=1.0> time_scale;
+    real<lower=0.02, upper=0.1> time_scale;
 
     // time-series state non-centering:
     vector[nn] x_init;

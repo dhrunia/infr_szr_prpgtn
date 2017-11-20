@@ -289,30 +289,53 @@ def compile_model(stan_fname):
     
     
 def viz_phase_space(data):
-    x, z = data['x'], data['z']
-    tau0 = 3.0
+    opt = len(data['x']) == 1
+    npz = np.load('data.R.npz')
+    tr = lambda A: np.transpose(A, (0, 2, 1))
+    x, z = tr(data['x']), tr(data['z'])
+    tau0 = npz['tau0']
     X, Z = np.mgrid[-5.0:5.0:50j, -5.0:5.0:50j]
     dX = (npz['I1'] + 1.0) - X**3.0 - 2.0*X**2.0 - Z
     x0mean = data['x0'].mean(axis=0)
     Kmean = data['K'].mean(axis=0)
     def nullclines(i):
-        contour(X, Z, dX, 0, colors='r')
+        pl.contour(X, Z, dX, 0, colors='r')
         dZ = (1.0/tau0) * (4.0 * (X - x0mean[i])) - Z - Kmean*(-npz['Ic'][i]*(1.8 + X))
-        contour(X, Z, dZ, 0, colors='b')
+        pl.contour(X, Z, dZ, 0, colors='b')
     for i in range(x.shape[-1]):
-        subplot(2, 3, i + 1)
+        pl.subplot(2, 3, i + 1)
         if opt:
-            plot(x[0, :, i], z[0, :, i], 'k', alpha=0.5)
+            pl.plot(x[0, :, i], z[0, :, i], 'k', alpha=0.5)
         else:
             for j in range(1 if opt else 10):
-                plot(x[-j, :, i], z[-j, :, i], 'k', alpha=0.2, linewidth=0.5)
+                pl.plot(x[-j, :, i], z[-j, :, i], 'k', alpha=0.2, linewidth=0.5)
         nullclines(i)
         pl.grid(True)
-        xlabel('x(t)')
-        ylabel('z(t)')
-        title(f'node {i}')
-    tight_layout()
- 
+        pl.xlabel('x(t)')
+        pl.ylabel('z(t)')
+        pl.title(f'node {i}')
+    pl.tight_layout()
+
+
+def viz_pair_plots(csv, keys, skip=0):
+    n = len(keys)
+    if isinstance(csv, dict):
+        csv = [csv]  # following assumes list of chains' results
+    for i, key_i in enumerate(keys):
+        for j, key_j in enumerate(keys):
+            pl.subplot(n, n, i*n+j+1)
+            for csvi in csv:
+                if i==j:
+                    pl.hist(csvi[key_i][skip:], 20, log=True)
+                else:
+                    pl.plot(csvi[key_j][skip:], csvi[key_i][skip:], '.')
+            if i==0:
+                pl.title(key_j)
+            if j==0:
+                pl.ylabel(key_i)
+    pl.tight_layout()
+
+
 def reload():
     import importlib, lib
     eval('importlib.reload(lib)')
