@@ -1,3 +1,5 @@
+/* ODE form, based on rev04 w/ time & noise scale fixes */
+
 functions {
 
     real gamma_a_from_u_v(real u, real v) {
