@@ -31,7 +31,7 @@ transformed parameters {
     for (i in 1:(nt-1)) {
         // print("i = ", i, ", x = ", x[i], ", z = ", z[i]);
         x[i + 1] = x[i] + tau*(x[i]-x[i]*x[i]*x[i]/3+z[i])*dt + sig*x_eta[i];
-        z[i + 1] = z[i] + (1.0/tau)*(a - x[i])*dt + sig*x_eta[i];
+        z[i + 1] = z[i] + (1.0/tau)*(a - x[i])*dt + sig*z_eta[i];
     }
 }
 
