@@ -1,0 +1,11 @@
+*.pyc
+*.hpp
+*.npz
+*.tar.gz
+*.csv
+*.exe
+*.R
+.vscode
+*.png
+.ipynb_checkpoints
+__pycache__
