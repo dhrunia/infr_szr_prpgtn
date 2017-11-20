@@ -3,6 +3,7 @@ Library of useful routines for virtual epileptic patient workflows.
 
 """
 
+import io
 import os
 import re
 import sys
@@ -19,6 +20,20 @@ except ImportError:
     import pip; pip.main('install nibabel'.split())
     import nibabel
 
+    
+def load_tf_npy(tf, name):
+    bio = io.BytesIO()
+    with tf.extractfile(name) as fd:
+        bio.write(fd.read())
+    bio.seek(0)
+    return np.load(bio)
+    
+
+def load_tbz_npy(fname, name):
+    with tarfile.open(fname) as tf:
+        npy = load_tf_npy(tf, name)
+    return npy
+        
 
 def log_power_change(fs, seeg, flo=10.0, nfft=1024, tb=10.0):
     pl.ioff()
@@ -30,6 +45,16 @@ def log_power_change(fs, seeg, flo=10.0, nfft=1024, tb=10.0):
         ps.append(pl.detrend_linear(np.log(p)))
     return T, np.array(ps)
 
+def contact_names_fd(fd):
+    contacts = []
+    for line in fd.readlines():
+        line = line.decode('ascii')
+        parts = [p.strip() for p in line.strip().split('=')]
+        if len(parts)>1 and parts[1] == 'SEEG':
+            name, idx = re.match("([A-Z]+[a-z]*[']*)([0-9]+)", parts[0]).groups()
+            idx = int(idx)
+            contacts.append((name, idx))   
+    return contacts
 
 def contact_names(ades_fname):
     contacts = []
@@ -253,7 +278,7 @@ def csv2mode(csv_fname, mode=None):
 
 def csv2r(csv_fname, r_fname=None, mode=None):
     data = csv2mode(csv_fname, mode=mode)
-    r_fname = r_fname or csv_fname.replace('.csv', '.R')
+    r_fname = r_fname or csv_fname + '.R'
     rdump(r_fname, data)
     
     
