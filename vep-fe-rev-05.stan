@@ -160,7 +160,7 @@ model {
         z[t+1] = z_step(x[t], z[t], x0, K, FC, Ic, time_scale, z_eta[t], sigma, tau0); 
     }
     if (use_data==1)
-        to_vector(seeg_log_power) ~ normal(amplitude * (to_vector(log(gain * exp(x))) + offset), epsilon);
+        to_vector(seeg_log_power) ~ normal(amplitude * (to_vector(log(gain * exp(x'))) + offset), epsilon);
 }
 
 generated quantities {
