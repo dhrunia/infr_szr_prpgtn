@@ -335,6 +335,8 @@ def viz_pair_plots(csv, keys, skip=0):
                 pl.ylabel(key_i)
     pl.tight_layout()
 
+# TODO run w/ optimize before
+
 
 def reload():
     import importlib, lib
