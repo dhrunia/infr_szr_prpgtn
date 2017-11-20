@@ -167,8 +167,8 @@ generated quantities {
     matrix[nt, nn] x;
     matrix[nt, nn] z;
     for (i in 1:nn) {
-      x[i, 1] = x_init[i];
-      z[i, 1] = z_init[i];
+      x[1, i] = x_init[i];
+      z[1, i] = z_init[i];
     } 
     for (t in 1:(nt-1)) {
         x[t+1] = x_step(x[t], z[t], I1, time_scale, x_eta[t], sigma);

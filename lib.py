@@ -192,12 +192,15 @@ def merge_csv_data(*csvs):
     return data_
 
 
-def parse_csv(fname):
+def parse_csv(fname, merge=True):
     if '*' in fname:
         import glob
-        return parse_csv(glob.glob(fname))
+        return parse_csv(glob.glob(fname), merge=merge)
     if isinstance(fname, (list, tuple)):
-        return merge_csv_data(*[parse_csv(_) for _ in fname])
+        csv = [parse_csv(_) for _ in fname]
+        if merge:
+            csv = merge_csv_data(*csv)
+        return csv
     
     lines = []
     with open(fname, 'r') as fd:
@@ -284,6 +287,31 @@ def compile_model(stan_fname):
     if stderr:
         print(stderr)
     
+    
+def viz_phase_space(data):
+    x, z = data['x'], data['z']
+    tau0 = 3.0
+    X, Z = np.mgrid[-5.0:5.0:50j, -5.0:5.0:50j]
+    dX = (npz['I1'] + 1.0) - X**3.0 - 2.0*X**2.0 - Z
+    x0mean = data['x0'].mean(axis=0)
+    Kmean = data['K'].mean(axis=0)
+    def nullclines(i):
+        contour(X, Z, dX, 0, colors='r')
+        dZ = (1.0/tau0) * (4.0 * (X - x0mean[i])) - Z - Kmean*(-npz['Ic'][i]*(1.8 + X))
+        contour(X, Z, dZ, 0, colors='b')
+    for i in range(x.shape[-1]):
+        subplot(2, 3, i + 1)
+        if opt:
+            plot(x[0, :, i], z[0, :, i], 'k', alpha=0.5)
+        else:
+            for j in range(1 if opt else 10):
+                plot(x[-j, :, i], z[-j, :, i], 'k', alpha=0.2, linewidth=0.5)
+        nullclines(i)
+        pl.grid(True)
+        xlabel('x(t)')
+        ylabel('z(t)')
+        title(f'node {i}')
+    tight_layout()
  
 def reload():
     import importlib, lib
