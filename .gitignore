@@ -12,3 +12,4 @@ __pycache__
 cmdstan
 vep-*
 !vep*.stan
+!vep*.ipynb
