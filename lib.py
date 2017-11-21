@@ -176,7 +176,7 @@ def prep_stan_data():
 
 
 def _rdump_array(key, val):
-    c = 'c(' + ', '.join(map(str, val.flat)) + ')'
+    c = 'c(' + ', '.join(map(str, val.T.flat)) + ')'
     if (val.size,) == val.shape:
         return '{key} <- {c}'.format(key=key, c=c)
     else:
