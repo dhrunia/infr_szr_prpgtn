@@ -16,6 +16,23 @@ _Jupyter notebooks_
 
 - [`old-workflow`](old-workflow.ipynb) - ...
 
+## Priors
+
+### SDE
+
+e.g. `vep-fe-rev-05.stan`.
+
+- `FC` - positive definite, w/ mode == SC
+- `K` - <10, probably much less (or rescale SC/FC if problematic)
+- `x0` - for healthy nodes, <-1.8, unhealthy nodes ~ -1.8
+- `amplitude` - ~1, 
+- `offset` - ~0
+- `time_scale` - 0.025; no more than a 2/3 cycles for oscillator for given time window
+- `x_init` - ~ -1.5
+- `z_init` - ~ 2.0
+- `epsilon` - ~0.5
+- `sigma` - 0.1
+
 
 ## Origin
 
