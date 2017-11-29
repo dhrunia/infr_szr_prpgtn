@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """
 Library of useful routines for virtual epileptic patient workflows. 
 
@@ -295,12 +297,12 @@ def cmdstan_path(path=''):
             'please provide CmdStan path, e.g. lib.cmdstan_path("/path/to/")')
     return path
 
-def compile_model(stan_fname):
+def compile_model(stan_fname, cc='clang++'):
     path = os.path.abspath(os.path.dirname(stan_fname))
     name = stan_fname[:-5]
     target = os.path.join(path, name)
     proc = subprocess.Popen(
-        ['make', target],
+        ['make', target, f'CC={cc}'],
         cwd=cmdstan_path(),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -366,3 +368,11 @@ def viz_pair_plots(csv, keys, skip=0):
 def reload():
     import importlib, lib
     eval('importlib.reload(lib)')
+
+
+if __name__ == '__main__':
+    import sys
+    cmd = sys.argv[1]
+    args = sys.argv[2:]
+    print(cmd, args)
+    eval(cmd)(*args)
