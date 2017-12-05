@@ -61,7 +61,7 @@ functions {
         row_vector[nn] z_next;
         matrix[nn, nn] D = vector_differencing(x);
         row_vector[nn] gx = to_row_vector(rows_dot_product(FC, D) - Ic .* to_vector(1.8 + x));
-        row_vector[nn] dz = inv(tau0) * (4 * (x - x0) - z - K * gx);
+        row_vector[nn] dz = inv(tau0) * (4 * (x - x0) - z - tanh(K * gx));
         z_next = z + (time_scale * dz) + z_eta * sigma;
         return z_next;
     }
@@ -160,7 +160,7 @@ model {
         z[t+1] = z_step(x[t], z[t], x0, K, FC, Ic, time_scale, z_eta[t], sigma, tau0); 
     }
     if (use_data==1)
-        to_vector(seeg_log_power) ~ normal(amplitude * (to_vector(log(gain * exp(x'))) + offset), epsilon);
+        to_vector(seeg_log_power) ~ normal(amplitude * (to_vector(log(gain * exp(x'))') + offset), epsilon);
 }
 
 generated quantities {
