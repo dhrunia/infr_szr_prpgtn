@@ -18,7 +18,7 @@ _Stan files_
 _Data_
 
 1. Original dataset provided, 6 channels, 12 (?) nodes, FFT-based
-2. Smaller test dataset based on original, use in `vep-fe-rev-05.ipynb`
+2. Smaller test dataset based on original, use in `vep-fe-rev-05.ipynb`: https://amubox.univ-amu.fr/index.php/s/8vngkEIqC0S12op?path=%2Fold-preproc-small-data
 3. Data with new preprocessing and extra entities for interictal time series: [new-data.R.zip](https://github.com/maedoc/vep.stan/files/1521920/new-data.R.zip)
 
 _Jupyter notebooks_
