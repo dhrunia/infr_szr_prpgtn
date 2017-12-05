@@ -7,14 +7,19 @@ data.
 
 _Stan files_
 
-- [`ode.stan`](ode.stan) - ODE formulation
-- [`sde.stan`](sde.stan) - SDE formulation
-- [`one.stan`](one.stan) - Single channel for observation model
-- [`lsa.stan`](lsa.stan) - Linear stability analysis model
+- ODE formulation: [`vep-ode-rev-04.stan`](vep-ode-rev-04.stan)
+- Linear stability analysis model: [`vep-lsa.stan`](vep-lsa.stan)
+- ~~SDE formulation: [`sde.stan`](sde.stan)~~
+- ~~Single channel for observation model: [`one.stan`](one.stan)~~
+
+_Data_
+
+- Data with new preprocessing and extra entities for interictal time series: [new-data.R.zip](https://github.com/maedoc/vep.stan/files/1521920/new-data.R.zip)
 
 _Jupyter notebooks_
 
 - [`old-workflow`](old-workflow.ipynb) - ...
+- [`fwd-sim.ipynb`](fwd-sim.ipynb) - forward simulation code
 
 ## Priors
 
@@ -113,7 +118,7 @@ K_b = gamma_b_from_a_u(K_a, K_u);
 K ~ gamma(K_a, K_b) T[0, 10];
 ```
 
-### Effective or functional conenctivity
+### Effective or functional connectivity
 
 FC/EC, effective connectivity is a neuroscience term for a
 statistical estimator of causal influence, estimated from data.
