@@ -12,7 +12,7 @@ from scipy import signal
 import dmeeg
 import lib
 
-pl.style.use(['grayscale']) #, 'dark_background'])
+
 
 def bfilt(data, samp_rate, fs, mode, order=3):
     b, a = signal.butter(order, 2*fs/samp_rate, mode)
