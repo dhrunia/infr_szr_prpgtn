@@ -98,6 +98,8 @@ transformed data {
     real x0_prior_mean = x0_lo + 0.5 * x0_range;
     real K_a = gamma_a_from_u_v(K_u, K_v);
     real K_b = gamma_b_from_a_u(K_a, K_u);
+  matrix[nn, nn] SC_ = SC / max(SC);
+  for (i in 1:nn) SC_[i, i] = 0.0;
 }
 
 parameters {
