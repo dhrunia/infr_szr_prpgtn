@@ -150,7 +150,7 @@ model {
     K ~ gamma(4, 1.5); // thin lower + upper tail, cover about 0-10
 
     /* functional connectivity prior */
-    target += FC_lpdf(FC | SC, SC_var, 1e-6, 1e-3);
+    target += FC_lpdf(FC | SC_, SC_var, 1e-6, 1e-3);
 
     /* integrate & predict */
     for (i in 1:nn) {
