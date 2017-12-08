@@ -15,7 +15,8 @@ functions {
     vector[n] z = to_vector(y[n+1:2*n]);
 
     real T = r[1];
-    matrix[n,n] w = to_matrix(r[2:n*n+1], n, n);
+    real tau = r[2];
+    matrix[n,n] w = to_matrix(r[3:n*n+2], n, n);
     
     real k = p[1];
     vector[n] x0 = to_vector(p[2:1+n]);
@@ -23,16 +24,17 @@ functions {
     
     vector[n] gx = rows_dot_product(w, rep_matrix(x, n) - rep_matrix(x, n));
     vector[n] dx = 3.1 - x .* x .* x - 2 * x .* x - z;
-    vector[n] dz = (4 * (x - x0) - k * gx - z) / 3.0;
+    vector[n] dz = (4 * (x - x0) - k * gx - z) / tau;
     vector[n] de = (T - t) * (x - xfp);
 
     return to_array_1d(append_row(append_row(dx, dz), de));
   }
 
-  real[] ode_r(real T, matrix w) {
-    real r[1+num_elements(w)];
+  real[] ode_r(real T, real tau, matrix w) {
+    real r[2+num_elements(w)];
     r[1] = T;
-    r[2:num_elements(w)+1] = to_array_1d(w);
+    r[2] = tau;
+    r[3:num_elements(w)+2] = to_array_1d(w);
     return r;
   }
 
@@ -73,12 +75,12 @@ functions {
     return y0;
   }
 
-  vector fixed_points(matrix w, real[] p) {
+  vector fixed_points(matrix w, real tau, real[] p) {
     return algebra_solver(ode_0, fixed_points_guess(rows(w)),
-			  to_vector(p), ode_r(0.0, w), ode_i());
+			  to_vector(p), ode_r(0.0, tau, w), ode_i());
   }
   
-  vector predict_ei(matrix w, vector ic_xz, vector x0, real k, real T, vector xz0) {
+  vector predict_ei(matrix w, vector ic_xz, vector x0, real k, real T, real tau, vector xz0) {
     int n = rows(w);
     real sol[1, 3*n];
     real ic[3 * n];
@@ -88,7 +90,7 @@ functions {
     ic[2*n+1:3*n] = rep_array(0, n);
 
     sol = integrate_ode_rk45(ode, ic, 0.0, ode_t(T),
-			     ode_p(k, x0, xz0), ode_r(T, w), ode_i());
+			     ode_p(k, x0, xz0), ode_r(T, tau, w), ode_i());
 
     ei = sol[1, 2*n+1:3*n];
     for (i in 1:n)
@@ -105,7 +107,7 @@ functions {
     return t;
   }
 
-  real[,] full_sol(matrix w, vector ic_xz, vector x0, real k, real T, vector xz0, int ns) {
+  real[,] full_sol(matrix w, vector ic_xz, vector x0, real k, real T, real tau, vector xz0, int ns) {
     int n = rows(w);
     real sol[ns, 3*n];
     real ic[3 * n];
@@ -115,7 +117,7 @@ functions {
     ic[2*n+1:3*n] = rep_array(0, n);
 
     sol = integrate_ode_rk45(ode, ic, 0.0, ode_t_full(T, ns),
-			     ode_p(k, x0, xz0), ode_r(T, w), ode_i());
+			     ode_p(k, x0, xz0), ode_r(T, tau, w), ode_i());
     return sol;
   }
 }
@@ -124,6 +126,7 @@ data {
   int n;
   int ns;
   real T;
+  real tau;
   matrix[n, n] w;
   vector[n] ei;
 }
@@ -138,8 +141,8 @@ transformed parameters {
   real k = 0.01 * exp(0.1*k_) / n;
   // x0_ inits between -2 2 but that range is problematic here
   vector[n] x0 = x0_/4 - 4;
-  vector[n * 2] xz0 = fixed_points(w, ode_p(k, x0, rep_vector(0,0)));
-  vector[n] eih = predict_ei(w, ic_xz, x0, k, T, xz0);
+  vector[n * 2] xz0 = fixed_points(w, tau, ode_p(k, x0, rep_vector(0,0)));
+  vector[n] eih = predict_ei(w, ic_xz, x0, k, T, tau, xz0);
 }
 
 model {
@@ -156,5 +159,5 @@ model {
 }
 
 generated quantities {
-  real xze[ns, 3*n] = full_sol(w, ic_xz, x0, k, T, xz0, ns);
+  real xze[ns, 3*n] = full_sol(w, ic_xz, x0, k, T, tau, xz0, ns);
 }
