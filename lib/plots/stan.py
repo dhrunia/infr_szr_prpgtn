@@ -5,7 +5,7 @@ Plots to look at Stan behavior or common requested, e.g. pair plots.
 
 
 def trace_nuts(csv, extras='', skip=0):
-    from pylab import subplot, plot, gca, title,  grid
+    from pylab import subplot, plot, gca, title,  grid, xticks
     if isinstance(extras, str):
         extras = extras.split()
     for csvi in csv:
@@ -18,6 +18,8 @@ def trace_nuts(csv, extras='', skip=0):
                     gca().set_yscale('log')
                 title(key)
                 grid(1)
+                if ((i - 1)/4) < 4:
+                    xticks(xticks()[0], [])
                 i += 1
 
 

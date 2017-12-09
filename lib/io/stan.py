@@ -36,6 +36,32 @@ def rdump(fname, data):
             fd.write('\n')
 
 
+def rload(fname):
+    """Load a dict of data from an R dump format file.
+    """
+    with open('cc2.R') as fd:
+        lines = fd.readlines()
+    raise NotImplemented # correctly
+    cc2 = {}
+    for line in lines:
+        lhs, rhs = [_.strip() for _ in line.split('<-')]
+        if rhs.startswith('structure'):
+            print(lhs, 'matrix', rhs[:30])
+            val = None
+        elif rhs.startswith('c'):
+            val = np.array([float(_) for _ in rhs[2:-1].split(',')])
+            print(lhs, val)
+        else:
+            try:
+                val = int(rhs)
+            except:
+                try:
+                    val = float(rhs)
+                except:
+                    raise ValueError(rhs)
+                cc2[lhs] = val
+                cc2
+
 def merge_csv_data(*csvs, skip=0):
     data_ = {}
     for csv in csvs:

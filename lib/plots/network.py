@@ -17,13 +17,16 @@ def phase_space(csvi, npz_data: os.PathLike='data.R.npz'):
     X, Z = np.mgrid[-5.0:5.0:50j, -5.0:5.0:50j]
     dX = (npz['I1'] + 1.0) - X**3.0 - 2.0*X**2.0 - Z
     x0mean = csvi['x0'].mean(axis=0)
-    Kmean = csvi['K'].mean(axis=0)
+    if 'K' in csvi:
+        Kmean = csvi['K'].mean(axis=0)
+    else:
+        Kmean = 1
     def nullclines(i):
         pl.contour(X, Z, dX, 0, colors='r')
-        dZ = (1.0/tau0) * (4.0 * (X - x0mean[i])) - Z - Kmean*(-npz['Ic'][i]*(1.8 + X))
+        dZ = (1.0/tau0) * (4.0 * (X - x0mean[i])) - Z - Kmean*(-3.1*(1.8 + X))
         pl.contour(X, Z, dZ, 0, colors='b')
     for i in range(x.shape[-1]):
-        pl.subplot(2, 3, i + 1)
+        pl.subplot(3, 3, i + 1)
         if opt:
             pl.plot(x[0, :, i], z[0, :, i], 'k', alpha=0.5)
         else:
