@@ -159,5 +159,7 @@ model {
 }
 
 generated quantities {
-  real xze[ns, 3*n] = full_sol(w, ic_xz, x0, k, T, tau, xz0, ns);
+  real xze[ns, 3*n];
+  if (ns > 0)
+    xze = full_sol(w, ic_xz, x0, k, T, tau, xz0, ns);
 }
