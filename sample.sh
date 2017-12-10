@@ -3,8 +3,8 @@
 # setup
 model=$1
 data=${2:-"$model.R"}
-maxdepth=${3:-"7"}
-if ! which stanc &> /dev/null; then . /gpfs/homeb/pcp0/pcp0025/stan/env2; fi
+site=${3:-"tvb"}
+if ! which stanc &> /dev/null; then . $site; fi
 set -x
 
 # compile
@@ -15,7 +15,7 @@ for i in `seq 8`; do
     ./$model id=$i \
         sample \
             save_warmup=1 num_warmup=200 num_samples=200 \
-            algorithm=hmc engine=nuts max_depth=$maxdepth \
+            algorithm=hmc engine=nuts max_depth=14 \
         data file=$data \
         output refresh=1 file=$i.csv &> $i.out &
 done

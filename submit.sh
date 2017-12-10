@@ -10,4 +10,13 @@ cp $model.stan $work/
 cp $data $work/data.R
 here=`pwd`
 cd $work
-bsub -J $work -o sample.out $here/sample.sh $model data.R $args
+
+site=tvb
+if which bsub &> /dev/null; then site=juron; fi
+
+case "$site" in
+    tvb)
+        srun -J $work -c 8 $here/sample.sh $model data.R $site $args &> sample.out & ;;
+    juron)
+        bsub -J $work -o sample.out $here/sample.sh $model data.R $site $args ;;
+esac
