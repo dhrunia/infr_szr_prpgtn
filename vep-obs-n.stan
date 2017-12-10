@@ -1,8 +1,13 @@
 data {
     int nt;
-    int nn;
-    real y[nt, nn];
-    int use_data;
+    int ns;
+    real seeg_log_power[nt, ns];
+}
+
+transformed data {
+    int nn = ns;
+    int use_data = 1;
+    real y[nt, nn] = seeg_log_power;
 }
 
 parameters {
