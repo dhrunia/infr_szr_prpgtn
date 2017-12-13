@@ -132,6 +132,8 @@ def parse_summary_csv(fname):
     with open(fname, 'r') as fd:
         scols = fd.readline().strip().split(',')
         for line in fd.readlines():
+            if '"' not in line:
+                continue
             if line.startswith('#'):
                 break
             _, k, v = line.split('"')

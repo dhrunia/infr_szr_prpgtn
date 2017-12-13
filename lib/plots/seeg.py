@@ -45,25 +45,16 @@ def plot_envelope(te, isort, iother, lbenv, lbenv_all, contacts_bip):
 def ppc_seeg(csvi, skip=0, npz_data: os.PathLike='data.R.npz'):
     from numpy import newaxis, log, exp, load
     from pylab import subplot, plot, title, xlabel, grid
-
     npz = load(npz_data)
-
     x = csvi['x'][skip:, :]
     gain = npz['gain']
-
-    yh0, yh1 = csvi['amplitude'][skip:, newaxis] * log(gain.dot(exp(x))) + csvi['offset'][skip:, newaxis]
-    y0, y1 = npz['seeg_log_power'].T
-
-    # TODO generalize
-    subplot(211)
-    plot(yh0.T, 'k', alpha=0.1, label='PPC SLP')
-    plot(y0.T, 'b', label='SLP')
-    title("Sensor B"), xlabel('Time point'), grid(1)
-
-    subplot(212)
-    plot(yh1.T, 'k', alpha=0.1, label='PPC SLP')
-    plot(y1.T, 'b', label='SLP')
-    title("Sensor TP'"), xlabel('Time point'), grid(1)
+    ppc = csvi['amplitude'][skip:, newaxis] * log(gain.dot(exp(x))) + csvi['offset'][skip:, newaxis]
+    emp = npz['seeg_log_power'].T
+    for i, (yh, y) in enumerate(zip(ppc, emp)):
+        subplot(len(ppc), 1, i + 1)
+        plot(yh.T, 'k', alpha=0.1, label='PPC SLP')
+        plot(y.T, 'b', label='SLP')
+        grid(1)
 
 
 def violin_x0(csv, skip=0, x0c=-1.8, x0lim=(-6, 0), per_chain=False):
