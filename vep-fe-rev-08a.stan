@@ -40,6 +40,7 @@ data {
     row_vector[ns] seeg_log_power[nt];
     vector[nn] Ic;
     matrix<lower=0.0, upper=1.0>[nn, nn] SC;
+    int predict_data;
 }
 
 transformed data {
@@ -66,17 +67,25 @@ parameters {
 }
 
 transformed parameters {
-    real epsilon = 0.1 * exp(0.2 * epsilon_star);
-    real sigma = 0.13 * exp(0.2 * sigma_star);
+    real epsilon = 0.05 * exp(0.1 * epsilon_star);
+    real sigma = 0.053 * exp(0.1 * sigma_star);
     real time_scale = 0.15 * exp(0.4 * time_scale_star - 1.0);
     real k = 1e-3 * exp(0.5 * k_star);
-}
-
-
-model {
     row_vector[nn] x[nt];
     row_vector[nn] z[nt];
+    row_vector[ns] mu_seeg_log_power[nt];
+    
+    x[1] = x_init - 1.5;
+    z[1] = z_init + 2.0;
+    for (t in 1:(nt-1)) {
+        x[t+1] = x_step(x[t], z[t], I1, time_scale, sigma);
+        z[t+1] = z_step(x[t], z[t], x0, k*SC, Ic, time_scale, z_eta[t], sigma, tau0);
+    }
+    for (t in 1:nt)
+        mu_seeg_log_power[t] = amplitude * (log(gain * exp(x[t]')) + offset)';
+}
 
+model {
     x0 ~ normal(-3.0, 1.0);
     x_init ~ normal(0.0, 3);
     z_init ~ normal(0.0, 3);
@@ -92,27 +101,13 @@ model {
 
     k_star ~ normal(0, 1);
 
-    /* integrate & predict */
-    x[1] = x_init - 1.5;
-    z[1] = z_init + 2.0;
-    for (t in 1:(nt-1)) {
-        x[t+1] = x_step(x[t], z[t], I1, time_scale, sigma);
-        z[t+1] = z_step(x[t], z[t], x0, k*SC, Ic, time_scale, z_eta[t], sigma, tau0);
-    }
-
-    for (t in 1:nt)
-        seeg_log_power[t] ~ normal(amplitude * (log(gain * exp(x[t]')) + offset), epsilon);
-
+    for (t in 1:predict_data)
+        seeg_log_power[t] ~ normal(mu_seeg_log_power[t], epsilon);
 }
 
 generated quantities {
-    row_vector[nn] x[nt];
-    row_vector[nn] z[nt];
-    x[1] = x_init;
-    z[1] = z_init;
-
-    for (t in 1:(nt-1)) {
-        x[t+1] = x_step(x[t], z[t], I1, time_scale, sigma);
-        z[t+1] = z_step(x[t], z[t], x0, k*SC, Ic, time_scale, z_eta[t], sigma, tau0); 
-    }
+    row_vector[ns] gq_seeg_log_power[nt];
+    for (t in 1:nt)
+        for (i in 1:ns)
+            gq_seeg_log_power[t][i] = normal_rng(mu_seeg_log_power[t][i], epsilon);
 }
