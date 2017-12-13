@@ -39,18 +39,18 @@ def rdump(fname, data):
 def rload(fname):
     """Load a dict of data from an R dump format file.
     """
-    with open('cc2.R') as fd:
+    with open(fname, 'r') as fd:
         lines = fd.readlines()
-    raise NotImplemented # correctly
-    cc2 = {}
+    data = {}
     for line in lines:
         lhs, rhs = [_.strip() for _ in line.split('<-')]
         if rhs.startswith('structure'):
-            print(lhs, 'matrix', rhs[:30])
-            val = None
+            *_, vals, dim = rhs.replace('(', ' ').replace(')', ' ').split('c')
+            vals = [float(v) for v in vals.split(',')[:-1]]
+            dim = [int(v) for v in dim.split(',')]
+            val = np.array(vals).reshape(dim[::-1]).T
         elif rhs.startswith('c'):
             val = np.array([float(_) for _ in rhs[2:-1].split(',')])
-            print(lhs, val)
         else:
             try:
                 val = int(rhs)
@@ -59,8 +59,9 @@ def rload(fname):
                     val = float(rhs)
                 except:
                     raise ValueError(rhs)
-                cc2[lhs] = val
-                cc2
+        data[lhs] = val
+    return data
+
 
 def merge_csv_data(*csvs, skip=0):
     data_ = {}
@@ -82,7 +83,12 @@ def parse_csv(fname, merge=True):
         import glob
         return parse_csv(glob.glob(fname), merge=merge)
     if isinstance(fname, (list, tuple)):
-        csv = [parse_csv(_) for _ in fname]
+        csv = []
+        for _ in fname:
+            try:
+                csv.append(parse_csv(_))
+            except Exception as e:
+                print('skipping ', fname, e) 
         if merge:
             csv = merge_csv_data(*csv)
         return csv
@@ -118,6 +124,38 @@ def parse_csv(fname, merge=True):
         data_[name] = data[:, idx].reshape(new_shape)
 
     return data_
+
+
+def parse_summary_csv(fname):
+    skeys = []
+    svals = []
+    with open(fname, 'r') as fd:
+        scols = fd.readline().strip().split(',')
+        for line in fd.readlines():
+            if line.startswith('#'):
+                break
+            _, k, v = line.split('"')
+            skeys.append(k)
+            svals.append(np.array([float(_) for _ in v.split(',')[1:]]))
+    svals = np.array(svals)
+
+    sdat = {}
+    sdims = {}
+    for skey, sval in zip(skeys, svals):
+        if '[' in skey:
+            name, dim = skey.replace('[', ']').split(']')[:-1]
+            dim = tuple(int(i) for i in dim.split(','))
+            sdims[name] = dim
+            if name not in sdat:
+                sdat[name] = []
+            sdat[name].append(sval)
+        else:
+            sdat[skey] = sval
+
+    for key in [_ for _ in sdat.keys()]:
+        if key in sdims:
+            sdat[key] = np.array(sdat[key]).reshape(sdims[key] + (-1,))
+    return scols, sdat 
 
 
 def csv2mode(csv_fname, mode=None):
