@@ -6,6 +6,7 @@ I/O functions for working with CmdStan executables.
 import os
 import subprocess
 import numpy as np
+import sys
 
 
 def _rdump_array(key, val):
@@ -214,4 +215,46 @@ def compile_model(stan_fname, cc='clang++'):
         print(stderr)
 
 
-# TODO class to run modules instead of %%bash in ipynb
+def create_process(cmd,block=None, stdout=sys.stdout, stderr=sys.stderr):
+    if(block):
+        subProc = subprocess.Popen(cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        while subProc.poll() is None:
+            stdout.write(subProc.stdout.read(1))
+            stdout.flush()
+        stdout.write(subProc.stdout.read())
+        stdout.flush()
+        #  if(subProc.returncode):
+        #    stderr.write(subProc.stderr.read())
+        #    stderr.flush()
+        #    raise Exception("Error executing "+' '.join(cmd))
+        err = subProc.stderr.read()
+        if(err):
+            stderr.write(err)
+            stderr.flush()
+            t = input('Continue[y/n]:')
+            if(t == 'y'):
+                return -1
+            else:
+                raise Exception("Error executing "+' '.join(cmd))
+        return 0
+    else:
+        subProc = subprocess.Popen(cmd)
+        return subProc
+
+def rem_warmup_samples(src_fname,trgt_fname,num_warmup_samples):
+    with open(src_fname,'r') as fd1:
+        with open(trgt_fname,'w') as fd2:
+            while(True):
+                t = fd1.readline()
+                if(t[0] == '#'):
+                    fd2.write(t)
+                else:
+                    fd2.write(t)
+                    for i in range(num_warmup_samples):
+                        fd1.readline()
+                    break
+            t = fd1.readline()
+            while(t):
+                fd2.write(t)
+                t = fd1.readline()
+    

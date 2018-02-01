@@ -1,0 +1,10 @@
+* Experiment 1:
+Test how the number of sensors affects the inference by setting up sources and sensors
+in a 2D space.
+*Outputs*: results/exp1
+*Report*: 
+* Experiment 2:
+/Date: 31-01-2018/
+Fit a network of 2D epileptors with 5 nodes using source signals (/x/ and /z/) as modelled data
+*Outputs*: results/exp2
+*Report*: 

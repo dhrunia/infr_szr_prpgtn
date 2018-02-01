@@ -1,3 +1,7 @@
+data/*
+results/*
+*~
+*.swp
 *.pyc
 *.hpp
 *.npz
@@ -5,6 +9,7 @@
 *.csv
 *.exe
 *.R
+*.out
 .vscode
 *.png
 .ipynb_checkpoints
@@ -13,3 +18,4 @@ cmdstan
 vep-*
 !vep*.stan
 !vep*.ipynb
+
