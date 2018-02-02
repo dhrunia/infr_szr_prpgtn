@@ -2,9 +2,22 @@
 Test how the number of sensors affects the inference by setting up sources and sensors
 in a 2D space.
 *Outputs*: results/exp1
-*Report*: 
+*Report*: Experiment discarded: There is an error in code.The value for K (connectivity scaling) 
+should be -ve. But +ve value was used. Need to rerun the experiment with -ve value of K.
 * Experiment 2:
-/Date: 31-01-2018/
+Date: /02-02-2018/
+Generate a propagation pattern in a network with 5 nodes where node 2 is EZ and node 5 is PZ
+*Outputs*: results/exp3
+*Report*: I was using +ve values for K (connecitivity scaling) which should have been -ve. Using
+-ve values for K generated the required propagation patterns.
+* Experiment 3:
+/Date: 02-02-2018/
 Fit a network of 2D epileptors with 5 nodes using source signals (/x/ and /z/) as modelled data
 *Outputs*: results/exp2
+*Report*: 
+
+* Experiment 4:
+Date: /02-02-2018/
+Rerun Exp.1 with the correct values for K (see Exp.2)
+*Outputs*: results/exp4
 *Report*: 

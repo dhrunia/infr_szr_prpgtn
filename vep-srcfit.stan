@@ -38,19 +38,18 @@ data {
   matrix<lower=0.0, upper=1.0>[nn, nn] SC;
   
 
-  // Parameters taken as input for simulation
-  row_vector[nn] x0;    
+  // All parameters except x0 are taken as input
   real time_scale;
   real time_step;
   real sigma;
   real k;
   real sigma_xobs;
-  real sigma_zobs;
-  
-  // time-series state non-centering:
   row_vector[nn] x_init;
   row_vector[nn] z_init;
   row_vector[nn] z_eta[nt - 1];
+
+  // modelled data
+  row_vector[nn] xobs[nt];
 }
 
 /* transformed data { */
@@ -61,28 +60,24 @@ data {
 /* } */
 
 parameters {
+  row_vector[nn] x0;    
 }
 
 model {
-}
+  row_vector[nn] mu_xobs[nt];
+  row_vector[nn] mu_zobs[nt];
 
-generated quantities {
-  row_vector[nn] x[nt];
-  row_vector[nn] z[nt];
-  row_vector[nn] xobs[nt];
-  row_vector[nn] zobs[nt];
-    
-  x[1] = x_init - 1.5;
-  z[1] = z_init + 2.0;
+  x0 ~ normal(-2.5,1);
+  mu_xobs[1] = x_init - 1.5;
+  mu_zobs[1] = z_init + 2.0;
   for (t in 1:(nt-1)) {
-    x[t+1] = x_step(x[t], z[t], I1, time_step, time_scale, sigma);
-    z[t+1] = z_step(x[t], z[t], x0, k*SC, Ic, time_step, time_scale, z_eta[t], sigma, tau0);
+    mu_xobs[t+1] = x_step(mu_xobs[t], mu_zobs[t], I1, time_step, time_scale, sigma);
+    mu_zobs[t+1] = z_step(mu_xobs[t], mu_zobs[t], x0, k*SC, Ic, time_step, time_scale, z_eta[t], sigma, tau0);
   }
 
   for (t in 1:nt){
-    for (i in 1:nn){
-      xobs[t,i] = normal_rng(x[t,i],sigma_xobs);
-      zobs[t,i] = normal_rng(z[t,i],sigma_zobs);
-    }
+      xobs[t] ~ normal(mu_xobs[t], sigma_xobs);
+      //      zobs[t] ~ normal(mu_zobs[t], sigma_zobs);
   }
 }
+
