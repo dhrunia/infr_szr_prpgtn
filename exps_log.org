@@ -14,10 +14,18 @@ Generate a propagation pattern in a network with 5 nodes where node 2 is EZ and 
 /Date: 02-02-2018/
 Fit a network of 2D epileptors with 5 nodes using source signals (/x/ and /z/) as modelled data
 *Outputs*: results/exp2
-*Report*: 
+*Report*: Out of 8 chains 5 have converged. Of these 5 chains 4 have inferred the x0 accurately 
+even distinguishing between EZ and PZ. However, 1 chain inferred wrongly an extra node as EZ 
+apart from the actual EZ and PZ.
 
 * Experiment 4:
 Date: /02-02-2018/
 Rerun Exp.1 with the correct values for K (see Exp.2)
 *Outputs*: results/exp4
+*Report*: $\hat r$ did not decreas as the #of sensors used for inference are increased.
+
+* Experiment 5:
+/Date: 05-02-2018/
+Continuing from Exp.3, Check if increasing sigma would allow all chains to converge.
+*Outputs*:
 *Report*: 
