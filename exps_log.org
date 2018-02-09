@@ -1,3 +1,4 @@
+#+STARTUP: latexpreview
 * Experiment 1:
 Test how the number of sensors affects the inference by setting up sources and sensors
 in a 2D space.
@@ -22,10 +23,24 @@ apart from the actual EZ and PZ.
 Date: /02-02-2018/
 Rerun Exp.1 with the correct values for K (see Exp.2)
 *Outputs*: results/exp4
-*Report*: $\hat r$ did not decreas as the #of sensors used for inference are increased.
+*Report*: $\hat r$ did not decrease as the #of sensors used for inference are increased.
 
 * Experiment 5:
 /Date: 05-02-2018/
 Continuing from Exp.3, Check if increasing sigma would allow all chains to converge.
-*Outputs*:
+*Outputs*: results/exp5
+*Report*: All the chains have converged with higher sigma. However, one chains still inferred
+a different mode than the true one.
+
+* Experimet 6:
+/Date: 06-02-2018/
+Now that Exp.3 and 5 showed promising results for inference at source level. Try fitting 
+at sensor level with a simple source sensor geometry like in Exp. 1 (or 4) inferring only x0
+*Outputs*: results/exp6
+*Report*: 
+
+* Experiment 7:
+/Date:07-02-2018/
+Try fitting source level signals from data generated using the full epileptor model in TVB
+*Outputs*: results/exp7
 *Report*: 
