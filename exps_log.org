@@ -37,10 +37,20 @@ a different mode than the true one.
 Now that Exp.3 and 5 showed promising results for inference at source level. Try fitting 
 at sensor level with a simple source sensor geometry like in Exp. 1 (or 4) inferring only x0
 *Outputs*: results/exp6
-*Report*: 
+*Report*: Different chains have converged to different modes, only one chain explored the mode
+of interest. 
+*Question*: 
+Why isn't each chain exploring all the modes? 
+None of the chains are reporting divergence, for most of the chains rhat is ~1 and tree depth
+is below the max. depth, So it is not the case that sampler is stuck in some complicated
+curvature of posterior.
+** Experimet 6.1:
+Date: 15-02-18
+In Exp. 6 $x_0$s are not constrained with any lower or upper bound. Check if constraining
+them to the interval [-3, 0] would be improve the inference.
 
 * Experiment 7:
-/Date:07-02-2018/
-Try fitting source level signals from data generated using the full epileptor model in TVB
+/Date:13-02-2018/
+Infer the source signals from the seeg data without even using the dynamical model.
 *Outputs*: results/exp7
 *Report*: 
