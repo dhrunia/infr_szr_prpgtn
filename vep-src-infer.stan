@@ -7,25 +7,17 @@ data {
   int ns;
   int nt;
   matrix[ns,nn] gain;
-
-  // Some Parameters are fixed for now
   real epsilon;
-  real amplitude;
-  real offset;
   
   // Modelled data
-  row_vector seeg_log_power[ns,nt];
+  row_vector[ns] seeg[nt];
 }
 
 parameters {
-  matrix<lower=-3.0,upper=1.0>[nn, nt] x;
+  row_vector<lower=-3.0,upper=1.0>[nn] x[nt];
 }
 
 model {
-  matrix[ns,nt] mu_seeg_log_power;
-  mu_seeg_log_power = amplitude * (log(gain * exp(x)) + offset);
-  seeg_log_power[t] ~ normal(mu_seeg_log_power, epsilon);
-}
-
-generated quantities {
+  for (t in 1:nt)
+    seeg[t] ~ normal((gain*x[t]')', epsilon);
 }

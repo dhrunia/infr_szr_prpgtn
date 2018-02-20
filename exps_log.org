@@ -39,18 +39,50 @@ at sensor level with a simple source sensor geometry like in Exp. 1 (or 4) infer
 *Outputs*: results/exp6
 *Report*: Different chains have converged to different modes, only one chain explored the mode
 of interest. 
-*Question*: 
 Why isn't each chain exploring all the modes? 
 None of the chains are reporting divergence, for most of the chains rhat is ~1 and tree depth
 is below the max. depth, So it is not the case that sampler is stuck in some complicated
 curvature of posterior.
+It looks like sampler is getting stuck in the artificial maxima created due to the logarithm scale
+in which the sampler operates.
 ** Experimet 6.1:
 Date: 15-02-18
-In Exp. 6 $x_0$s are not constrained with any lower or upper bound. Check if constraining
-them to the interval [-3, 0] would be improve the inference.
-
+- In Exp. 6 x0s are not constrained with any lower or upper bound. This is causing stable nodes
+x0 values to be inferred with very low values even -10, which in turn is causing strong inhibition
+on other nodes due to coupling.
+- Since in Exp. 6 different chains are converging to different modes and not exploring other
+modes, increase the epsilon(observation noise) to see if sampler manages to jump between modes.
+- Use non-centered parameterization for all inferred parameters as it is considered to produce
+posteriors with simpler geomtries
+*outputs*: results/exp6.1
+*Report*: Most of the chains reported divergence, with espilon=0.2 delta=0.9 and x0 lower bound of -3.0
+Could the divergence be due to the lower bound on x0? Because in exp.6 when using unconstrained and centered version
+of x0 only a couple of the chains reported divergence
+** Experiment 6.2:
+/Date: 19-02-18/
+- Check if using unconstrained(no lower or upperbound) non-centered version of x0s would stop the chains to diverge
+*outputs*: results/exp6.2
+*Report*: Yes, using unconstrained x0s none of the chains reported divergent transitions. But still different chains
+are converging to different modes and no chain is exploring all modes.
+** Experiment 6.3:
+/Date: 19-02-18/
+Check if running Exp 6.2 with more sampling iterations(5000) would allow the sampler to explore other modes
+in each chain
+** Experiment 6.4:
+/Date:20-02-18/
+Looks like the log posterior is creating artificial maxima by exaggerating the differences between two values with
+very low probabilities, and then getting stuck in these maxima. Check 1) if inferring the source signals along with
+the x0s would improve the convergence 2) initialize the sampler hidden states(x) to the inferred signal from exp 7.
 * Experiment 7:
 /Date:13-02-2018/
 Infer the source signals from the seeg data without even using the dynamical model.
 *Outputs*: results/exp7
-*Report*: 
+*Report*: The sampler is able to infer the source signals but the variance at each time point
+is very high. The signal obtained by taking the mean of inferred signals and then computing
+there moving average matches well with the true source signals.
+
+* Experiment 8:
+/Date: 19-02-18/
+Infer x0s using real gain and SC matrices instead of toy network models(exp. 6)
+*outputs*: results/exp8
+*Report*:

@@ -39,7 +39,8 @@ data {
   matrix<lower=0.0, upper=1.0>[nn, nn] SC;
   matrix[ns,nn] gain;
 
-  // Some parameters are fixed for now with known values from simulation
+  // Parameters taken as input for simulation
+  row_vector[nn] x0;    
   real time_scale;
   real time_step;
   real sigma;
@@ -47,41 +48,36 @@ data {
   real epsilon;
   real amplitude;
   real offset;
+  
+  // time-series state non-centering:
   row_vector[nn] x_init;
   row_vector[nn] z_init;
   row_vector[nn] z_eta[nt - 1];
-
-  // Modelled data
-  row_vector[ns] seeg_log_power[nt];
 }
 
 parameters {
-  row_vector[nn] x0_star;
-}
-
-transformed parameters{
-  row_vector[nn] x0 = -2.5 + x0_star;
 }
 
 model {
+}
+
+generated quantities {
   row_vector[nn] x[nt];
   row_vector[nn] z[nt];
-  row_vector[ns] mu_seeg_log_power[nt];
+  row_vector[ns] mu_seeg[nt];
+  row_vector[ns] seeg[nt];
 
-  x0_star ~ normal(0,1.0);
   x[1] = x_init - 1.5;
   z[1] = z_init + 2.0;
   for (t in 1:(nt-1)) {
     x[t+1] = x_step(x[t], z[t], I1, time_step, time_scale, sigma);
     z[t+1] = z_step(x[t], z[t], x0, k*SC, Ic, time_step, time_scale, z_eta[t], sigma, tau0);
-    mu_seeg_log_power[t] = amplitude * (log(gain * exp(x[t]')) + offset)';
+    mu_seeg[t] = (gain * x[t]')';
   }
-  mu_seeg_log_power[nt] = amplitude * (log(gain * exp(x[nt]')) + offset)';
-
+  mu_seeg[nt] = (gain * x[nt]')';
   for (t in 1:nt){
-      seeg_log_power[t] ~ normal(mu_seeg_log_power[t], epsilon);
+    for (i in 1:ns){
+      seeg[t,i] = normal_rng(mu_seeg[t,i],epsilon);
+    }
   }
-}
-
-generated quantities {
 }
