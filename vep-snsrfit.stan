@@ -18,13 +18,13 @@ functions {
   }
 
   row_vector z_step(row_vector x, row_vector z, row_vector x0, matrix FC, vector Ic, 
-		    real time_step, real time_scale, row_vector z_eta, real sigma, real tau0) {
+		    real time_step, real time_scale, real sigma, real tau0) {
     int nn = num_elements(z);
     row_vector[nn] z_next;
     matrix[nn, nn] D = vector_differencing(x);
     row_vector[nn] gx = to_row_vector(rows_dot_product(FC, D) - Ic .* to_vector(1.8 + x));
     row_vector[nn] dz = inv(tau0) * (4 * (x - x0) - z - gx);
-    z_next = z + (time_scale * time_step * dz) + sqrt(time_step) * sigma * z_eta;
+    z_next = z + (time_scale * time_step * dz);
     return z_next;
   }
 }
@@ -49,7 +49,6 @@ data {
   real offset;
   row_vector[nn] x_init;
   row_vector[nn] z_init;
-  row_vector[nn] z_eta[nt - 1];
 
   // Modelled data
   row_vector[ns] seeg_log_power[nt];
@@ -57,6 +56,8 @@ data {
 
 parameters {
   row_vector[nn] x0_star;
+  row_vector<lower=-3.0, upper=1.0>[nn] x[nt];
+  row_vector<lower=1.0, upper=5.0>[nn] z[nt];
 }
 
 transformed parameters{
@@ -64,19 +65,17 @@ transformed parameters{
 }
 
 model {
-  row_vector[nn] x[nt];
-  row_vector[nn] z[nt];
   row_vector[ns] mu_seeg_log_power[nt];
 
   x0_star ~ normal(0,1.0);
-  x[1] = x_init - 1.5;
-  z[1] = z_init + 2.0;
+  x[1] ~ normal(x_init - 1.5, sigma);
+  z[1] ~ normal(z_init + 2.0, sigma);
+  mu_seeg_log_power[1] = amplitude * (log(gain * exp(x[1]')) + offset)';
   for (t in 1:(nt-1)) {
-    x[t+1] = x_step(x[t], z[t], I1, time_step, time_scale, sigma);
-    z[t+1] = z_step(x[t], z[t], x0, k*SC, Ic, time_step, time_scale, z_eta[t], sigma, tau0);
-    mu_seeg_log_power[t] = amplitude * (log(gain * exp(x[t]')) + offset)';
+    x[t+1] ~ normal(x_step(x[t], z[t], I1, time_step, time_scale, sigma), sigma);
+    z[t+1] ~ normal(z_step(x[t], z[t], x0, k*SC, Ic, time_step, time_scale, sigma, tau0), sigma);
+    mu_seeg_log_power[t+1] = amplitude * (log(gain * exp(x[t]')) + offset)';
   }
-  mu_seeg_log_power[nt] = amplitude * (log(gain * exp(x[nt]')) + offset)';
 
   for (t in 1:nt){
       seeg_log_power[t] ~ normal(mu_seeg_log_power[t], epsilon);

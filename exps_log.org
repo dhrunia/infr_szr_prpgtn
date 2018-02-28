@@ -80,9 +80,19 @@ Infer the source signals from the seeg data without even using the dynamical mod
 *Report*: The sampler is able to infer the source signals but the variance at each time point
 is very high. The signal obtained by taking the mean of inferred signals and then computing
 there moving average matches well with the true source signals.
+** Experiment 7.1:
+Check if this simple model would be able to infer the source signals with data generated from
+TVB using a realistic SC and gain matrices
+*Outputs*: results/exp7.1
+*Report*: 
 
 * Experiment 8:
-/Date: 19-02-18/
-Infer x0s using real gain and SC matrices instead of toy network models(exp. 6)
-*outputs*: results/exp8
-*Report*:
+/Date:22-02-18/
+As evident from exp. 7 sampler posterior is simpler to explore when hidden states are also inferred.
+Check how inference works with toy network model in exp. 6 but this time infer also the source signals
+*Output*: results/exp8
+*Report*: Even with source signals inferred the posterior is still difficult to explore. Increasing the 
+sigma made the sampler explore the posterior better, but too high a sigma would not constrain source signals
+to follow epileptor dynamics and too low a sigma would make the posterior to difficult to explore. 
+A manual parameter sweep starting from high values of sigma and lowering it in each next run showed that 
+at sigma = 0.1 the posterior is simple enough to explore while following epileptor dynamics.
