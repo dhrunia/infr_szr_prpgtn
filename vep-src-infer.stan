@@ -14,7 +14,7 @@ data {
 }
 
 parameters {
-  row_vector<lower=-3.0,upper=1.0>[nn] x[nt];
+  row_vector<lower=-3.0,upper=3.0>[nn] x[nt];
 }
 
 model {

@@ -83,8 +83,12 @@ there moving average matches well with the true source signals.
 ** Experiment 7.1:
 Check if this simple model would be able to infer the source signals with data generated from
 TVB using a realistic SC and gain matrices
+*Code*: TVB_forward_sim.ipynb, vep-src-infer.ipynb
 *Outputs*: results/exp7.1
-*Report*: 
+*Report*: Yes, HMC sampler is able to infer the source signals quite accurately for synthetic SEEG data generated using 
+6D epileptor(TVB). However, it is able to do so only for very low eps (variance in observation model). Particularly,
+for eps=0.001 the sampler has finished 500 warmup + 500 sampling in around 12 hours. For eps>0.009 the sampler is stuck
+in the warmup for a week.
 
 * Experiment 8:
 /Date:22-02-18/

@@ -258,3 +258,48 @@ def rem_warmup_samples(src_fname,trgt_fname,num_warmup_samples):
                 fd2.write(t)
                 t = fd1.readline()
     
+def read_samples(csv_fname,nwarmup,nsampling,ignore_warmup=False):
+    if(ignore_warmup):
+        nsamples = nsampling
+    else:
+        nsamples = nwarmup + nsampling
+    with open(csv_fname,'r') as fd:
+        t = fd.readline()
+        read_head = False
+        sample_idx = 0
+        while(t):
+            if(t[0] == '#'):
+                t = fd.readline()
+                continue
+            elif(not read_head):
+                var_names = []
+                var_dims = {}
+                col_names = t.split(',')
+                for i,name in enumerate(col_names):
+                    var_name = name.split('.')[0]
+                    var_dim = [int(dim) for dim in name.split('.')[1:]]
+                    if(var_name not in var_names):
+                        var_names.append(var_name)
+                    var_dims[var_name] = var_dim
+                read_head = True
+                data = {}
+                for var_name in var_names:
+                    data[var_name] = np.ndarray(shape = [nsamples] + var_dims[var_name],dtype=float)
+            else:
+                if(ignore_warmup):
+                    for i in range(nwarmup):
+                        t = fd.readline()
+                    ignore_warmup = False
+                    continue
+                else:
+                    var_vals = [float(el) for el in t.split(',')]
+                    end_idx = 0
+                    for var_name in var_names:
+                        start_idx = end_idx
+                        end_idx = start_idx + (np.product(var_dims[var_name]) if(var_dims[var_name]) else 1)
+                        data[var_name][sample_idx] = np.array(var_vals[start_idx:end_idx]).reshape(var_dims[var_name],order='F')
+                    sample_idx += 1
+                    if(sample_idx == nsampling):
+                        break
+            t = fd.readline()
+    return data
