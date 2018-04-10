@@ -258,7 +258,7 @@ def rem_warmup_samples(src_fname,trgt_fname,num_warmup_samples):
                 fd2.write(t)
                 t = fd1.readline()
     
-def read_samples(csv_fname,nwarmup,nsampling,ignore_warmup=False):
+def read_samples(csv_fname,nwarmup,nsampling,ignore_warmup=False,variables_of_interest=[]):
     if(ignore_warmup):
         nsamples = nsampling
     else:
@@ -267,35 +267,34 @@ def read_samples(csv_fname,nwarmup,nsampling,ignore_warmup=False):
         t = fd.readline()
         read_head = False
         sample_idx = 0
+        warmup_samples_read = 0
         while(t):
             if(t[0] == '#'):
-                t = fd.readline()
-                continue
-            elif(not read_head):
+                pass
+            elif(not read_head): # Extract variable names and their dimensions from the heading of the csv
                 var_names = []
                 var_dims = {}
+                var_start_idx = {}
                 col_names = t.split(',')
                 for i,name in enumerate(col_names):
                     var_name = name.split('.')[0]
                     var_dim = [int(dim) for dim in name.split('.')[1:]]
                     if(var_name not in var_names):
                         var_names.append(var_name)
+                        var_start_idx[var_name] = i
                     var_dims[var_name] = var_dim
                 read_head = True
                 data = {}
-                for var_name in var_names:
+                # Create a dictionary (variable name -> numpy.ndarray) for storing data
+                for var_name in (variables_of_interest if(variables_of_interest) else var_names):
                     data[var_name] = np.ndarray(shape = [nsamples] + var_dims[var_name],dtype=float)
             else:
-                if(ignore_warmup):
-                    for i in range(nwarmup):
-                        t = fd.readline()
-                    ignore_warmup = False
-                    continue
+                if(ignore_warmup and warmup_samples_read != nwarmup):
+                    warmup_samples_read += 1
                 else:
                     var_vals = [float(el) for el in t.split(',')]
-                    end_idx = 0
-                    for var_name in var_names:
-                        start_idx = end_idx
+                    for var_name in (variables_of_interest if(variables_of_interest) else var_names):
+                        start_idx = var_start_idx[var_name] 
                         end_idx = start_idx + (np.product(var_dims[var_name]) if(var_dims[var_name]) else 1)
                         data[var_name][sample_idx] = np.array(var_vals[start_idx:end_idx]).reshape(var_dims[var_name],order='F')
                     sample_idx += 1
