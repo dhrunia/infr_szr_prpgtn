@@ -5,12 +5,14 @@ in a 2D space.
 *Outputs*: results/exp1
 *Report*: Experiment discarded: There is an error in code.The value for K (connectivity scaling) 
 should be -ve. But +ve value was used. Need to rerun the experiment with -ve value of K.
+
 * Experiment 2:
 Date: /02-02-2018/
 Generate a propagation pattern in a network with 5 nodes where node 2 is EZ and node 5 is PZ
 *Outputs*: results/exp3
 *Report*: I was using +ve values for K (connecitivity scaling) which should have been -ve. Using
 -ve values for K generated the required propagation patterns.
+
 * Experiment 3:
 /Date: 02-02-2018/
 Fit a network of 2D epileptors with 5 nodes using source signals (/x/ and /z/) as modelled data
@@ -73,6 +75,7 @@ in each chain
 Looks like the log posterior is creating artificial maxima by exaggerating the differences between two values with
 very low probabilities, and then getting stuck in these maxima. Check 1) if inferring the source signals along with
 the x0s would improve the convergence 2) initialize the sampler hidden states(x) to the inferred signal from exp 7.
+
 * Experiment 7:
 /Date:13-02-2018/
 Infer the source signals from the seeg data without even using the dynamical model.
@@ -89,6 +92,13 @@ TVB using a realistic SC and gain matrices
 6D epileptor(TVB). However, it is able to do so only for very low eps (variance in observation model). Particularly,
 for eps=0.001 the sampler has finished 500 warmup + 500 sampling in around 12 hours. For eps>0.009 the sampler is stuck
 in the warmup for a week.
+** Experiment 7.2:
+*Date*: 15-03-18
+Exp 7.1 confirms that it is possible to infer the source signals from SEEG data without any dynamical model even for 
+data generated using 6D epileptor. Now check if it is possible to infer the source signals from empirical SEEG data. 
+*Code*:
+*Outputs*: results/exp7.2
+*Report*: 
 
 * Experiment 8:
 /Date:22-02-18/
@@ -100,3 +110,12 @@ sigma made the sampler explore the posterior better, but too high a sigma would 
 to follow epileptor dynamics and too low a sigma would make the posterior to difficult to explore. 
 A manual parameter sweep starting from high values of sigma and lowering it in each next run showed that 
 at sigma = 0.1 the posterior is simple enough to explore while following epileptor dynamics.
+
+* Experiment 9:
+/Date/: 12-03-2018
+Based on exp 7.1 it looks like sampler(without epileptor dynamics for hidden states) can infer source signals correctly 
+even from data generated using 6D-epileptor. 
+Now check if the sampler(with epileptor dynamics for hidden states) can infer x0's from SEEG data without any preprocessing.
+*Code*: TVB_forward_sim.ipynb, vep-src-infer.ipynb
+*Outputs*: results/exp9
+*Report*: Hidden states are inferred correctly but x0s are completely wrong. 

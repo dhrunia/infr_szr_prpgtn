@@ -1,0 +1,41 @@
+First draft of benchmarking:
+![Benchmark-1](/uploads/f5d28cab3503de97b271dd0ababa7e3d/Benchmark-1.png)
+
+Based on the discussion with @viktor.jirsa and @mhashemi0873 some of the choices are pruned.
+1. Use only 6D epileptor for synthetic data
+2. No random initialization   
+   Case 1: Hyperparameters are inferred   
+   Initializing the sampler via optimization either a) helps, if the true mode is identified or, b) will be only as good as random initialization, if some local minima is identified.   
+   Case 2: Hyperaparameters are fixed   
+   When hyperparameters are fixed via a simulated annealing like approach (#43), sampler is anyway initialized using previous runs' inference   
+
+
+The dimensions chosen for benchmarking are:
+![Benchmark](/uploads/038dd47f50dba6c3baf0659a55e02d96/Benchmark_2.jpg)
+
+Action plan:
+1. Prepare Data
+ * Generate realistic enough seizure propogation pattern using 6d epileptor
+ * Choose a subset of sensors for the subsampled dataset
+2. Run 10 chains for each combination of first three benchmarking dimensions with hyperparameters being inferred. This leads to a total of 120 chains, if walltime is fixed at 2 days and 10 chains can be run in parallel this would take 24 days.
+3. Run chains in sequence with hyperparameters fixed.   
+
+```math
+\begin{aligned}
+& sequence\_runs(\sigma_{high}) \\
+& \sigma = \sigma_{high} \\
+& \text{Initialize sampler with some random values}
+& Run HMC
+& if(\hat r > r_{thr})
+&    
+\end{aligned}
+```
+
+Challenges:
+1. How to deal with chains that are stuck in warmup? Reduce the treedepth ?
+2. What should be $` sigma_{high} `$ ?
+3. For $` x_0 `$ informative priors what should be the variance?
+
+
+
+

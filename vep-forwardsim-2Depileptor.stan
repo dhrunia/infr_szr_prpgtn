@@ -17,12 +17,12 @@ functions {
     return x_next;
   }
 
-  row_vector z_step(row_vector x, row_vector z, row_vector x0, matrix FC, vector Ic, 
+  row_vector z_step(row_vector x, row_vector z, row_vector x0, matrix FC, 
 		    real time_step, real time_scale, row_vector z_eta, real sigma, real tau0) {
     int nn = num_elements(z);
     row_vector[nn] z_next;
     matrix[nn, nn] D = vector_differencing(x);
-    row_vector[nn] gx = to_row_vector(rows_dot_product(FC, D) - Ic .* to_vector(1.8 + x));
+    row_vector[nn] gx = to_row_vector(rows_dot_product(FC, D));
     row_vector[nn] dz = inv(tau0) * (4 * (x - x0) - z - gx);
     z_next = z + (time_scale * time_step * dz) + sqrt(time_step) * sigma * z_eta;
     return z_next;
@@ -35,7 +35,6 @@ data {
   int nt;
   real I1;
   real tau0;
-  vector[nn] Ic;
   matrix<lower=0.0, upper=1.0>[nn, nn] SC;
   matrix[ns,nn] gain;
 
@@ -46,8 +45,6 @@ data {
   real sigma;
   real k;
   real epsilon;
-  real amplitude;
-  real offset;
   
   // time-series state non-centering:
   row_vector[nn] x_init;
@@ -71,10 +68,10 @@ generated quantities {
   z[1] = z_init + 2.0;
   for (t in 1:(nt-1)) {
     x[t+1] = x_step(x[t], z[t], I1, time_step, time_scale, sigma);
-    z[t+1] = z_step(x[t], z[t], x0, k*SC, Ic, time_step, time_scale, z_eta[t], sigma, tau0);
-    mu_seeg_log_power[t] = amplitude * (log(gain * exp(x[t]')) + offset)';
+    z[t+1] = z_step(x[t], z[t], x0, k*SC, time_step, time_scale, z_eta[t], sigma, tau0);
+    mu_seeg_log_power[t] = (gain * x[t]')';
   }
-  mu_seeg_log_power[nt] = amplitude * (log(gain * exp(x[nt]')) + offset)';
+  mu_seeg_log_power[nt] = (gain * x[nt]')';
 
   for (t in 1:nt){
     for (i in 1:ns){
