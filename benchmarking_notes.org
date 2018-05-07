@@ -1,0 +1,2 @@
+- Each channel has a different amplitude and offset
+- tau0, dt must be inferred

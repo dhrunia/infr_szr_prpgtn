@@ -119,3 +119,14 @@ Now check if the sampler(with epileptor dynamics for hidden states) can infer x0
 *Code*: TVB_forward_sim.ipynb, vep-src-infer.ipynb
 *Outputs*: results/exp9
 *Report*: Hidden states are inferred correctly but x0s are completely wrong. 
+* Experiment 10 (*Benchmarking)*:
+Date: <2018-04-17 Tue>
+** TODO Generate dataset 
+SCHEDULED: <2018-04-17 Tue>
+DEADLINE: <2018-04-20 Fri> 
+** TODO Start sampling with hyperparameters inferred
+SCHEDULED: <2018-04-23 Mon>
+DEADLINE: <2018-04-30 Mon>
+** TODO Start sampling with hyperparameters fixed
+SCHEDULED: <2018-04-25 Wed>
+DEADLINE: <2018-05-07 Mon>

@@ -35,7 +35,7 @@ data {
   int nt;
   real I1;
   real tau0;
-  matrix<lower=0.0, upper=1.0>[nn, nn] SC;
+  matrix[nn, nn] SC;
   matrix[ns,nn] gain;
 
   // Parameters taken as input for simulation
