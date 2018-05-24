@@ -6,6 +6,7 @@ I/O functions for working with CmdStan executables.
 import os
 import subprocess
 import numpy as np
+import sys
 
 
 def _rdump_array(key, val):
@@ -214,4 +215,90 @@ def compile_model(stan_fname, cc='clang++'):
         print(stderr)
 
 
-# TODO class to run modules instead of %%bash in ipynb
+def create_process(cmd,block=None, stdout=sys.stdout, stderr=sys.stderr):
+    if(block):
+        subProc = subprocess.Popen(cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        while subProc.poll() is None:
+            stdout.write(subProc.stdout.read(1))
+            stdout.flush()
+        stdout.write(subProc.stdout.read())
+        stdout.flush()
+        #  if(subProc.returncode):
+        #    stderr.write(subProc.stderr.read())
+        #    stderr.flush()
+        #    raise Exception("Error executing "+' '.join(cmd))
+        err = subProc.stderr.read()
+        if(err):
+            stderr.write(err)
+            stderr.flush()
+            t = input('Continue[y/n]:')
+            if(t == 'y'):
+                return -1
+            else:
+                raise Exception("Error executing "+' '.join(cmd))
+        return 0
+    else:
+        subProc = subprocess.Popen(cmd)
+        return subProc
+
+def rem_warmup_samples(src_fname,trgt_fname,num_warmup_samples):
+    with open(src_fname,'r') as fd1:
+        with open(trgt_fname,'w') as fd2:
+            while(True):
+                t = fd1.readline()
+                if(t[0] == '#'):
+                    fd2.write(t)
+                else:
+                    fd2.write(t)
+                    for i in range(num_warmup_samples):
+                        fd1.readline()
+                    break
+            t = fd1.readline()
+            while(t):
+                fd2.write(t)
+                t = fd1.readline()
+    
+def read_samples(csv_fname,nwarmup,nsampling,ignore_warmup=False,variables_of_interest=[]):
+    if(ignore_warmup):
+        nsamples = nsampling
+    else:
+        nsamples = nwarmup + nsampling
+    with open(csv_fname,'r') as fd:
+        t = fd.readline()
+        read_head = False
+        sample_idx = 0
+        warmup_samples_read = 0
+        while(t):
+            if(t[0] == '#'):
+                pass
+            elif(not read_head): # Extract variable names and their dimensions from the heading of the csv
+                var_names = []
+                var_dims = {}
+                var_start_idx = {}
+                col_names = t.split(',')
+                for i,name in enumerate(col_names):
+                    var_name = name.split('.')[0]
+                    var_dim = [int(dim) for dim in name.split('.')[1:]]
+                    if(var_name not in var_names):
+                        var_names.append(var_name)
+                        var_start_idx[var_name] = i
+                    var_dims[var_name] = var_dim
+                read_head = True
+                data = {}
+                # Create a dictionary (variable name -> numpy.ndarray) for storing data
+                for var_name in (variables_of_interest if(variables_of_interest) else var_names):
+                    data[var_name] = np.ndarray(shape = [nsamples] + var_dims[var_name],dtype=float)
+            else:
+                if(ignore_warmup and warmup_samples_read != nwarmup):
+                    warmup_samples_read += 1
+                else:
+                    var_vals = [float(el) for el in t.split(',')]
+                    for var_name in (variables_of_interest if(variables_of_interest) else var_names):
+                        start_idx = var_start_idx[var_name] 
+                        end_idx = start_idx + (np.product(var_dims[var_name]) if(var_dims[var_name]) else 1)
+                        data[var_name][sample_idx] = np.array(var_vals[start_idx:end_idx]).reshape(var_dims[var_name],order='F')
+                    sample_idx += 1
+                    if(sample_idx == nsampling):
+                        break
+            t = fd.readline()
+    return data
