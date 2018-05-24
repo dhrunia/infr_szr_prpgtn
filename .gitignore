@@ -1,3 +1,5 @@
+slurm_logs/*
+ltxpng/*
 data/*
 results/*
 tmp/*
