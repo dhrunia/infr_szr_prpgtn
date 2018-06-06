@@ -65,6 +65,7 @@ generated quantities {
   row_vector[nn] x[nt];
   row_vector[nn] z[nt];
   row_vector[ns] seeg[nt];
+  row_vector[ns] slp[nt];
 
   x_t = x_init;
   z_t = z_init;
@@ -76,5 +77,6 @@ generated quantities {
     x[t] = x_t;
     z[t] = z_t;
     seeg[t] = (gain * x[t]')';
+    slp[t] = log(gain * exp(x[t]'))';
   }
 }
