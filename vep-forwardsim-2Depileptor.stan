@@ -8,7 +8,8 @@ functions {
     return D;
   }
 
-  row_vector x_step(row_vector x, row_vector z, real I1, real time_step, real time_scale, real sigma) {
+  row_vector x_step(row_vector x, row_vector z, real I1, real time_step, real time_scale,
+		    real sigma) {
     int nn = num_elements(x);
     row_vector[nn] x_next;
     row_vector[nn] I1_vec = rep_row_vector(I1 + 1.0, nn);
@@ -17,8 +18,8 @@ functions {
     return x_next;
   }
 
-  row_vector z_step(row_vector x, row_vector z, row_vector x0, matrix FC, 
-		    real time_step, real time_scale, row_vector z_eta, real sigma, real tau0) {
+  row_vector z_step(row_vector x, row_vector z, row_vector x0, matrix FC, real time_step,
+		    real time_scale, row_vector z_eta, real sigma, real tau0) {
     int nn = num_elements(z);
     row_vector[nn] z_next;
     matrix[nn, nn] D = vector_differencing(x);

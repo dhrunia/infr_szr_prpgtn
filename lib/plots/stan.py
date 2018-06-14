@@ -41,3 +41,44 @@ def pair_plots(csv, keys, skip=0):
             if j==0:
                 pl.ylabel(key_i)
     pl.tight_layout()
+
+def nuts_diagnostics(data):
+    import matplotlib.pyplot as plt
+    
+    plt.figure(figsize=(20,10))
+    plt.subplot(4,2,1)
+    plt.plot(data['lp__'])
+    plt.xlabel('Iteration')
+    plt.ylabel('log prob.')
+
+    plt.subplot(4,2,2)
+    plt.plot(data['energy__'])
+    plt.xlabel('Iteration')
+    plt.ylabel('energy')
+
+    plt.subplot(4,2,3)
+    plt.plot(data['accept_stat__'])
+    plt.xlabel('Iteration')
+    plt.ylabel('accept stat.')
+
+    plt.subplot(4,2,4)
+    plt.plot(data['stepsize__'])
+    plt.xlabel('Iteration')
+    plt.ylabel('step size')
+
+    plt.subplot(4,2,5)
+    plt.plot(data['treedepth__'])
+    plt.xlabel('Iteration')
+    plt.ylabel('tree depth')
+
+    plt.subplot(4,2,6)
+    plt.plot(data['n_leapfrog__'])
+    plt.xlabel('Iteration')
+    plt.ylabel('n_leapfrog')
+
+    plt.subplot(4,2,7)
+    plt.plot(data['divergent__'])
+    plt.xlabel('Iteration')
+    plt.ylabel('divergent')
+
+    plt.tight_layout();  

@@ -54,35 +54,27 @@ parameters {
   row_vector[ns] offset_star;
   real epsilon_star;
   //  matrix<lower=0.0, upper=10.0>[nn, nn] FC;
+  real time_step_star;
+  real sigma_star;
+
+  row_vector[nn] x[nt];
+  row_vector[nn] z[nt];
 }
 
 transformed parameters{
-  row_vector[nn] x_t;
-  row_vector[nn] z_t;
-  row_vector[nn] x[nt];
-  row_vector[nn] z[nt];
-  row_vector[ns] mu_seeg[nt];
   row_vector[nn] x0 = -2.5 + x0_star;
   row_vector[nn] x_init = -2.0 + x_init_star;
   row_vector[nn] z_init = 3.0 + z_init_star;
   row_vector[ns] amplitude = exp(pow(1, 2) + log(0.1) + 1.0*amplitude_star);
-  row_vector[ns] offset = exp(pow(0.5, 2) + log(180) + 0.5*offset_star);
-  real epsilon = exp(pow(0.1, 2) + log(0.01) + 0.1*epsilon_star);
-
-  x_t = x_init;
-  z_t = z_init;
-  for (t in 1:nt) {
-    for(i in 1:nsteps){
-      x_t = x_step(x_t, z_t, I1, time_step);
-      z_t = z_step(x_t, z_t, x0, K*SC, time_step, tau0);
-    }
-    x[t] = x_t;
-    z[t] = z_t;
-    mu_seeg[t] = amplitude .* ((gain * x[t]')' + offset);
-  }
+  row_vector<lower=0.0>[ns] offset = exp(pow(0.5, 2) + log(180) + 0.5*offset_star);
+  real epsilon = exp(pow(1.0, 2) + log(0.01) + 1.0*epsilon_star);
+  real time_step = exp(pow(0.2, 2) + log(1.0) + 0.2*time_step_star);
+  real sigma = exp(pow(1.0, 2) + log(0.1) + 1.0*sigma_star)
 }
 
 model {
+  row_vector[ns] mu_seeg[nt];
+
   x0_star ~ normal(0, 1.0);
   amplitude_star ~ normal(0, 1.0);
   offset_star ~ normal(0, 1.0);
@@ -94,7 +86,18 @@ model {
   /* } */
   x_init_star ~ normal(0, 1.0);
   z_init_star ~ normal(0, 1.0);
-  for (t in 1:nt){
+
+  
+  for (t in 1:nt) {
+    if(t == 1){
+      x[t] ~ normal(x_step(x_init, z_init, I1, time_step), sigma);
+      z[t] ~ normal(z_step(x_init, z_init, x0, K*SC, time_step, tau0), sigma);
+    }
+    else{
+      x[t] ~ normal(x_step(x[t-1], z[t-1], I1, time_step), sigma);
+      z[t] ~ normal(z_step(x[t-1], z[t-1], x0, K*SC, time_step, tau0), sigma);
+    }
+    mu_seeg[t] = amplitude .* ((gain * x[t]')' + offset);
     seeg[t] ~ normal(mu_seeg[t], epsilon);
   }
 }

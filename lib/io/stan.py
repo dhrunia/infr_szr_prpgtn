@@ -277,8 +277,8 @@ def read_samples(csv_fname,nwarmup,nsampling,ignore_warmup=False,variables_of_in
                 var_start_idx = {}
                 col_names = t.split(',')
                 for i,name in enumerate(col_names):
-                    var_name = name.split('.')[0]
-                    var_dim = [int(dim) for dim in name.split('.')[1:]]
+                    var_name = name.strip().split('.')[0]
+                    var_dim = [int(dim) for dim in name.strip().split('.')[1:]]
                     if(var_name not in var_names):
                         var_names.append(var_name)
                         var_start_idx[var_name] = i
@@ -292,13 +292,14 @@ def read_samples(csv_fname,nwarmup,nsampling,ignore_warmup=False,variables_of_in
                 if(ignore_warmup and warmup_samples_read != nwarmup):
                     warmup_samples_read += 1
                 else:
-                    var_vals = [float(el) for el in t.split(',')]
+                    # print(f'{sample_idx}: {t[0:20]}') 
+                    var_vals = [float(el.strip()) for el in t.split(',')]
                     for var_name in (variables_of_interest if(variables_of_interest) else var_names):
                         start_idx = var_start_idx[var_name] 
                         end_idx = start_idx + (np.product(var_dims[var_name]) if(var_dims[var_name]) else 1)
                         data[var_name][sample_idx] = np.array(var_vals[start_idx:end_idx]).reshape(var_dims[var_name],order='F')
                     sample_idx += 1
-                    if(sample_idx == nsampling):
+                    if(sample_idx == nsamples):
                         break
             t = fd.readline()
     return data
