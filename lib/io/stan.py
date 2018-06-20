@@ -267,16 +267,16 @@ def read_one_sample(line, data, sample_idx, var_names, var_dims, var_start_idx):
         data[var_name][sample_idx] = np.array(var_vals[start_idx:end_idx]).reshape(var_dims[var_name], order='F')
 
 
-def read_samples(csv_fname, nwarmup=0, nsampling=0, ignore_warmup=True, variables_of_interest=[]):
+def read_samples(csv_fname, nwarmup=0, nsampling=0, variables_of_interest=[]):
     '''
     Reads specified variables from cmdstan output csv file
 
     csv_fname : cmdstan's output csv file name
     nwarmup   : Number of warmup samples to read
     nsampling : Number of samples after warmup
-    ignore_warmup : Don't read warmup samples
     variables_of_interest : list of variable names to read
     '''
+    ignore_warmup = False if(nwarmup) else True
     nsamples = nwarmup + nsampling
     with open(csv_fname, 'r') as fd:
         t = fd.readline().strip()
@@ -286,11 +286,22 @@ def read_samples(csv_fname, nwarmup=0, nsampling=0, ignore_warmup=True, variable
         while(t):
             if(t[0] == '#'):
                 if("num_samples" in t):
-                    sampling_iters = int(t[1:].strip().split('=')[1].strip())
+                    sampling_iters = int(t[1:].strip().split(' ')[2].strip())
+                    if(nsampling > sampling_iters):
+                        raise(Exception('nsampling cannot be greater than the number of sampling \
+iterations'))
                 elif("num_warmup" in t):
-                    warmup_iters = int(t[1:].strip().split('=')[1].strip())
+                    warmup_iters = int(t[1:].strip().split(' ')[2].strip())
+                    if(nwarmup > warmup_iters):
+                        raise(Exception('nwarmup cannot be greater than the number of warmup \
+iterations'))
                     if(nsamples == 0):
                         nsamples = sampling_iters + 0 if(ignore_warmup) else warmup_iters
+                elif('save_warmup' in t):
+                    save_warmup = int(t[1:].strip().split(' ')[2].strip())
+                    if(not ignore_warmup and not save_warmup):
+                        raise(Exception('csv file does not contain warmup samples, nwarmup must be \
+zero'))
             elif(not read_head):  # Extract variable names and their dimensions from the heading of the csv
                 var_names = []
                 var_dims = {}
@@ -310,7 +321,7 @@ def read_samples(csv_fname, nwarmup=0, nsampling=0, ignore_warmup=True, variable
                 for var_name in var_names:
                     data[var_name] = np.ndarray(shape=[nsamples] + var_dims[var_name], dtype=float)
             else:
-                if(ignore_warmup and sample_count < warmup_iters):
+                if(ignore_warmup and save_warmup and sample_count < warmup_iters ):
                     pass
                 elif(not ignore_warmup and sample_count < nwarmup):
                     read_one_sample(t, data, sample_idx, var_names, var_dims, var_start_idx)
