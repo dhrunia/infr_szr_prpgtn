@@ -33,8 +33,8 @@ def rdump(fname, data):
                 except:
                     pass
                 line = '%s <- %s' % (key, val)
-                fd.write(line)
-                fd.write('\n')
+            fd.write(line)
+            fd.write('\n')
 
 
 def rload(fname):
@@ -42,7 +42,7 @@ def rload(fname):
     """
     with open(fname, 'r') as fd:
         lines = fd.readlines()
-        data = {}
+    data = {}
     for line in lines:
         lhs, rhs = [_.strip() for _ in line.split('<-')]
         if rhs.startswith('structure'):
@@ -60,7 +60,7 @@ def rload(fname):
                     val = float(rhs)
                 except:
                     raise ValueError(rhs)
-                data[lhs] = val
+        data[lhs] = val
     return data
 
 
@@ -89,7 +89,7 @@ def parse_csv(fname, merge=True):
             try:
                 csv.append(parse_csv(_))
             except Exception as e:
-                print('skipping ', fname, e) 
+                print('skipping ', fname, e)
         if merge:
             csv = merge_csv_data(*csv)
         return csv
@@ -99,15 +99,15 @@ def parse_csv(fname, merge=True):
         for line in fd.readlines():
             if not line.startswith('#'):
                 lines.append(line.strip().split(','))
-                names = [field.split('.') for field in lines[0]]
-                data = np.array([[float(f) for f in line] for line in lines[1:]])
+    names = [field.split('.') for field in lines[0]]
+    data = np.array([[float(f) for f in line] for line in lines[1:]])
 
     namemap = {}
     maxdims = {}
     for i, name in enumerate(names):
         if name[0] not in namemap:
             namemap[name[0]] = []
-            namemap[name[0]].append(i)
+        namemap[name[0]].append(i)
         if len(name) > 1:
             maxdims[name[0]] = name[1:]
 
@@ -115,7 +115,7 @@ def parse_csv(fname, merge=True):
         dims = []
         for dim in maxdims[name]:
             dims.append(int(dim))
-            maxdims[name] = tuple(reversed(dims))
+        maxdims[name] = tuple(reversed(dims))
 
     # data in linear order per Stan, e.g. mat is col maj
     # TODO array is row maj, how to distinguish matrix v array[,]?
@@ -140,7 +140,7 @@ def parse_summary_csv(fname):
             _, k, v = line.split('"')
             skeys.append(k)
             svals.append(np.array([float(_) for _ in v.split(',')[1:]]))
-            svals = np.array(svals)
+    svals = np.array(svals)
 
     sdat = {}
     sdims = {}
@@ -151,14 +151,14 @@ def parse_summary_csv(fname):
             sdims[name] = dim
             if name not in sdat:
                 sdat[name] = []
-                sdat[name].append(sval)
+            sdat[name].append(sval)
         else:
             sdat[skey] = sval
 
     for key in [_ for _ in sdat.keys()]:
         if key in sdims:
             sdat[key] = np.array(sdat[key]).reshape(sdims[key] + (-1,))
-    return scols, sdat 
+    return scols, sdat
 
 
 def csv2mode(csv_fname, mode=None):
@@ -173,7 +173,7 @@ def csv2mode(csv_fname, mode=None):
             val_ = val.mean(axis=0)
         elif mode[0] == 'p':
             val_ = np.percentile(val, int(mode[1:]), axis=0)
-            data[key] = val_
+        data[key] = val_
     return data
 
 
@@ -190,7 +190,7 @@ def cmdstan_path(path=''):
     if path:
         path = os.path.expanduser(os.path.expandvars(path))
         os.environ['CMDSTAN'] = path
-        path = os.environ.get('CMDSTAN', 'cmdstan')
+    path = os.environ.get('CMDSTAN', 'cmdstan')
     if not os.path.exists(os.path.join(path, 'runCmdStanTests.py')):
         raise CmdStanNotFound(
             'please provide CmdStan path, e.g. lib.cmdstan_path("/path/to/")')
@@ -210,7 +210,7 @@ def compile_model(stan_fname, cc='clang++'):
     stdout = proc.stdout.read().decode('ascii').strip()
     if stdout:
         print(stdout)
-        stderr = proc.stderr.read().decode('ascii').strip()
+    stderr = proc.stderr.read().decode('ascii').strip()
     if stderr:
         print(stderr)
 
@@ -221,12 +221,12 @@ def create_process(cmd,block=None, stdout=sys.stdout, stderr=sys.stderr):
         while subProc.poll() is None:
             stdout.write(subProc.stdout.read(1))
             stdout.flush()
-            stdout.write(subProc.stdout.read())
-            stdout.flush()
-            #  if(subProc.returncode):
-            #    stderr.write(subProc.stderr.read())
-            #    stderr.flush()
-            #    raise Exception("Error executing "+' '.join(cmd))
+        stdout.write(subProc.stdout.read())
+        stdout.flush()
+        #  if(subProc.returncode):
+        #    stderr.write(subProc.stderr.read())
+        #    stderr.flush()
+        #    raise Exception("Error executing "+' '.join(cmd))
         err = subProc.stderr.read()
         if(err):
             stderr.write(err)
@@ -253,7 +253,7 @@ def rem_warmup_samples(src_fname,trgt_fname,num_warmup_samples):
                     for i in range(num_warmup_samples):
                         fd1.readline()
                     break
-                t = fd1.readline()
+            t = fd1.readline()
             while(t):
                 fd2.write(t)
                 t = fd1.readline()
