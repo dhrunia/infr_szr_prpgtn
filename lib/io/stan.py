@@ -331,8 +331,8 @@ zero'))
                 else:
                     read_one_sample(t, data, sample_idx, var_names, var_dims, var_start_idx)
                     sample_idx += 1
-                    if(sample_idx == nsamples):
-                        break
+                if(sample_idx == nsamples):
+                    break
                 sample_count += 1
             t = fd.readline()
     return data
