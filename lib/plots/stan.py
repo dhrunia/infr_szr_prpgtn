@@ -42,10 +42,10 @@ def pair_plots(csv, keys, skip=0):
                 pl.ylabel(key_i)
     pl.tight_layout()
 
-def nuts_diagnostics(data):
+def nuts_diagnostics(data, figsize, figname):
     import matplotlib.pyplot as plt
     
-    plt.figure(figsize=(20,10))
+    plt.figure(figsize=figsize)
     plt.subplot(4,2,1)
     plt.plot(data['lp__'])
     plt.xlabel('Iteration')
@@ -81,4 +81,36 @@ def nuts_diagnostics(data):
     plt.xlabel('Iteration')
     plt.ylabel('divergent')
 
-    plt.tight_layout();  
+    plt.tight_layout() 
+
+    if(figname):
+        plt.savefig(figname)
+
+def x0_violin(x0_infer, x0_true, ez, pz, figsize, figname):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    
+    nn = x0_true.shape[0]
+    ez_pz = np.concatenate((ez, pz))
+    non_ez_pz = np.setdiff1d(np.arange(0, nn), ez_pz)
+
+    plt.figure(figsize=figsize)
+    plt.violinplot(x0_infer, showmeans=True, points=1000);
+    plt.axhline(-2.0, color='green', alpha=0.3)
+    xtick_labels = []
+
+    for i in range(nn):
+        if(i%2 == 0):
+            xtick_labels.append(str(i+1))
+        else:
+            xtick_labels.append('')
+    plt.xticks(np.r_[1:nn+1],xtick_labels);
+    plt.xlabel('Region#',fontsize=15);
+    plt.ylabel('$x_0$',fontsize=15);
+
+    plt.plot(ez+1, x0_true[ez], color='red', marker='*', markersize=5, linestyle='None')
+    plt.plot(pz+1, x0_true[pz], color='orange', marker='*', markersize=5, linestyle='None')
+    plt.plot(non_ez_pz + 1, x0_true[non_ez_pz], color='black', marker='*', markersize=5, \
+             linestyle='None')
+    if(figname):
+        plt.savefig(figname)

@@ -259,6 +259,23 @@ def rem_warmup_samples(src_fname,trgt_fname,num_warmup_samples):
                 t = fd1.readline()
 
 
+# def merge_csv(csvs, out_csv):
+#     with open(out_csv, 'w') as fd_out_csv:
+#         for i in len(csvs):
+#             if(i == 1):
+#                 with open(csvs[i], 'r') as fd:
+#                     for line in fd:
+#                         fd_out_csv.write(line)
+#             else:
+#                 with open(csvs[i], 'r') as fd:
+#                     for line in fd:
+#                         if(line[0] != '#'):
+#                             break
+#                     for line in fd:
+#                         if(line[0] != '#'):
+#                             fd_out_csv.write(line)
+
+
 def read_one_sample(line, data, sample_idx, var_names, var_dims, var_start_idx):
     var_vals = [float(el.strip()) for el in line.split(',')]
     for var_name in var_names:
@@ -267,7 +284,7 @@ def read_one_sample(line, data, sample_idx, var_names, var_dims, var_start_idx):
         data[var_name][sample_idx] = np.array(var_vals[start_idx:end_idx]).reshape(var_dims[var_name], order='F')
 
 
-def read_samples(csv_fname, nwarmup=0, nsampling=0, variables_of_interest=[]):
+def read_samples(csvs, nwarmup=0, nsampling=0, variables_of_interest=[]):
     '''
     Reads specified variables from cmdstan output csv file
 
@@ -276,63 +293,81 @@ def read_samples(csv_fname, nwarmup=0, nsampling=0, variables_of_interest=[]):
     nsampling : Number of samples after warmup
     variables_of_interest : list of variable names to read
     '''
-    ignore_warmup = False if(nwarmup) else True
-    nsamples = nwarmup + nsampling
-    with open(csv_fname, 'r') as fd:
-        t = fd.readline().strip()
-        read_head = False
-        sample_idx = 0
-        sample_count = 0
-        while(t):
-            if(t[0] == '#'):
-                if("num_samples" in t):
-                    sampling_iters = int(t[1:].strip().split(' ')[2].strip())
-                    if(nsampling > sampling_iters):
-                        raise(Exception('nsampling cannot be greater than the number of sampling \
-iterations'))
-                elif("num_warmup" in t):
-                    warmup_iters = int(t[1:].strip().split(' ')[2].strip())
-                    if(nwarmup > warmup_iters):
-                        raise(Exception('nwarmup cannot be greater than the number of warmup \
-iterations'))
-                    if(nsamples == 0):
-                        nsamples = sampling_iters + 0 if(ignore_warmup) else warmup_iters
-                elif('save_warmup' in t):
-                    save_warmup = int(t[1:].strip().split(' ')[2].strip())
-                    if(not ignore_warmup and not save_warmup):
-                        raise(Exception('csv file does not contain warmup samples, nwarmup must be \
-zero'))
-            elif(not read_head):  # Extract variable names and their dimensions from the heading of the csv
-                var_names = []
-                var_dims = {}
-                var_start_idx = {}
-                col_names = t.split(',')
-                for i, name in enumerate(col_names):
-                    var_name = name.strip().split('.')[0]
-                    var_dim = [int(dim) for dim in name.strip().split('.')[1:]]
-                    if(var_name not in var_names):
-                        var_names.append(var_name)
-                        var_start_idx[var_name] = i
-                    var_dims[var_name] = var_dim
-                read_head = True
-                data = {}
-                var_names = variables_of_interest if(variables_of_interest) else var_names
-                # Create a dictionary (variable name -> numpy.ndarray) for storing data
-                for var_name in var_names:
-                    data[var_name] = np.ndarray(shape=[nsamples] + var_dims[var_name], dtype=float)
-            else:
-                if(ignore_warmup and save_warmup and sample_count < warmup_iters ):
-                    pass
-                elif(not ignore_warmup and sample_count < nwarmup):
-                    read_one_sample(t, data, sample_idx, var_names, var_dims, var_start_idx)
-                    sample_idx += 1
-                elif(not ignore_warmup and sample_count < warmup_iters):
-                    pass
+    samples_chain = []
+    for csv_fname in csvs:
+        ignore_warmup = False if(nwarmup) else True
+        nsamples = nwarmup + nsampling
+        with open(csv_fname, 'r') as fd:
+            t = fd.readline().strip()
+            read_head = False
+            sample_idx = 0
+            sample_count = 0
+            while(t):
+                if(t[0] == '#'):
+                    if('method' in t):
+                        algorithm = [el.strip() for el in t[1:].strip().split("=")][-1]
+                    elif('num_samples' in t):
+                        sampling_iters = int(t[1:].strip().split(' ')[2].strip())
+                        if(nsampling > sampling_iters):
+                            raise(Exception('nsampling cannot be greater than the number of sampling \
+    iterations'))
+                    elif('num_warmup' in t):
+                        warmup_iters = int(t[1:].strip().split(' ')[2].strip())
+                        if(nwarmup > warmup_iters):
+                            raise(Exception('nwarmup cannot be greater than the number of warmup \
+    iterations'))
+                        if(nsamples == 0):
+                            nsamples = sampling_iters + 0 if(ignore_warmup) else warmup_iters
+                    elif('save_warmup' in t):
+                        save_warmup = int(t[1:].strip().split(' ')[2].strip())
+                        if(not ignore_warmup and not save_warmup):
+                            raise(Exception('csv file does not contain warmup samples, nwarmup must be \
+    zero'))
+                    elif('output_samples' in t):
+                        nsamples = int([el.strip() for el in t[1:].strip().split("=")][-1].split()[0])
+
+                elif(not read_head):  # Extract variable names and their dimensions from the heading of the csv
+                    var_names = []
+                    var_dims = {}
+                    var_start_idx = {}
+                    col_names = t.split(',')
+                    for i, name in enumerate(col_names):
+                        var_name = name.strip().split('.')[0]
+                        var_dim = [int(dim) for dim in name.strip().split('.')[1:]]
+                        if(var_name not in var_names):
+                            var_names.append(var_name)
+                            var_start_idx[var_name] = i
+                        var_dims[var_name] = var_dim
+                    read_head = True
+                    data = {}
+                    var_names = variables_of_interest if(variables_of_interest) else var_names
+                    # Create a dictionary (variable name -> numpy.ndarray) for storing data
+                    for var_name in var_names:
+                        data[var_name] = np.ndarray(shape=[nsamples] + var_dims[var_name], dtype=float)
                 else:
-                    read_one_sample(t, data, sample_idx, var_names, var_dims, var_start_idx)
-                    sample_idx += 1
-                if(sample_idx == nsamples):
-                    break
-                sample_count += 1
-            t = fd.readline()
-    return data
+                    if('sample' in algorithm):
+                        if(ignore_warmup and save_warmup and sample_count < warmup_iters ):
+                            pass
+                        elif(not ignore_warmup and sample_count < nwarmup):
+                            read_one_sample(t, data, sample_idx, var_names, var_dims, var_start_idx)
+                            sample_idx += 1
+                        elif(not ignore_warmup and sample_count < warmup_iters):
+                            pass
+                        else:
+                            read_one_sample(t, data, sample_idx, var_names, var_dims, var_start_idx)
+                            sample_idx += 1
+                    elif('variational' in algorithm):
+                        read_one_sample(t, data, sample_idx, var_names, var_dims, var_start_idx)
+                        sample_idx += 1
+
+                    if(sample_idx == nsamples):
+                        break
+                    sample_count += 1
+                t = fd.readline()
+        samples_chain.append(data)
+
+    samples = {}
+    for key in samples_chain[0].keys():
+        samples[key] = np.concatenate([samples_chain[i][key] for i in range(len(samples_chain))])
+
+    return samples
