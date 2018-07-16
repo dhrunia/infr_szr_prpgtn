@@ -86,7 +86,7 @@ def nuts_diagnostics(data, figsize, figname):
     if(figname):
         plt.savefig(figname)
 
-def x0_violin(x0_infer, x0_true, ez, pz, figsize, figname):
+def x0_violin(x0_infer, x0_true, ez, pz, figsize, figname=''):
     import matplotlib.pyplot as plt
     import numpy as np
     
