@@ -38,18 +38,24 @@ data {
   matrix[ns,nn] gain;
   matrix<lower=0.0, upper=1.0>[nn, nn] SC;
   real sigma;
-  real epsilon;
+  real epsilon_slp;
+  real epsilon_snsr_pwr;
 
   // Modelled data
   row_vector[ns] slp[nt]; //seeg log power
+  row_vector[ns] snsr_pwr; //seeg sensor power
 }
 
 parameters {
   row_vector[nn] x0_star;
   row_vector[nn] x_init_star;
   row_vector[nn] z_init_star;
-  real amplitude_star;
-  real offset;
+  real amplitude_x_star;
+  real amplitude_z_star;
+  real amplitude_slp_star;
+  real offset_x;
+  real offset_z;
+  real offset_slp;
   /* real epsilon_star; */
   //  matrix<lower=0.0, upper=10.0>[nn, nn] FC;
   real time_step_star;
@@ -65,8 +71,10 @@ transformed parameters{
   row_vector[nn] x0 = -2.5 + x0_star;
   row_vector[nn] x_init = -2.0 + x_init_star;
   row_vector[nn] z_init = 3.0 + z_init_star;
-  real amplitude = exp(pow(0.5, 2) + log(1.0) + 0.5*amplitude_star);
-  /* real offset = exp(pow(0.5, 2) + log(0.001) + 0.5*offset_star); */
+  real amplitude_x = exp(pow(0.5, 2) + log(1.0) + 0.5*amplitude_x_star);
+  real amplitude_z = exp(pow(0.5, 2) + log(1.0) + 0.5*amplitude_z_star);
+  real amplitude_slp = exp(pow(0.5, 2) + log(1.0) + 0.5*amplitude_slp_star);
+  /* real offset_slp = exp(pow(0.5, 2) + log(0.001) + 0.5*offset_slp_star); */
   /* real epsilon = exp(pow(1.0, 2) + log(0.01) + 1.0*epsilon_star); */
   real time_step = exp(pow(0.6, 2) + log(0.5) + 0.6*time_step_star);
   /* real sigma = exp(pow(1.0, 2) + log(0.1) + 1.0*sigma_star) */
@@ -76,10 +84,15 @@ transformed parameters{
 
 model {
   row_vector[ns] mu_slp[nt];
+  row_vector[ns] mu_snsr_pwr = rep_row_vector(0, ns);
 
   x0_star ~ normal(0, 1.0);
-  amplitude_star ~ normal(0, 1.0);
-  offset ~ normal(0, 1.0);
+  amplitude_x_star ~ normal(0, 1.0);
+  amplitude_z_star ~ normal(0, 1.0);
+  amplitude_slp_star ~ normal(0, 1.0);
+  offset_x ~ normal(0, 1.0);
+  offset_z ~ normal(0, 1.0);
+  offset_slp ~ normal(0, 1.0);
   /* epsilon_star ~ normal(0, 1.0); */
   /* for (i in 1:nn){ */
   /*   for (j in 1:nn){ */
@@ -95,16 +108,20 @@ model {
   
   for (t in 1:nt) {
     if(t == 1){
-      x[t] ~ normal(x_step(x_init, z_init, I1, time_step), sigma);
-      z[t] ~ normal(z_step(x_init, z_init, x0, K*SC, time_step, tau0), sigma);
+      x[t] ~ normal(x_step(amplitude_x*(x_init + offset_x), amplitude_z * (z_init + offset_z), I1, time_step), sigma);
+      z[t] ~ normal(z_step(amplitude_x *(x_init + offset_x), amplitude_z * (z_init + offset_z), x0, K*SC, time_step, tau0), sigma);
     }
     else{
-      x[t] ~ normal(x_step(x[t-1], z[t-1], I1, time_step), sigma);
-      z[t] ~ normal(z_step(x[t-1], z[t-1], x0, K*SC, time_step, tau0), sigma);
+      x[t] ~ normal(x_step(amplitude_x*(x[t-1] + offset_x), amplitude_z * (z[t-1] + offset_z), I1, time_step), sigma);
+      z[t] ~ normal(z_step(amplitude_x *(x[t-1] + offset_x), amplitude_z * (z[t-1] + offset_z), x0, K*SC, time_step, tau0), sigma);
     }
-    mu_slp[t] = amplitude * (log(gain * exp(x[t])')' + offset);
-    slp[t] ~ normal(mu_slp[t], epsilon);
+    mu_slp[t] = amplitude_slp * (log(gain * exp(x[t])')' + offset_slp);
+    slp[t] ~ normal(mu_slp[t], epsilon_slp);
+    for (i in 1:ns){
+      mu_snsr_pwr[i] += pow(mu_slp[t][i], 2);
+    }
   }
+  snsr_pwr ~ normal(mu_snsr_pwr, epsilon_snsr_pwr);
 }
 
 generated quantities {
