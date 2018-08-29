@@ -59,6 +59,7 @@ generated quantities {
   row_vector[nn] x[nt];
   row_vector[nn] z[nt];
   row_vector[ns] slp[nt];
+  row_vector[ns] snsr_pwr = rep_row_vector(0, ns);
 
   for (t in 1:nt) {
     if(t == 1){
@@ -71,5 +72,8 @@ generated quantities {
     }
     slp[t] = amplitude * (log(gain * exp(x[t])')' + offset);
     /* slp[t] = normal(mu_slp[t], epsilon); */
+    for (i in 1:ns){
+      snsr_pwr[i] += pow(slp[t][i], 2);
+    }
   }
 }
