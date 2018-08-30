@@ -86,9 +86,10 @@ def nuts_diagnostics(data, figsize, figname):
     if(figname):
         plt.savefig(figname)
 
-def x0_violin(x0_infer, x0_true, ez, pz, figsize, figname=''):
+def x0_violin(x0_infer, x0_true, ez, pz, figsize, figname='', legend_loc='upper right'):
     import matplotlib.pyplot as plt
     import numpy as np
+    from matplotlib.lines import Line2D
     
     nn = x0_true.shape[0]
     ez_pz = np.concatenate((ez, pz))
@@ -112,5 +113,13 @@ def x0_violin(x0_infer, x0_true, ez, pz, figsize, figname=''):
     plt.plot(pz+1, x0_true[pz], color='orange', marker='*', markersize=5, linestyle='None')
     plt.plot(non_ez_pz + 1, x0_true[non_ez_pz], color='black', marker='*', markersize=5, \
              linestyle='None')
+    legend_elements = [Line2D([0], [0], linewidth=3, color='red', marker='*',
+                              linestyle='None', label='EZ'),
+                       Line2D([0], [0], linewidth=3, color='orange', marker='*',
+                              linestyle='None', label='PZ'),
+                       Line2D([0], [0], linewidth=3, color='black', marker='*',
+                              linestyle='None', label='Non seizing'),
+                       Line2D([0], [0], linewidth=3, color='blue', label='Inferred')]
+    plt.legend(handles=legend_elements, loc=legend_loc)
     if(figname):
         plt.savefig(figname)
