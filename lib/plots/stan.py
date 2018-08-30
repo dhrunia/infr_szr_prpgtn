@@ -119,7 +119,7 @@ def x0_violin(x0_infer, x0_true, ez, pz, figsize, figname='', legend_loc='upper 
                               linestyle='None', label='PZ'),
                        Line2D([0], [0], linewidth=3, color='black', marker='*',
                               linestyle='None', label='Non seizing'),
-                       Line2D([0], [0], linewidth=3, color='blue', label='Inferred')]
+                       Line2D([0], [0], linewidth=3, color='C0', alpha=0.8, label='Inferred')]
     plt.legend(handles=legend_elements, loc=legend_loc)
     if(figname):
         plt.savefig(figname)
