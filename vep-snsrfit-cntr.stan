@@ -34,7 +34,7 @@ data {
   int ns;
   int nt;
   real I1;
-  real time_step;
+  real tau0;
   
   matrix[ns,nn] gain;
   matrix<lower=0.0, upper=1.0>[nn, nn] SC;
@@ -59,10 +59,10 @@ parameters {
   real offset_slp;
   /* real epsilon_star; */
   //  matrix<lower=0.0, upper=10.0>[nn, nn] FC;
-  /* real time_step_star; */
+  real time_step_star;
   /* real sigma_star; */
   real K_star;
-  real tau0_star;
+  /* real tau0_star; */
 
   row_vector[nn] x[nt];
   row_vector[nn] z[nt];
@@ -77,9 +77,9 @@ transformed parameters{
   real amplitude_slp = exp(pow(0.5, 2) + log(1.0) + 0.5*amplitude_slp_star);
   /* real offset_slp = exp(pow(0.5, 2) + log(0.001) + 0.5*offset_slp_star); */
   /* real epsilon = exp(pow(1.0, 2) + log(0.01) + 1.0*epsilon_star); */
-  /* real time_step = exp(pow(0.6, 2) + log(0.5) + 0.6*time_step_star); */
+  real time_step = exp(pow(0.6, 2) + log(0.5) + 0.6*time_step_star);
   /* real sigma = exp(pow(1.0, 2) + log(0.1) + 1.0*sigma_star) */
-  real tau0 = exp(pow(1.0, 2) + log(30.0) + 1.0*tau0_star);
+  /* real tau0 = exp(pow(1.0, 2) + log(30.0) + 1.0*tau0_star); */
   real K = exp(pow(1.0, 2) + log(1.0) + 1.0*K_star);
 }
 
@@ -103,8 +103,8 @@ model {
   x_init_star ~ normal(0, 1.0);
   z_init_star ~ normal(0, 1.0);
 
-  /* time_step_star ~ normal(0, 1.0); */
-  tau0_star ~ normal(0, 1.0);
+  time_step_star ~ normal(0, 1.0);
+  /* tau0_star ~ normal(0, 1.0); */
   K_star ~ normal(0, 1.0);
   
   for (t in 1:nt) {
