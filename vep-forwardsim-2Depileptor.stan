@@ -45,8 +45,7 @@ data {
   real time_step;
   int nsteps;
   real sigma;
-  real k;
-  real epsilon;
+  real K;
   
   // time-series state non-centering:
   row_vector[nn] x_init;
@@ -73,7 +72,7 @@ generated quantities {
   for (t in 1:nt) {
     for(i in 1:nsteps){
       x_t = x_step(x_t, z_t, I1, time_step, time_scale, sigma);
-      z_t = z_step(x_t, z_t, x0, k*SC, time_step, time_scale, z_eta[t], sigma, tau0);
+      z_t = z_step(x_t, z_t, x0, K*SC, time_step, time_scale, z_eta[t], sigma, tau0);
     }
     x[t] = x_t;
     z[t] = z_t;
