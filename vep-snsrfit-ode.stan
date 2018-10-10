@@ -49,17 +49,13 @@ data {
   row_vector[ns] snsr_pwr; //seeg sensor power
 }
 
-/* transformed data{ */
-/*   real K = 1.0; */
-/* } */
-
 parameters {
   row_vector[nn] x0_star;
   row_vector[nn] x_init_star;
   row_vector[nn] z_init_star;
   real amplitude_star;
   real offset;
-  real time_step_star;
+  real<lower=-1,upper=1> time_step_star;
   real K_star;
   real tau0_star;
   //  matrix<lower=0.0, upper=10.0>[nn, nn] FC;
@@ -70,10 +66,9 @@ transformed parameters{
   row_vector[nn] x_init = -2.0 + x_init_star;
   row_vector[nn] z_init = 3.0 + z_init_star;
   real amplitude = exp(pow(1.0, 2) + log(1.0) + 1.0*amplitude_star);
-  real time_step = exp(pow(0.6, 2) + log(0.5) + 0.6*time_step_star);
+  real time_step = exp(pow(1.0, 2) + log(0.5) + 1.0*time_step_star);
   real tau0 = exp(pow(1.0, 2) + log(30.0) + 1.0*tau0_star);
   real K = exp(pow(1.0, 2) + log(1.0) + 1.0*K_star);
-  /* print(x0,x_init,z_init,amplitude,time_step,tau0,K); */
 
   // Euler integration of the epileptor without noise 
   real nsteps = ceil(time_step/dtt);
@@ -113,11 +108,9 @@ model {
   /* } */
   x_init_star ~ normal(0, 1.0);
   z_init_star ~ normal(0, 1.0);
-
-  time_step_star ~ normal(0, 1.0);
+  time_step_star ~ normal(0, 1.0) T[-1,1];
   tau0_star ~ normal(0, 1.0);
   K_star ~ normal(0, 1.0);
-
   for (t in 1:nt) {
     slp[t] ~ normal(mu_slp[t], epsilon_slp);
   }
