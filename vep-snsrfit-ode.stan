@@ -47,8 +47,6 @@ data {
   // Modelled data
   row_vector[ns] slp[nt]; //seeg log power
   row_vector[ns] snsr_pwr; //seeg sensor power
-
-  real alpha;
 }
 
 parameters {
@@ -64,13 +62,13 @@ parameters {
 }
 
 transformed parameters{
-  row_vector[nn] x0 = -2.5 + alpha*x0_star;
-  row_vector[nn] x_init = -2.0 + alpha*x_init_star;
-  row_vector[nn] z_init = 3.0 + alpha*z_init_star;
-  real amplitude = exp(pow(1.0, 2) + log(1.0) + 1.0*alpha*amplitude_star);
-  real time_step = exp(pow(1.0, 2) + log(0.5) + 1.0*alpha*time_step_star);
-  real tau0 = exp(pow(1.0, 2) + log(30.0) + 1.0*alpha*tau0_star);
-  real K = exp(pow(1.0, 2) + log(1.0) + 1.0*alpha*K_star);
+  row_vector[nn] x0 = -2.5 + x0_star;
+  row_vector[nn] x_init = -2.0 + x_init_star;
+  row_vector[nn] z_init = 3.0 + z_init_star;
+  real amplitude = exp(pow(1.0, 2) + log(1.0) + 1.0*amplitude_star);
+  real time_step = exp(pow(1.0, 2) + log(0.5) + 1.0*time_step_star);
+  real tau0 = exp(pow(1.0, 2) + log(30.0) + 1.0*tau0_star);
+  real K = exp(pow(1.0, 2) + log(1.0) + 1.0*K_star);
 
   // Euler integration of the epileptor without noise 
   real nsteps = ceil(time_step/dtt);

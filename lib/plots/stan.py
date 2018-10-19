@@ -124,20 +124,25 @@ def x0_violin_syn(x0_infer, x0_true, ez, pz, figsize, figname='', legend_loc='up
     if(figname):
         plt.savefig(figname)
 
-def x0_violin_patient(x0_infer, ez_hyp, figsize, figname='', legend_loc='upper right'):
+
+def x0_violin_patient(x0_infer,
+                      ez_hyp,
+                      figsize,
+                      figname='',
+                      legend_loc='upper right',
+                      plt_close=False):
     import matplotlib.pyplot as plt
     import numpy as np
     from matplotlib.lines import Line2D
-    
     nn = x0_infer.shape[1]
-
     plt.figure(figsize=figsize)
-    violins = plt.violinplot(x0_infer, showmeans=True, points=1000);
-    for i,violin_i in enumerate(violins['bodies']):
-        if(i+1 in ez_hyp):
+    violins = plt.violinplot(
+        x0_infer, showmeans=True, points=1000)
+    for i, violin_i in enumerate(violins['bodies']):
+        if (i + 1 in ez_hyp):
             violin_i.set_facecolor('red')
-            violin_i.set_edgecolor('black')
-            violin_i.set_alpha(0.3)
+            violin_i.set_edgecolor('red')
+            violin_i.set_alpha(0.8)
     violins['cmins'].set_color('black')
     violins['cmins'].set_alpha(0.3)
     violins['cmaxes'].set_color('black')
@@ -148,22 +153,29 @@ def x0_violin_patient(x0_infer, ez_hyp, figsize, figname='', legend_loc='upper r
     violins['cmeans'].set_alpha(0.3)
     # plt.axhline(-2.0, color='green', alpha=0.3)
     # xtick_labels = []
-
     # for i in range(nn):
     #     if(i%2 == 0):
     #         xtick_labels.append(str(i+1))
     #     else:
     #         xtick_labels.append('')
-    plt.xticks(np.r_[1:nn+1:2],np.r_[1:nn+1:2]);
-    plt.xlabel('Region#',fontsize=15);
-    plt.ylabel('$x_0$',fontsize=15);
-
+    plt.xticks(np.r_[1:nn + 1:2], np.r_[1:nn + 1:2])
+    plt.xlabel(
+        'Region#', fontsize=15)
+    plt.ylabel(
+        '$x_0$', fontsize=15)
     # plt.plot(ez_hyp, -2.0+np.zeros_like(ez_hyp), color='red', marker='*',
     #          markersize=5, linestyle='None')
-    legend_elements = [Line2D([0], [0], linewidth=4, color='red', alpha=0.3,
-                              label='EZ clinical hypothesis')]
-                       # Line2D([0], [0], linewidth=3, color='C0', alpha=0.8, label='Inferred')]
+    legend_elements = [
+        Line2D(
+            [0], [0],
+            linewidth=4,
+            color='red',
+            alpha=0.8,
+            label='EZ clinical hypothesis')
+    ]
+    # Line2D([0], [0], linewidth=3, color='C0', alpha=0.8, label='Inferred')]
     plt.legend(handles=legend_elements, loc=legend_loc, frameon=True)
-    if(figname):
+    if (figname):
         plt.savefig(figname)
-    plt.close()
+    if (plt_close):
+        plt.close()
