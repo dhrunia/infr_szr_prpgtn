@@ -41,6 +41,9 @@ data {
   matrix[ns,nn] gain;
   matrix<lower=0.0, upper=1.0>[nn, nn] SC;
 
+  // Hyperparameters
+  row_vector[ns] mu_epsilon_slp;
+
   // Modelled data
   row_vector[ns] slp[nt]; //seeg log power
   row_vector[ns] snsr_pwr; //seeg sensor power
@@ -56,7 +59,7 @@ parameters {
   real K_star;
   real tau0_star;
   //  matrix<lower=0.0, upper=10.0>[nn, nn] FC;
-  real epsilon_slp_star;
+  row_vector[ns] epsilon_slp_star;
   real epsilon_snsr_pwr_star;
 }
 
@@ -68,7 +71,7 @@ transformed parameters{
   real time_step = exp(pow(1.0, 2) + log(0.1) + 1.0*time_step_star);
   real tau0 = exp(pow(1.0, 2) + log(30.0) + 1.0*tau0_star);
   real K = exp(pow(1.0, 2) + log(1.0) + 1.0*K_star);
-  real epsilon_slp = exp(pow(1.0, 2) + log(1.0) + 1.0*epsilon_slp_star);
+  row_vector[ns] epsilon_slp = exp(pow(0.1, 2) + log(mu_epsilon_slp) + 0.1*epsilon_slp_star);
   real epsilon_snsr_pwr = exp(pow(0.5, 2) + log(100.0) + 0.5*epsilon_snsr_pwr_star);
 
   // Euler integration of the epileptor without noise 
