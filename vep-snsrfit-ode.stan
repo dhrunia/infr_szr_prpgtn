@@ -41,8 +41,8 @@ data {
   matrix[ns,nn] gain;
   matrix<lower=0.0, upper=1.0>[nn, nn] SC;
 
-  real epsilon_slp;
-  real epsilon_snsr_pwr;
+  row_vector[ns] epsilon_slp;
+  row_vector[ns] epsilon_snsr_pwr;
 
   // Modelled data
   row_vector[ns] slp[nt]; //seeg log power
@@ -66,7 +66,7 @@ transformed parameters{
   row_vector[nn] x_init = -2.0 + x_init_star;
   row_vector[nn] z_init = 3.0 + z_init_star;
   real amplitude = exp(pow(1.0, 2) + log(1.0) + 1.0*amplitude_star);
-  real time_step = exp(pow(1.0, 2) + log(0.5) + 1.0*time_step_star);
+  real time_step = exp(pow(1.0, 2) + log(0.1) + 1.0*time_step_star);
   real tau0 = exp(pow(1.0, 2) + log(30.0) + 1.0*tau0_star);
   real K = exp(pow(1.0, 2) + log(1.0) + 1.0*K_star);
 
@@ -79,6 +79,7 @@ transformed parameters{
   row_vector[nn] z[nt];
   row_vector[ns] mu_slp[nt];
   row_vector[ns] mu_snsr_pwr = rep_row_vector(0, ns);
+  /* print("time_step:",time_step,"nsteps",nsteps); */
   x_t = x_init;
   z_t = z_init;
   for (t in 1:nt) {
