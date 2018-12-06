@@ -47,8 +47,6 @@ data {
   // Modelled data
   row_vector[ns] slp[nt]; //seeg log power
   row_vector[ns] snsr_pwr; //seeg sensor power
-
-  real alpha;
 }
 
 parameters {
@@ -61,6 +59,7 @@ parameters {
   real K_star;
   real tau0_star;
   //  matrix<lower=0.0, upper=10.0>[nn, nn] FC;
+  real<lower=1> alpha;
 }
 
 transformed parameters{
@@ -78,6 +77,8 @@ transformed parameters{
   real idx_real;
   row_vector[nn] x_t;
   row_vector[nn] z_t;
+  row_vector[nn] x_tt;
+  row_vector[nn] z_tt;
   row_vector[nn] x[nt];
   row_vector[nn] z[nt];
   row_vector[ns] mu_slp[nt];
@@ -87,8 +88,10 @@ transformed parameters{
   for (t in 1:nt) {
     idx_real = 0;
     while(idx_real != nsteps){
-      x_t = x_step(x_t, z_t, I1, dtt);
-      z_t = z_step(x_t, z_t, x0, K*SC, dtt, tau0);
+      x_tt = x_t;
+      z_tt = z_t;
+      x_t = x_step(x_tt, z_tt, I1, dtt);
+      z_t = z_step(x_tt, z_tt, x0, K*SC, dtt, tau0);
       idx_real += 1;
     }
     x[t] = x_t;
