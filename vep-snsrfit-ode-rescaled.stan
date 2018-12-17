@@ -27,6 +27,26 @@ functions {
     z_next = z + (time_step * dz);
     return z_next;
   }
+  
+  row_vector x_z_interp(row_vector x, row_vector z, real I1, real time_step, real dt,
+			row_vector x0, matrix SC, real tau0) {
+    int nn = num_elements(x);
+    row_vector[2*nn] x_z_t;
+    row_vector[nn] x_t;
+    row_vector[nn] z_t;
+    real nsteps = floor(time_step/dt);
+    real step_count = 0;
+    x_t = x;
+    z_t = z;
+    while(step_count != nsteps){
+      x_t = x_step(x_t, z_t, I1, dt);
+      z_t = z_step(x_t, z_t, x0, SC, dt, tau0);
+      step_count += 1;
+    }
+    x_z_t[1:nn] = x_t;
+    x_z_t[nn+1:2*nn] = z_t;
+    return x_z_t;
+  }
 }
 
 data {
@@ -36,7 +56,7 @@ data {
   real I1;
   /* real tau0; */
   /* real time_step; */
-  real dtt;
+  real dt;
 
   matrix[ns,nn] gain;
   matrix<lower=0.0, upper=1.0>[nn, nn] SC;
@@ -73,29 +93,18 @@ transformed parameters{
   real K = exp(pow(1.0, 2) + log(1.0) + 1.0*(1/alpha)*K_star);
 
   // Euler integration of the epileptor without noise 
-  real nsteps = ceil(time_step/dtt);
-  real idx_real;
-  row_vector[nn] x_t;
-  row_vector[nn] z_t;
-  row_vector[nn] x_tt;
-  row_vector[nn] z_tt;
+  row_vector[2*nn] x_z_t;
   row_vector[nn] x[nt];
   row_vector[nn] z[nt];
   row_vector[ns] mu_slp[nt];
   row_vector[ns] mu_snsr_pwr = rep_row_vector(0, ns);
-  x_t = x_init;
-  z_t = z_init;
   for (t in 1:nt) {
-    idx_real = 0;
-    while(idx_real != nsteps){
-      x_tt = x_t;
-      z_tt = z_t;
-      x_t = x_step(x_tt, z_tt, I1, dtt);
-      z_t = z_step(x_tt, z_tt, x0, K*SC, dtt, tau0);
-      idx_real += 1;
-    }
-    x[t] = x_t;
-    z[t] = z_t;
+    if(t ==1)
+      x_z_t = x_z_interp(x_init, z_init, I1, time_step, dt, x0, K*SC, tau0);
+    else
+      x_z_t = x_z_interp(x[t-1], z[t-1], I1, time_step, dt, x0, K*SC, tau0);
+    x[t] = x_z_t[1:nn];
+    z[t] = x_z_t[nn+1:2*nn];
     mu_slp[t] = amplitude * (log(gain * exp(x[t])')' + offset);
     for (i in 1:ns){
       mu_snsr_pwr[i] += pow(mu_slp[t][i], 2);
