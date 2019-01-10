@@ -285,6 +285,8 @@ def read_samples(csvs, nwarmup=0, nsampling=0, variables_of_interest=[]):
                         algorithm = [
                             el.strip() for el in t[1:].strip().split("=")
                         ][-1]
+                        if('optimize' in algorithm):
+                            nsamples = 1
                     elif ('num_samples' in t):
                         sampling_iters = int(
                             t[1:].strip().split(' ')[2].strip())
@@ -352,6 +354,10 @@ def read_samples(csvs, nwarmup=0, nsampling=0, variables_of_interest=[]):
                                             var_dims, var_start_idx)
                             sample_idx += 1
                     elif ('variational' in algorithm):
+                        read_one_sample(t, data, sample_idx, var_names,
+                                        var_dims, var_start_idx)
+                        sample_idx += 1
+                    elif ('optimize' in algorithm):
                         read_one_sample(t, data, sample_idx, var_names,
                                         var_dims, var_start_idx)
                         sample_idx += 1
