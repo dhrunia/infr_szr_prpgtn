@@ -43,6 +43,7 @@ data {
   row_vector[nn] z_init;
   real epsilon_slp;
   real epsilon_snsr_pwr;
+  real<lower=1> alpha;
 
   // Modelled data
   row_vector[ns] slp[nt]; //seeg log power
@@ -58,7 +59,6 @@ parameters {
   real K_star;
   real tau0_star;
   //  matrix<lower=0.0, upper=10.0>[nn, nn] FC;
-  real<lower=1> alpha;
 }
 
 transformed parameters{
