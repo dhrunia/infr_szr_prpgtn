@@ -58,11 +58,11 @@ parameters {
   real K_star;
   real tau0_star;
   //  matrix<lower=0.0, upper=10.0>[nn, nn] FC;
-  real alpha_star;
+  real<lower=0> alpha;
 }
 
 transformed parameters{
-  real alpha = exp(pow(5.0, 2) + log(1.0) + 5.0*alpha_star);
+  /* real alpha = exp(pow(5.0, 2) + log(1.0) + 5.0*alpha_star); */
   row_vector[nn] x0 = -2.5 + (1/alpha)*x0_star;
   /* row_vector[nn] x_init = -2.0 + (1/alpha)*x_init_star; */
   /* row_vector[nn] z_init = 3.0 + (1/alpha)*z_init_star; */
