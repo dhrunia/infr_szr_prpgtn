@@ -45,7 +45,6 @@ data {
   // Modelled data
   row_vector[ns] slp[nt]; //seeg log power
   row_vector[ns] snsr_pwr; //seeg sensor power
-  real<lower=0> alpha;
 }
 
 parameters {
@@ -59,6 +58,7 @@ parameters {
   //  matrix<lower=0.0, upper=10.0>[nn, nn] FC;
   real epsilon_slp_star;
   real epsilon_snsr_pwr_star;
+  real<lower=0> alpha;
 }
 
 transformed parameters{
