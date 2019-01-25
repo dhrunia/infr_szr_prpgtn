@@ -41,8 +41,6 @@ data {
 
   row_vector[nn] x_init;
   row_vector[nn] z_init;
-  real epsilon_slp;
-  real epsilon_snsr_pwr;
 
   // Modelled data
   row_vector[ns] slp[nt]; //seeg log power
@@ -58,18 +56,21 @@ parameters {
   real K_star;
   real tau0_star;
   //  matrix<lower=0.0, upper=10.0>[nn, nn] FC;
+  real epsilon_slp_star;
+  real epsilon_snsr_pwr_star;
   real<lower=0> alpha;
 }
 
 transformed parameters{
-  /* real alpha = exp(pow(5.0, 2) + log(1.0) + 5.0*alpha_star); */
   row_vector[nn] x0 = -2.5 + (1/alpha)*x0_star;
-  /* row_vector[nn] x_init = -2.0 + (1/alpha)*x_init_star; */
-  /* row_vector[nn] z_init = 3.0 + (1/alpha)*z_init_star; */
+  /* row_vector[nn] x_init = -2.0 + *x_init_star; */
+  /* row_vector[nn] z_init = 3.0 + *z_init_star; */
   real amplitude = exp(pow(1.0, 2) + log(1.0) + 1.0*(1/alpha)*amplitude_star);
   real offset = (1/alpha)*offset_star;
   real tau0 = exp(pow(1.0, 2) + log(30.0) + 1.0*(1/alpha)*tau0_star);
   real K = exp(pow(1.0, 2) + log(1.0) + 1.0*(1/alpha)*K_star);
+  real epsilon_slp = exp(pow(1.0, 2) + log(1.0) + 1.0*(1/alpha)*epsilon_slp_star);
+  real epsilon_snsr_pwr = exp(pow(1.0, 2) + log(100.0) + 1.0*(1/alpha)*epsilon_snsr_pwr_star);
 
   // Euler integration of the epileptor without noise 
   row_vector[nn] x[nt];
@@ -105,11 +106,13 @@ model {
   /* target += normal_lpdf(z_init_star | 0, 1.0); */
   target += normal_lpdf(tau0_star | 0, 1.0);
   target += normal_lpdf(K_star | 0, 1.0);
+  target += normal_lpdf(epsilon_slp_star | 0, 1.0);
+  target += normal_lpdf(epsilon_snsr_pwr_star | 0, 1.0);
   for (t in 1:nt) {
     target += normal_lpdf(slp[t] | mu_slp[t], epsilon_slp);
   }
   target += normal_lpdf(snsr_pwr | mu_snsr_pwr, epsilon_snsr_pwr);
-  target += -(nn + 4) * log(alpha);
+  target += -(nn + 6) * log(alpha);
 }
 
 generated quantities {
