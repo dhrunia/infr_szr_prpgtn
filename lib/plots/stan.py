@@ -174,10 +174,10 @@ def x0_violin_patient(x0_infer,
         plt.close()
 
 
-def pair_plots(samples, params, figname=''):
+def pair_plots(samples, params, figname='', sampler=None):
     import numpy as np
     import matplotlib.pyplot as plt
-    div_iters = np.where(samples['divergent__'] == 1)[0]
+    div_iters = np.where(samples['divergent__'] == 1)[0] if sampler == 'HMC' else []
     plt.figure(figsize=(23, 13))
     nParams = len(params)
     for i in range(nParams):
@@ -202,7 +202,7 @@ def pair_plots(samples, params, figname=''):
             if (j == 0):
                 plt.ylabel(params[i], fontsize=13, rotation=90)
     plt.tight_layout()
-    if(figname):
+    if (figname):
         plt.savefig(figname)
 
 
