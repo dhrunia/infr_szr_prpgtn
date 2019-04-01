@@ -52,10 +52,14 @@ class vep_ode:
             tau0_star = pm.Normal('tau0_star', mu=0.0, sd=1.0)
             tau0 = pm.Deterministic('tau0',
                                     logNormal(tau0_star, mode=30.0, sd=1.0))
+            x_init_star = pm.Normal('x_init_star', mu=0.0, sd=1.0, shape=self.consts['nn'])
+            x_init = pm.Deterministic('x_init', -2.0 + x_init_star)
+            z_init_star = pm.Normal('z_init_star', mu=0.0, sd=1.0, shape=self.consts['nn'])
+            z_init = pm.Deterministic('z_init', 3.5 + z_init_star)
             # Cast constants in the model as tensors using theano shared variables
             time_step = theano.shared(self.consts['time_step'], 'time_step')
-            x_init = theano.shared(self.consts['x_init'], 'x_init')
-            z_init = theano.shared(self.consts['z_init'], 'z_init')
+            # x_init = theano.shared(self.consts['x_init'], 'x_init')
+            # z_init = theano.shared(self.consts['z_init'], 'z_init')
             SC = theano.shared(self.consts['SC'], 'SC')
             I1 = theano.shared(self.consts['I1'], 'I1')
 
