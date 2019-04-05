@@ -78,22 +78,22 @@ class vep_ode:
                 tt.log(
                     tt.dot(self.consts['gain'], tt.exp(tt.transpose(x_sym))) +
                     offset))
-            mu_slp = pm.Deterministic('mu_slp', _mu_slp - _mu_slp.mean(axis=0))
-            # _mu_snsr_pwr = (mu_slp * mu_slp).sum(axis=0)
-            # _mu_snsr_pwr = _mu_snsr_pwr / _mu_snsr_pwr.max()
-            # mu_snsr_pwr = pm.Deterministic('mu_snsr_pwr', _mu_snsr_pwr)
+            mu_slp = pm.Deterministic('mu_slp', _mu_slp)
+            _mu_snsr_pwr = (mu_slp * mu_slp).sum(axis=0)
+            _mu_snsr_pwr = _mu_snsr_pwr / _mu_snsr_pwr.max()
+            mu_snsr_pwr = pm.Deterministic('mu_snsr_pwr', _mu_snsr_pwr)
             slp = pm.Normal(
                 'slp',
                 mu=mu_slp,
                 sd=self.consts['eps_slp'],
                 shape=(self.consts['nt'], self.consts['ns']),
                 observed=self.obs['slp'])
-            # snsr_pwr = pm.Normal(
-            #     'snsr_pwr',
-            #     mu=mu_snsr_pwr,
-            #     sd=self.consts['eps_snsr_pwr'],
-            #     shape=self.consts['ns'],
-            #     observed=self.obs['snsr_pwr'])
+            snsr_pwr = pm.Normal(
+                'snsr_pwr',
+                mu=mu_snsr_pwr,
+                sd=self.consts['eps_snsr_pwr'],
+                shape=self.consts['ns'],
+                observed=self.obs['snsr_pwr'])
 
 
 class vep_ode_scaled:
@@ -128,10 +128,16 @@ class vep_ode_scaled:
                 'tau0_star', mu=0.0, sd=1.0, transform=tr.Linear(self.alpha, 0))
             tau0 = pm.Deterministic('tau0',
                                     logNormal(tau0_star, mode=30.0, sd=1.0))
+            x_init_star = pm.Normal(
+                'x_init_star', mu=0.0, sd=1.0, shape=self.consts['nn'], transform=tr.Linear(self.alpha, 0))
+            x_init = pm.Deterministic('x_init', -2.0 + x_init_star)
+            z_init_star = pm.Normal(
+                'z_init_star', mu=0.0, sd=1.0, shape=self.consts['nn'], transform=tr.Linear(self.alpha, 0))
+            z_init = pm.Deterministic('z_init', 3.5 + z_init_star)
             # Cast constants in the model as tensors using theano shared variables
             time_step = theano.shared(self.consts['time_step'], 'time_step')
-            x_init = theano.shared(self.consts['x_init'], 'x_init')
-            z_init = theano.shared(self.consts['z_init'], 'z_init')
+            # x_init = theano.shared(self.consts['x_init'], 'x_init')
+            # z_init = theano.shared(self.consts['z_init'], 'z_init')
             SC = theano.shared(self.consts['SC'], 'SC')
             I1 = theano.shared(self.consts['I1'], 'I1')
             output, updates = theano.scan(
@@ -153,7 +159,7 @@ class vep_ode_scaled:
             slp = pm.Normal(
                 'slp',
                 mu=mu_slp,
-                sd=self.consts['epsilon_slp'],
+                sd=self.consts['eps_slp'],
                 shape=(self.consts['nt'], self.consts['ns']),
                 observed=self.obs['slp'])
             # snsr_pwr = pm.Normal(

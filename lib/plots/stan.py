@@ -83,7 +83,7 @@ def x0_violin_syn(x0_infer, x0_true, ez, pz, figsize, figname='', legend_loc='up
     import matplotlib.pyplot as plt
     import numpy as np
     from matplotlib.lines import Line2D
-    
+
     nn = x0_true.shape[0]
     ez_pz = np.concatenate((ez, pz))
     non_ez_pz = np.setdiff1d(np.arange(0, nn), ez_pz)
