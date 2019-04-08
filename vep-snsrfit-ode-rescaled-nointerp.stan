@@ -52,25 +52,29 @@ data {
 }
 
 parameters {
-  row_vector[nn] x0_star;
-  /* row_vector[nn] x_init_star; */
-  /* row_vector[nn] z_init_star; */
-  real amplitude_star;
-  real offset_star;
-  real K_star;
-  real tau0_star;
+  row_vector[nn] x0_star_star;
+  /* row_vector[nn] x_init_star_star; */
+  /* row_vector[nn] z_init_star_star; */
+  real amplitude_star_star;
+  real offset_star_star;
+  real K_star_star;
+  real tau0_star_star;
   //  matrix<lower=0.0, upper=10.0>[nn, nn] FC;
   real<lower=0> alpha;
 }
 
 transformed parameters{
+  row_vector[nn] x0_star = (1/alpha)*x0_star_star;
+  real amplitude_star = (1/alpha)*amplitude_star_star;
+  real offset_star= (1/alpha)*offset_star_star;
+  real K_star= (1/alpha)*K_star_star;
+  real tau0_star= (1/alpha)*tau0_star_star;
+
   row_vector[nn] x0 = -2.5 + x0_star;
-  /* row_vector[nn] x_init = -2.0 + *x_init_star; */
-  /* row_vector[nn] z_init = 3.0 + *z_init_star; */
-  real amplitude = exp(pow(1.0, 2) + log(1.0) + 1.0*(1/alpha)*amplitude_star);
-  real offset = (1/alpha)*offset_star;
-  real tau0 = exp(pow(1.0, 2) + log(30.0) + 1.0*(1/alpha)*tau0_star);
-  real K = exp(pow(1.0, 2) + log(1.0) + 1.0*(1/alpha)*K_star);
+  real amplitude = exp(pow(1.0, 2) + log(1.0) + 1.0*amplitude_star);
+  real offset = offset_star;
+  real tau0 = exp(pow(1.0, 2) + log(30.0) + 1.0*tau0_star);
+  real K = exp(pow(1.0, 2) + log(1.0) + 1.0*K_star);
 
   // Euler integration of the epileptor without noise 
   row_vector[nn] x[nt];
@@ -91,6 +95,7 @@ transformed parameters{
       mu_snsr_pwr[i] += pow(mu_slp[t][i], 2);
     }
   }
+  mu_snsr_pwr ./= max(mu_snsr_pwr);
 }
 
 model {
