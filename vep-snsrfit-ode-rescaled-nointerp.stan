@@ -34,13 +34,13 @@ data {
   int ns;
   int nt;
   matrix[ns,nn] gain;
-  matrix<lower=0.0, upper=1.0>[nn, nn] SC;
+  matrix<lower=0.0>[nn, nn] SC;
 
   // Modelled data
   row_vector[ns] slp[nt]; //seeg log power
   row_vector[ns] snsr_pwr; //seeg sensor power
-
 }
+
 transformed data{
   real I1 = 3.1;
   real time_step = 0.1;
@@ -48,9 +48,9 @@ transformed data{
   row_vector[nn] x_init = rep_row_vector(-2.0, nn);
   row_vector[nn] z_init = rep_row_vector(3.5, nn);
 
-  // Hyperparameters
+  /* // Hyperparameters */
   real eps_slp = 0.1;
-  real eps_snsr_pwr = 0.1;
+  real eps_snsr_pwr = 0.02;
 }
 
 parameters {
@@ -94,12 +94,12 @@ transformed parameters{
       z[t] = z_step(x[t-1], z[t-1], x0, K*SC, time_step, tau0);
     }
     mu_slp[t] = amplitude * (log(gain * exp(x[t])')' + offset);
-    for (i in 1:ns){
-      mu_snsr_pwr[i] += pow(mu_slp[t][i], 2);
-    }
+    /* for (i in 1:ns){ */
+    /*   mu_snsr_pwr[i] += pow(mu_slp[t][i], 2); */
+    /* } */
+    mu_snsr_pwr += mu_slp[t] .* mu_slp[t];
   }
   mu_snsr_pwr = mu_snsr_pwr / nt;
-  /* mu_snsr_pwr ./= max(mu_snsr_pwr); */
 }
 
 model {
