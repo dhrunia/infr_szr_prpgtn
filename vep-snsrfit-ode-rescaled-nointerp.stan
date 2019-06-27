@@ -51,6 +51,8 @@ transformed data{
   /* // Hyperparameters */
   real eps_slp = 0.1;
   real eps_snsr_pwr = 5.0/150;
+  //Rescaling parameter
+  real<lower=0> alpha = 0.25;
 }
 
 parameters {
@@ -59,8 +61,6 @@ parameters {
   real offset_star_star;
   real K_star_star;
   real tau0_star_star;
-  //Rescaling parameter
-  real<lower=0> alpha;
 }
 
 transformed parameters{
@@ -94,9 +94,6 @@ transformed parameters{
       z[t] = z_step(x[t-1], z[t-1], x0, K*SC, time_step, tau0);
     }
     mu_slp[t] = amplitude * (log(gain * exp(x[t])')' + offset);
-    /* for (i in 1:ns){ */
-    /*   mu_snsr_pwr[i] += pow(mu_slp[t][i], 2); */
-    /* } */
     mu_snsr_pwr += mu_slp[t] .* mu_slp[t];
   }
   mu_snsr_pwr = mu_snsr_pwr / nt;
