@@ -69,10 +69,8 @@ transformed parameters{
   real offset_star= (1/alpha)*offset_star_star;
   real K_star= (1/alpha)*K_star_star;
   real tau0_star= (1/alpha)*tau0_star_star;
-  /* row_vector[nn] x_init_star = (1/alpha)*x_init_star_star; */
-  /* row_vector[nn] z_init_star = (1/alpha)*z_init_star_star; */
     
-  row_vector[nn] x0 = -2.5 + x0_star;
+  row_vector[nn] x0 = -3.0 + x0_star;
   real amplitude = exp(pow(1.0, 2) + log(1.0) + 1.0*amplitude_star);
   real offset = offset_star;
   real tau0 = exp(pow(1.0, 2) + log(30.0) + 1.0*tau0_star);
