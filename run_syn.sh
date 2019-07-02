@@ -1,0 +1,18 @@
+ROOT_DIR=$PWD/..
+STAN_FNAME=exp10.57.14;
+SAMPLING_ITERS=4000;
+WARMUP_ITERS=1000;
+NCHAINS=20;
+DELTA=0.95;
+MAX_DEPTH=20;
+JITTER=0;
+DATA_PATH=${ROOT_DIR}/Rfiles/fit_data.R
+INIT_PATH=${ROOT_DIR}/Rfiles/param_init.R
+RES_DIR=${ROOT_DIR}/samples
+LOG_DIR=${ROOT_DIR}/logs
+FNAME_SUFFIX="syn_cj"
+
+for i in `seq 1 ${NCHAINS}`;do
+    sbatch run_single_hmc.sh ${DATA_PATH} ${INIT_PATH} ${RES_DIR} ${STAN_FNAME} ${SAMPLING_ITERS} ${WARMUP_ITERS} ${DELTA} ${MAX_DEPTH} ${JITTER} ${FNAME_SUFFIX} ${LOG_DIR} ${i} 
+done
+
