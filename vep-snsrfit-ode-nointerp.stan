@@ -33,83 +33,81 @@ data {
   int nn;
   int ns;
   int nt;
-  real I1;
-  real time_step;
-
   matrix[ns,nn] gain;
-  matrix<lower=0.0, upper=1.0>[nn, nn] SC;
-
-  row_vector[nn] x_init;
-  row_vector[nn] z_init;
-  real epsilon_slp;
-  real epsilon_snsr_pwr;
+  matrix<lower=0.0>[nn, nn] SC;
 
   // Modelled data
   row_vector[ns] slp[nt]; //seeg log power
   row_vector[ns] snsr_pwr; //seeg sensor power
 
-  // Fixed parameters 
-}
-transformed data{
-  real amplitude = 4.3;
-  real offset = -2.9;
-  real K = 1.0;
-  real tau0 = 10;
+  // Data on priors
+  row_vector[nn] x0_mu;
 }
 
+transformed data{
+  real I1 = 3.1;
+  real time_step = 0.1;
+
+  //row_vector[nn] x_init = rep_row_vector(-2.0, nn);
+  //row_vector[nn] z_init = rep_row_vector(3.5, nn);
+
+  /* // Hyperparameters */
+  //real eps_slp = 0.1;
+  //real eps_snsr_pwr = 1.0;
+}
 
 parameters {
-  row_vector[nn] x0_star;
-  real<lower=0> beta;
-  /* row_vector[nn] x_init_star; */
-  /* row_vector[nn] z_init_star; */
-  /* real amplitude_star; */
-  /* real offset_star; */
-  /* real K_star; */
-  /* real tau0_star; */
-  //  matrix<lower=0.0, upper=10.0>[nn, nn] FC;
+  row_vector[nn] x0;
+  real amplitude;
+  real offset;
+  real K;
+  real tau0;
+  row_vector[nn] x_init;
+  row_vector[nn] z_init;
+  real eps_slp;
+  real eps_snsr_pwr;
 }
 
-transformed parameters{
-  row_vector[nn] x0 = -2.5 + x0_star;
-  /* row_vector[nn] x_init = -2.0 + x_init_star; */
-  /* row_vector[nn] z_init = 3.0 + z_init_star; */
-  /* real amplitude = exp(pow(1.0, 2) + log(1.0) + 1.0*amplitude_star); */
-  /* real offset = offset_star; */
-  /* real tau0 = exp(pow(1.0, 2) + log(30.0) + 1.0*tau0_star); */
-  /* real K = exp(pow(1.0, 2) + log(1.0) + 1.0*K_star); */
-
+transformed parameters{   
   // Euler integration of the epileptor without noise 
   row_vector[nn] x[nt];
   row_vector[nn] z[nt];
   row_vector[ns] mu_slp[nt];
   row_vector[ns] mu_snsr_pwr = rep_row_vector(0, ns);
+  print("amplitude=",amplitude," offset=",offset," tau0=",tau0," K=",K," eps_slp=",eps_slp," eps_snsr_pwr=",eps_snsr_pwr);
+  print("x_init=",x_init);
+  print("z_init=",z_init);
   for (t in 1:nt) {
     if(t == 1){
       x[t] = x_step(x_init, z_init, I1, time_step);
-      z[t] = z_step(x_init, z_init, beta*x0, K*SC, time_step, tau0);
+      z[t] = z_step(x_init, z_init, x0, K*SC, time_step, tau0);
     }
     else{
       x[t] = x_step(x[t-1], z[t-1], I1, time_step);
-      z[t] = z_step(x[t-1], z[t-1], beta*x0, K*SC, time_step, tau0);
+      z[t] = z_step(x[t-1], z[t-1], x0, K*SC, time_step, tau0);
     }
     mu_slp[t] = amplitude * (log(gain * exp(x[t])')' + offset);
-    for (i in 1:ns){
-      mu_snsr_pwr[i] += pow(mu_slp[t][i], 2);
-    }
+    mu_snsr_pwr += mu_slp[t] .* mu_slp[t];
   }
+  mu_snsr_pwr = mu_snsr_pwr / nt;
 }
 
 model {
-  target += normal_lpdf(x0_star | 0, 1.0);
-  /* target += normal_lpdf(amplitude_star | 0, 1.0); */
-  /* target += normal_lpdf(offset_star | 0, 1.0); */
-  /* target += normal_lpdf(tau0_star | 0, 1.0); */
-  /* target += normal_lpdf(K_star | 0, 1.0); */
-  for (t in 1:nt) {
-    target += normal_lpdf(slp[t] | mu_slp[t], epsilon_slp);
+  x0 ~ normal(x0_mu, 1.0);
+  amplitude ~ normal(1.0, 10.0)T[0,];
+  offset ~ normal(0, 10.0);
+  tau0 ~ normal(20, 10.0)T[5,];
+  K ~ normal(1.0, 10.0)T[0,];
+  for (i in 1:nn){
+    x_init[i] ~ normal(-2.0, 10.0);
+    z_init[i] ~ normal(3.5, 10.0);
   }
-  target += normal_lpdf(snsr_pwr | mu_snsr_pwr, epsilon_snsr_pwr);
+  eps_slp ~ normal(1, 10)T[0,];
+  eps_snsr_pwr ~ normal(1, 10)T[0,];
+  for (t in 1:nt) {
+    target += normal_lpdf(slp[t] | mu_slp[t], eps_slp);
+  }
+  target += normal_lpdf(snsr_pwr | mu_snsr_pwr, eps_snsr_pwr);
 }
 
 generated quantities {
