@@ -74,9 +74,9 @@ transformed parameters{
   row_vector[nn] z[nt];
   row_vector[ns] mu_slp[nt];
   row_vector[ns] mu_snsr_pwr = rep_row_vector(0, ns);
-  print("amplitude=",amplitude," offset=",offset," tau0=",tau0," K=",K," eps_slp=",eps_slp," eps_snsr_pwr=",eps_snsr_pwr);
-  print("x_init=",x_init);
-  print("z_init=",z_init);
+  /* print("amplitude=",amplitude," offset=",offset," tau0=",tau0," K=",K," eps_slp=",eps_slp," eps_snsr_pwr=",eps_snsr_pwr); */
+  /* print("x_init=",x_init); */
+  /* print("z_init=",z_init); */
   for (t in 1:nt) {
     if(t == 1){
       x[t] = x_step(x_init, z_init, I1, time_step);

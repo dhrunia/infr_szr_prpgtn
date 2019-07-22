@@ -4,6 +4,7 @@ ltxpng/*
 data/*
 results/*
 tmp/*
+datasets/*
 *~
 *.swp
 *.pyc
