@@ -11,5 +11,6 @@ _Model files_
   on source power profile
 
 _Fitting_
+
 - [vep-fit-syndata.ipynb](vep-fit-syndata.ipynb): Fitting synthetic data
 - [vep-fit-retrodata.ipynb](vep-fit-retrodata.ipynb): Fitting retrospective data
