@@ -173,6 +173,63 @@ def x0_violin_patient(x0_infer,
     if (plt_close):
         plt.close()
 
+def x0_bar_patient(x0_infer,
+                      ez_hyp,
+                      figsize,
+                      figname='',
+                      legend_loc='upper right',
+                      plt_close=False):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from matplotlib.lines import Line2D
+    nn = x0_infer.shape[1]
+    plt.figure(figsize=figsize)
+    plt.bar(
+        np.arange(1, ns + 1), x0_infer, color='black', alpha=0.3)
+    
+    violins = plt.violinplot(
+        x0_infer, showmeans=True, points=1000)
+    for i, violin_i in enumerate(violins['bodies']):
+        if (i + 1 in ez_hyp):
+            violin_i.set_facecolor('red')
+            violin_i.set_edgecolor('red')
+            violin_i.set_alpha(0.8)
+    violins['cmins'].set_color('black')
+    violins['cmins'].set_alpha(0.3)
+    violins['cmaxes'].set_color('black')
+    violins['cmaxes'].set_alpha(0.3)
+    violins['cbars'].set_color('black')
+    violins['cbars'].set_alpha(0.3)
+    violins['cmeans'].set_color('black')
+    violins['cmeans'].set_alpha(0.3)
+    # plt.axhline(-2.0, color='green', alpha=0.3)
+    # xtick_labels = []
+    # for i in range(nn):
+    #     if(i%2 == 0):
+    #         xtick_labels.append(str(i+1))
+    #     else:
+    #         xtick_labels.append('')
+    plt.xticks(np.r_[1:nn + 1:2], np.r_[1:nn + 1:2])
+    plt.xlabel(
+        'Region#', fontsize=15)
+    plt.ylabel(
+        '$x_0$', fontsize=15)
+    # plt.plot(ez_hyp, -2.0+np.zeros_like(ez_hyp), color='red', marker='*',
+    #          markersize=5, linestyle='None')
+    legend_elements = [
+        Line2D(
+            [0], [0],
+            linewidth=4,
+            color='red',
+            alpha=0.8,
+            label='EZ clinical hypothesis')
+    ]
+    # Line2D([0], [0], linewidth=3, color='C0', alpha=0.8, label='Inferred')]
+    plt.legend(handles=legend_elements, loc=legend_loc, frameon=True)
+    if (figname):
+        plt.savefig(figname)
+    if (plt_close):
+        plt.close()
 
 def pair_plots(samples, params, figname='', sampler=None):
     import numpy as np
@@ -206,6 +263,33 @@ def pair_plots(samples, params, figname='', sampler=None):
         plt.savefig(figname)
 
 
+        
+
+def plot_feature(x, ez=[], pz=[], figname='', giveylable='x', givetitle='Sample mean of posterior predicted source activity'):
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+    plt.figure(figsize=(10, 20))
+    plt.subplot(111)
+    legend_elements = [
+        Line2D([0], [0], color='red', linewidth=4, label='EZ'),
+        Line2D([0], [0], color='orange', linewidth=4, label='PZ')
+    ]
+    nn = x.shape[1]
+    for i in range(nn):
+        if (i in ez):
+            plt.plot(x[:, i], color='red')
+        elif (i in pz):
+            plt.plot(x[:, i], color='orange')
+        else:
+            plt.plot(x[:, i], color='black')
+    plt.xlabel('Time', fontsize=15)
+    plt.ylabel(giveylable, fontsize=15)
+    plt.title(givetitle, fontsize=15)
+    plt.legend(handles=legend_elements)
+    if (figname):
+        plt.savefig(figname)
+        
+        
 def plot_source(x, z, ez=[], pz=[], figname=''):
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
