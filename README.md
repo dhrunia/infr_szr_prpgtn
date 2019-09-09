@@ -13,3 +13,11 @@ _Model files_
 _Fitting_
 - [vep-fit-syndata.ipynb](vep-fit-syndata.ipynb): Fitting synthetic data
 - [vep-fit-retrodata.ipynb](vep-fit-retrodata.ipynb): Fitting retrospective data
+- 
+
+# TO Anirudh,
+
+You could start with Prestan-fit-bootstrapping.ipynb, since you are smart. :)
+Could you work on EI_prior branch and also update here. 
+
+I am working on Master branch, so we both can always synchonized. 
