@@ -5,7 +5,10 @@ import os
 import lib.plots.stan
 import lib.io.stan
 import matplotlib.pyplot as plt
+<<<<<<< HEAD
 from matplotlib.lines import Line2D
+=======
+>>>>>>> f5f8d8ef7c349d8057a88719332f428eae767d7c
 
 
 def check_completed(patient_ids, nchains, fname_suffix, root_dir):
@@ -248,13 +251,18 @@ patient_ids['engel1or2'] = ['id001_bt','id003_mg','id004_bj','id010_cmn','id013_
 patient_ids['engel3or4'] = ['id007_rd','id008_dmc','id023_br','id028_ca','id033_fc','id036_dm', 'id037_cg']
 precision = []
 recall = []
+<<<<<<< HEAD
 onst_thrshlds = [-0.05] #np.linspace(-0.5, 0.0, int(0.5/0.01)+1)
+=======
+onst_thrshlds = np.linspace(-0.5, 0.0, int(0.5/0.01)+1)
+>>>>>>> f5f8d8ef7c349d8057a88719332f428eae767d7c
 for threshold in onst_thrshlds:
     find_ez(threshold, patient_ids['engel1or2'], root_dir)
     p, r = precision_recall(patient_ids['engel1or2'], root_dir)
     precision.append(p)
     recall.append(r)
     # print(f"x0_threshold:{x0_threshold} => Precision:{p} \t Recall:{r} \n")
+<<<<<<< HEAD
 # plt.figure()
 # plt.plot(onst_thrshlds, precision, 'rx', label='Precision')
 # plt.plot(onst_thrshlds, recall, 'rx', label='Recall')
@@ -268,6 +276,18 @@ ax.bar([1,2], [precision[0],recall[0]], color=['black', 'grey'])
 precision = []
 recall = []
 onst_thrshlds = [-0.05] #np.linspace(-0.5, 0.0, int(0.5/0.01)+1)
+=======
+plt.figure()
+plt.plot(onst_thrshlds, precision, label='Precision')
+plt.plot(onst_thrshlds, recall, label='Recall')
+plt.title('Engel score I or II')
+plt.legend()
+plt.show(block=False)
+
+precision = []
+recall = []
+onst_thrshlds = np.linspace(-0.5, 0.0, int(0.5/0.01)+1)
+>>>>>>> f5f8d8ef7c349d8057a88719332f428eae767d7c
 for threshold in onst_thrshlds:
     find_ez(threshold, patient_ids['engel3or4'], root_dir)
     p, r = precision_recall(patient_ids['engel3or4'], root_dir)

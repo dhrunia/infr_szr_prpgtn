@@ -4,8 +4,12 @@ ltxpng/*
 data/*
 results/*
 tmp/*
+<<<<<<< HEAD
 tvbpipeline/*
 pipeline-master/*
+=======
+datasets/*
+>>>>>>> f5f8d8ef7c349d8057a88719332f428eae767d7c
 *~
 *.swp
 *.pyc
