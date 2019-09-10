@@ -4,6 +4,8 @@ ltxpng/*
 data/*
 results/*
 tmp/*
+tvbpipeline/*
+pipeline-master/*
 *~
 *.swp
 *.pyc
@@ -16,10 +18,11 @@ tmp/*
 *.out
 .vscode
 *.png
+*.zip
 .ipynb_checkpoints
 __pycache__
 cmdstan
 vep-*
 !vep*.stan
 !vep*.ipynb
-
+exp*

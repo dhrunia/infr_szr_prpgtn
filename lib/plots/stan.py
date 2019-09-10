@@ -43,7 +43,7 @@ def trace_nuts(csv, extras='', skip=0):
 #     pl.tight_layout()
 
     
-def nuts_diagnostics(data, figsize, figname=''):
+def nuts_diagnostics(data, figsize, figname='', plt_close=False):
     import matplotlib.pyplot as plt
     plt.figure(figsize=figsize)
     plt.subplot(3, 3, 1)
@@ -77,6 +77,8 @@ def nuts_diagnostics(data, figsize, figname=''):
     plt.tight_layout()
     if (figname):
         plt.savefig(figname)
+    if(plt_close):
+        plt.close()
 
 
 def x0_violin_syn(x0_infer, x0_true, ez, pz, figsize, figname='', legend_loc='upper right'):
@@ -132,7 +134,7 @@ def x0_violin_patient(x0_infer,
     violins = plt.violinplot(
         x0_infer, showmeans=True, points=1000)
     for i, violin_i in enumerate(violins['bodies']):
-        if (i + 1 in ez_hyp):
+        if (i in ez_hyp):
             violin_i.set_facecolor('red')
             violin_i.set_edgecolor('red')
             violin_i.set_alpha(0.8)
@@ -144,7 +146,7 @@ def x0_violin_patient(x0_infer,
     violins['cbars'].set_alpha(0.3)
     violins['cmeans'].set_color('black')
     violins['cmeans'].set_alpha(0.3)
-    # plt.axhline(-2.0, color='green', alpha=0.3)
+    plt.axhline(-2.0, color='green', alpha=0.3)
     # xtick_labels = []
     # for i in range(nn):
     #     if(i%2 == 0):
@@ -174,7 +176,7 @@ def x0_violin_patient(x0_infer,
         plt.close()
 
 
-def pair_plots(samples, params, figname='', sampler=None):
+def pair_plots(samples, params, figname='', sampler=None, plt_close=False):
     import numpy as np
     import matplotlib.pyplot as plt
     div_iters = np.where(samples['divergent__'] == 1)[0] if sampler == 'HMC' else []
@@ -204,9 +206,11 @@ def pair_plots(samples, params, figname='', sampler=None):
     plt.tight_layout()
     if (figname):
         plt.savefig(figname)
+    if(plt_close):
+        plt.close()
 
 
-def plot_source(x, z, ez=[], pz=[], figname=''):
+def plot_source(x, z, ez=[], pz=[], figname='', plt_close=False):
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
     plt.figure(figsize=(20, 10))
@@ -243,9 +247,41 @@ def plot_source(x, z, ez=[], pz=[], figname=''):
     plt.legend(handles=legend_elements)
     if (figname):
         plt.savefig(figname)
+    if(plt_close):
+        plt.close()
 
 
-def plot_fit_target(data_pred, data_true, figname=''):
+def plot_phase(x, z, ez, pz, rest, xlims=[-2.5, 1.0], ylims=[2, 5],
+               figname='', plt_close=False):
+    import matplotlib.pyplot as plt
+    plt.figure(figsize=(25, 5))
+    plt.subplot(131)
+    plt.plot(x[:, ez], z[:, ez])
+    plt.xlim(xlims)
+    plt.ylim(ylims)
+    plt.xlabel(r'$x$', fontsize=15, fontweight='bold')
+    plt.ylabel(r'$z$', fontsize=15, fontweight='bold')
+    plt.title('EZ', fontsize=15, fontweight='bold')
+    plt.subplot(132)
+    plt.plot(x[:, pz], z[:, pz])
+    plt.xlim(xlims)
+    plt.ylim(ylims)
+    plt.title('PZ', fontsize=15, fontweight='bold')
+    plt.xlabel(r'$x$', fontsize=15, fontweight='bold')
+    plt.ylabel(r'$z$', fontsize=15, fontweight='bold')
+    plt.subplot(133)
+    plt.plot(x[:, rest], z[:, rest], color='black')
+    plt.xlim(xlims)
+    plt.ylim(ylims)
+    plt.title('Rest', fontsize=15, fontweight='bold')
+    plt.xlabel(r'$x$', fontsize=15, fontweight='bold')
+    plt.ylabel(r'$z$', fontsize=15, fontweight='bold')
+    if(figname):
+        plt.savefig(figname)
+    if(plt_close):
+        plt.close()
+
+def plot_fit_target(data_pred, data_true, figname='', plt_close=False):
     import matplotlib.pyplot as plt
     import numpy as np
     ns = data_pred['snsr_pwr'].shape[0]
@@ -266,3 +302,5 @@ def plot_fit_target(data_pred, data_true, figname=''):
     plt.xticks(np.r_[1:ns + 1:3], np.r_[1:ns + 1:3])
     if (figname):
         plt.savefig(figname)
+    if(plt_close):
+        plt.close()

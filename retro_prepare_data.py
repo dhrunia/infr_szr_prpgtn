@@ -314,16 +314,19 @@ if (__name__ == '__main__'):
     patient_ids = [
         os.path.basename(path) for path in glob.glob(f'{data_root_dir}/id*')
     ]
+    lpf = 0.3
+    hpf = 10
 
-    for id in patient_ids:
-        data_dir = f'{data_root_dir}/{id}'
-        results_dir = f'{results_root_dir}/{id}/fit_target'
+    for patient_id in patient_ids:
+        data_dir = os.path.join(data_root_dir, patient_id)
+        results_dir = os.path.join(results_root_dir, patient_id, 'stan',
+                                   f'fit_target_lpf{lpf}')
         os.makedirs(results_dir, exist_ok=True)
         for json_path in glob.glob(f'{data_dir}/seeg/fif/*.json'):
             fname_wo_xtnsn = os.path.splitext(os.path.basename(json_path))[0]
             meta_data_fname = f'{fname_wo_xtnsn}.json'
             seeg_fname = f'{fname_wo_xtnsn}.raw.fif'
-            print(f'Preparing {id} -> {meta_data_fname}')
+            print(f'Preparing {patient_id} -> {meta_data_fname}')
             fif_exists = os.path.isfile(
                 os.path.join(data_dir, 'seeg', 'fif', seeg_fname))
             sc_exists = os.path.isfile(
@@ -338,8 +341,8 @@ if (__name__ == '__main__'):
                     meta_data['type'].lower() == "spontaneous seizure")
 
             if (fif_exists and sc_exists and gain_exists and is_spontaneous):
-                data = prepare_data(data_dir, meta_data_fname, seeg_fname, 10,
-                                    0.04)
+                data = prepare_data(data_dir, meta_data_fname, seeg_fname, hpf,
+                                    lpf)
                 np.savez(
                     os.path.join(results_dir,
                                  f'obs_data_{fname_wo_xtnsn}.npz'), **data)

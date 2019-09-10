@@ -30,7 +30,7 @@ class Epileptor_2D:
                 z[t] = z[t - 1] + params['time_step'] * self.dz(
                     x[t - 1], z[t - 1], params['K'], params['SC'],
                     params['tau0'], params['x0'])
-        return {'x': x, 'z': z}
+        return x,z
 
 
 # class Epileptor_2D:

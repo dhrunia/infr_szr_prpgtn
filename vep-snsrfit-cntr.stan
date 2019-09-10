@@ -79,19 +79,25 @@ transformed parameters{
 
   
   for (t in 1:nt) {
-    mu_slp[t] = log(gain * exp(x[t])')';
-    snsr_mean = snsr_mean + mu_slp[t]; 
-  }
-  snsr_mean = snsr_mean/nt;
-  for (t in 1:nt){
-    mu_slp[t] = amplitude * (mu_slp[t] - snsr_mean + offset);
+    /* mu_slp[t] = log(gain * exp(x[t])')'; */
+    mu_slp[t] = amplitude * (gain * x[t]')' + offset;
+    /* snsr_mean = snsr_mean + mu_slp[t];  */
     for (i in 1:ns){
       mu_snsr_pwr[i] += pow(mu_slp[t][i], 2);
     }
   }
+  /* snsr_mean = snsr_mean/nt; */
+  /* for (t in 1:nt){ */
+  /*   /\* mu_slp[t] = amplitude * (mu_slp[t] - snsr_mean) + offset; *\/ */
+  /*   mu_slp[t] = amplitude * mu_slp[t] + offset; */
+  /*   for (i in 1:ns){ */
+  /*     mu_snsr_pwr[i] += pow(mu_slp[t][i], 2); */
+  /*   } */
+  /* } */
 }
 
 model {
+  sigma ~ normal(0.1, 0.1) T[0, ];
   for (t in 1:nt) {
     if(t == 1){
       x[t] ~ normal(x_step(x_init, z_init, I1, time_step), sigma);

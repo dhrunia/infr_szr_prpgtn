@@ -5,6 +5,7 @@ import os
 import lib.plots.stan
 import lib.io.stan
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 
 def check_completed(patient_ids, nchains, fname_suffix, root_dir):
@@ -247,32 +248,48 @@ patient_ids['engel1or2'] = ['id001_bt','id003_mg','id004_bj','id010_cmn','id013_
 patient_ids['engel3or4'] = ['id007_rd','id008_dmc','id023_br','id028_ca','id033_fc','id036_dm', 'id037_cg']
 precision = []
 recall = []
-onst_thrshlds = np.linspace(-0.5, 0.0, int(0.5/0.01)+1)
+onst_thrshlds = [-0.05] #np.linspace(-0.5, 0.0, int(0.5/0.01)+1)
 for threshold in onst_thrshlds:
     find_ez(threshold, patient_ids['engel1or2'], root_dir)
     p, r = precision_recall(patient_ids['engel1or2'], root_dir)
     precision.append(p)
     recall.append(r)
     # print(f"x0_threshold:{x0_threshold} => Precision:{p} \t Recall:{r} \n")
-plt.figure()
-plt.plot(onst_thrshlds, precision, label='Precision')
-plt.plot(onst_thrshlds, recall, label='Recall')
-plt.title('Engel score I or II')
-plt.legend()
-plt.show(block=False)
+# plt.figure()
+# plt.plot(onst_thrshlds, precision, 'rx', label='Precision')
+# plt.plot(onst_thrshlds, recall, 'rx', label='Recall')
+# plt.title('Engel score I or II')
+# plt.legend()
+# plt.show(block=False)
+
+ax = plt.subplot(111)
+ax.bar([1,2], [precision[0],recall[0]], color=['black', 'grey'])
 
 precision = []
 recall = []
-onst_thrshlds = np.linspace(-0.5, 0.0, int(0.5/0.01)+1)
+onst_thrshlds = [-0.05] #np.linspace(-0.5, 0.0, int(0.5/0.01)+1)
 for threshold in onst_thrshlds:
     find_ez(threshold, patient_ids['engel3or4'], root_dir)
     p, r = precision_recall(patient_ids['engel3or4'], root_dir)
     precision.append(p)
     recall.append(r)
     # print(f"onst_thrshlds:{onst_thrshlds} => Precision:{p} \t Recall:{r} \n")
-plt.figure()
-plt.plot(onst_thrshlds, precision, label='Precision')
-plt.plot(onst_thrshlds, recall, label='Recall')
-plt.title('Engel score III or IV')
-plt.legend()
-plt.show(block=False)
+# plt.figure()
+# plt.plot(onst_thrshlds, precision, 'rx', label='Precision')
+# plt.plot(onst_thrshlds, recall, 'rx', label='Recall')
+# plt.title('Engel score III or IV')
+# plt.legend()
+# plt.show(block=False)
+
+ax.bar([5,6], [precision[0],recall[0]], color=['black', 'grey'])
+ax.set_xticks([1.5, 5.5])
+ax.set_xticklabels(['Engel score I or II', 'Engel score III or IV'], fontsize=15)
+# ax.set_yticks(ax.get_yticks())
+# ax.set_yticklabels(ax.get_yticklabels(), fontsize=10)
+ax.tick_params(axis='y', labelsize=12)
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+legend_elements = [Line2D([0], [0], color='black', lw=5, label='Precision'),
+                   Line2D([0], [0], color='grey', lw=5, label='Recall')]
+ax.legend(handles=legend_elements)
+plt.show()

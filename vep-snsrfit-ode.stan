@@ -49,21 +49,16 @@ data {
 
 parameters {
   row_vector[nn] x0_star;
-  /* row_vector[nn] x_init_star; */
-  /* row_vector[nn] z_init_star; */
   real amplitude_star;
   real offset_star;
   real K_star;
   real tau0_star;
-  //  matrix<lower=0.0, upper=10.0>[nn, nn] FC;
   real epsilon_slp_star;
   real epsilon_snsr_pwr_star;
 }
 
 transformed parameters{
   row_vector[nn] x0 = -2.5 + x0_star;
-  /* row_vector[nn] x_init = -2.0 + *x_init_star; */
-  /* row_vector[nn] z_init = 3.0 + *z_init_star; */
   real amplitude = exp(pow(1.0, 2) + log(1.0) + 1.0*amplitude_star);
   real offset = offset_star;
   real tau0 = exp(pow(1.0, 2) + log(30.0) + 1.0*tau0_star);
@@ -96,13 +91,6 @@ model {
   target += normal_lpdf(x0_star | 0, 1.0);
   target += normal_lpdf(amplitude_star | 0, 1.0);
   target += normal_lpdf(offset_star | 0, 1.0);
-  /* for (i in 1:nn){ */
-  /*   for (j in 1:nn){ */
-  /*     FC[i,j] ~ normal(K*SC[i,j], 0.01); */
-  /*   } */
-  /* } */
-  /* target += normal_lpdf(x_init_star | 0, 1.0); */
-  /* target += normal_lpdf(z_init_star | 0, 1.0); */
   target += normal_lpdf(tau0_star | 0, 1.0);
   target += normal_lpdf(K_star | 0, 1.0);
   target += normal_lpdf(epsilon_slp_star | 0, 1.0);

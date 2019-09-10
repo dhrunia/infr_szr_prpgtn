@@ -47,6 +47,7 @@ def seeg_log_power(a, win_len, pad=True):
         envlp[i, :] = np.log(np.mean(envlp_pad[i:i+win_len, :]**2, axis=0))
     return envlp
 
+
 def compute_fitting_target(data, samp_rate, fcut=5.0, logtransform=False):
     '''
     Extracts smoothed log. power of given SEEG

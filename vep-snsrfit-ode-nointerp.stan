@@ -47,13 +47,6 @@ data {
 transformed data{
   real I1 = 3.1;
   real time_step = 0.1;
-
-  //row_vector[nn] x_init = rep_row_vector(-2.0, nn);
-  //row_vector[nn] z_init = rep_row_vector(3.5, nn);
-
-  /* // Hyperparameters */
-  //real eps_slp = 0.1;
-  //real eps_snsr_pwr = 1.0;
 }
 
 parameters {
@@ -69,14 +62,10 @@ parameters {
 }
 
 transformed parameters{   
-  // Euler integration of the epileptor without noise 
-  row_vector[nn] x[nt];
+  // Euler integration of the 2D Epileptor
   row_vector[nn] z[nt];
   row_vector[ns] mu_slp[nt];
   row_vector[ns] mu_snsr_pwr = rep_row_vector(0, ns);
-  /* print("amplitude=",amplitude," offset=",offset," tau0=",tau0," K=",K," eps_slp=",eps_slp," eps_snsr_pwr=",eps_snsr_pwr); */
-  /* print("x_init=",x_init); */
-  /* print("z_init=",z_init); */
   for (t in 1:nt) {
     if(t == 1){
       x[t] = x_step(x_init, z_init, I1, time_step);
