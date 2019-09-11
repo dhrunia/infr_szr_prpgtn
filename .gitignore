@@ -1,0 +1,32 @@
+jureca/*
+slurm_logs/*
+ltxpng/*
+data/*
+results/*
+tmp/*
+<<<<<<< HEAD
+tvbpipeline/*
+pipeline-master/*
+=======
+datasets/*
+>>>>>>> f5f8d8ef7c349d8057a88719332f428eae767d7c
+*~
+*.swp
+*.pyc
+*.hpp
+*.npz
+*.tar.gz
+*.csv
+*.exe
+*.R
+*.out
+.vscode
+*.png
+*.zip
+.ipynb_checkpoints
+__pycache__
+cmdstan
+vep-*
+!vep*.stan
+!vep*.ipynb
+exp*
