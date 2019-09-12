@@ -20,3 +20,11 @@ def load_eeg(fname, proj_bip=None):
     seeg, time = eeg.read_data()
     seeg = seeg[:-2]
     return _maybe_bip(seeg, time, proj_bip)
+
+def read_contacts(cntcts_file, type='dict'):
+    cntcts = zip(np.loadtxt(cntcts_file, usecols=[0], dtype='str'), np.loadtxt(cntcts_file, usecols=[1,2,3]))
+    if(type == 'dict'):
+        return dict(cntcts)
+    elif(type == 'list'):
+        return list(cntcts)
+
