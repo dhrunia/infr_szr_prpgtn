@@ -5,10 +5,14 @@ import os
 import lib.plots.stan
 import lib.io.stan
 import matplotlib.pyplot as plt
+<<<<<<< Updated upstream
 <<<<<<< HEAD
 from matplotlib.lines import Line2D
 =======
 >>>>>>> f5f8d8ef7c349d8057a88719332f428eae767d7c
+=======
+from matplotlib.lines import Line2D
+>>>>>>> Stashed changes
 
 
 def check_completed(patient_ids, nchains, fname_suffix, root_dir):
@@ -245,22 +249,61 @@ def precision_recall(patient_ids, root_dir):
     return precision, recall
 
 
-root_dir = 'results/exp10/exp10.67'
+root_dir = '/home/anirudh/Nextcloud/Academia/Projects/VEP/results/exp10.67'
 patient_ids = dict()
-patient_ids['engel1or2'] = ['id001_bt','id003_mg','id004_bj','id010_cmn','id013_lk','id014_vc','id017_mk','id020_lma','id021_jc','id022_te','id025_mc','id027_sj','id030_bf','id039_mra','id040_ms', 'id050_sx']
-patient_ids['engel3or4'] = ['id007_rd','id008_dmc','id023_br','id028_ca','id033_fc','id036_dm', 'id037_cg']
+patient_ids['engel1'] = ['id001_bt','id003_mg','id004_bj','id010_cmn','id013_lk','id014_vc','id017_mk','id020_lma','id022_te','id025_mc','id027_sj','id030_bf','id039_mra','id050_sx']
+patient_ids['engel2or3or4'] = ['id007_rd','id008_dmc','id021_jc','id023_br','id028_ca','id033_fc','id036_dm', 'id037_cg','id040_ms']
+# precision = []
+# recall = []
+# onst_thrshlds = np.linspace(-0.5, 0.0, int(0.5/0.01)+1)
+# for threshold in onst_thrshlds:
+#     find_ez(threshold, patient_ids['engel1'], root_dir)
+#     p, r = precision_recall(patient_ids['engel1'], root_dir)
+#     precision.append(p)
+#     recall.append(r)
+#     # print(f"x0_threshold:{x0_threshold} => Precision:{p} \t Recall:{r} \n")
+# plt.figure()
+# plt.plot(onst_thrshlds, precision, label='Precision')
+# plt.plot(onst_thrshlds, recall, label='Recall')
+# plt.title('Engel score I')
+# plt.legend()
+# plt.show(block=False)
+
+# precision = []
+# recall = []
+# onst_thrshlds = np.linspace(-0.5, 0.0, int(0.5/0.01)+1)
+# for threshold in onst_thrshlds:
+#     find_ez(threshold, patient_ids['engel2or3or4'], root_dir)
+#     p, r = precision_recall(patient_ids['engel2or3or4'], root_dir)
+#     precision.append(p)
+#     recall.append(r)
+#     # print(f"onst_thrshlds:{onst_thrshlds} => Precision:{p} \t Recall:{r} \n")
+# plt.figure()
+# plt.plot(onst_thrshlds, precision, label='Precision')
+# plt.plot(onst_thrshlds, recall, label='Recall')
+# plt.title('Engel score II,III or IV')
+# plt.legend()
+# plt.show(block=False)
+
+
+## Bar plot
 precision = []
 recall = []
+<<<<<<< Updated upstream
 <<<<<<< HEAD
 onst_thrshlds = [-0.05] #np.linspace(-0.5, 0.0, int(0.5/0.01)+1)
 =======
 onst_thrshlds = np.linspace(-0.5, 0.0, int(0.5/0.01)+1)
 >>>>>>> f5f8d8ef7c349d8057a88719332f428eae767d7c
+=======
+onst_thrshlds = [-0.05]
+>>>>>>> Stashed changes
 for threshold in onst_thrshlds:
-    find_ez(threshold, patient_ids['engel1or2'], root_dir)
-    p, r = precision_recall(patient_ids['engel1or2'], root_dir)
+    find_ez(threshold, patient_ids['engel1'], root_dir)
+    p, r = precision_recall(patient_ids['engel1'], root_dir)
     precision.append(p)
     recall.append(r)
+<<<<<<< Updated upstream
     # print(f"x0_threshold:{x0_threshold} => Precision:{p} \t Recall:{r} \n")
 <<<<<<< HEAD
 # plt.figure()
@@ -288,11 +331,21 @@ precision = []
 recall = []
 onst_thrshlds = np.linspace(-0.5, 0.0, int(0.5/0.01)+1)
 >>>>>>> f5f8d8ef7c349d8057a88719332f428eae767d7c
+=======
+
+ax = plt.subplot(111)
+ax.bar([1,2], [precision[0],recall[0]], color=['black', 'grey'])
+
+precision = []
+recall = []
+onst_thrshlds = [-0.05]
+>>>>>>> Stashed changes
 for threshold in onst_thrshlds:
-    find_ez(threshold, patient_ids['engel3or4'], root_dir)
-    p, r = precision_recall(patient_ids['engel3or4'], root_dir)
+    find_ez(threshold, patient_ids['engel2or3or4'], root_dir)
+    p, r = precision_recall(patient_ids['engel2or3or4'], root_dir)
     precision.append(p)
     recall.append(r)
+<<<<<<< Updated upstream
     # print(f"onst_thrshlds:{onst_thrshlds} => Precision:{p} \t Recall:{r} \n")
 # plt.figure()
 # plt.plot(onst_thrshlds, precision, 'rx', label='Precision')
@@ -306,6 +359,12 @@ ax.set_xticks([1.5, 5.5])
 ax.set_xticklabels(['Engel score I or II', 'Engel score III or IV'], fontsize=15)
 # ax.set_yticks(ax.get_yticks())
 # ax.set_yticklabels(ax.get_yticklabels(), fontsize=10)
+=======
+
+ax.bar([5,6], [precision[0],recall[0]], color=['black', 'grey'])
+ax.set_xticks([1.5, 5.5])
+ax.set_xticklabels(['Engel score I', 'Engel score II, III or IV'], fontsize=15)
+>>>>>>> Stashed changes
 ax.tick_params(axis='y', labelsize=12)
 ax.spines['top'].set_visible(False)
 ax.spines['right'].set_visible(False)
