@@ -7,6 +7,7 @@ tmp/**
 tvbpipeline/**
 pipeline-master/**
 datasets/**
+.ipynb_checkpoints/**
 *~
 *.swp
 *.pyc
@@ -20,7 +21,6 @@ datasets/**
 .vscode
 *.png
 *.zip
-.ipynb_checkpoints
 __pycache__
 cmdstan
 vep-*
