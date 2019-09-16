@@ -32,7 +32,7 @@ def get_ez_from_epindx(ep_idx, ei_thrshld, cntcts_file, cntrs_zipfile,
     dists = cdist(ez_cntct_coords, roi_cntrs)
     ez_idcs = []
     for row in dists:
-        dist_thrshld = np.percentile(row, 1)
+        dist_thrshld = np.percentile(row, dist_prcntl)
         ez_idcs.extend(np.where(row < dist_thrshld)[0])
     # ez_idcs = np.unique(np.argmin(dists, axis=1))
     ez_idcs = list(set(ez_idcs))  # remove any duplicates
