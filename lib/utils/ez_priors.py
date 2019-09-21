@@ -3,6 +3,7 @@ from lib.io.tvb import *
 from scipy.spatial.distance import cdist
 import numpy as np
 import scipy.signal
+import matplotlib.pyplot as plt
 
 
 def get_ez_from_epindx(ep_idx, ei_thrshld, cntcts_file, cntrs_zipfile,
@@ -48,7 +49,8 @@ def comp_epindx(data_dir,
                 tau=1,
                 wndw_len=1024,
                 wndw_ovrlp=512,
-                ei_wndw_len=5):
+                ei_wndw_len=5,
+                plots=False):
     '''
     Computes Epileptogenicity Index of all electrodes
 
@@ -79,6 +81,7 @@ def comp_epindx(data_dir,
     Nd = dict()
     N0 = ('', 1e5)
     ep_idx = dict()
+    # Find the change-point detection time
     for ch_name, ts in zip(seeg['ch_names'], seeg['time_series'].T):
         f, t, seeg_spcgrm[ch_name] = scipy.signal.spectrogram(
             ts, fs=seeg['sfreq'], nperseg=wndw_len, noverlap=wndw_ovrlp)
@@ -99,10 +102,13 @@ def comp_epindx(data_dir,
             if (abs(Un[ch_name][i] - Un_min) > thrshld):
                 Na[ch_name] = i
                 break
+        # if no seizure is detected set detection time to last point
         if (Na[ch_name] == 0):
-            Nd[ch_name] = Un[ch_name].size - 1
-        if (Nd[ch_name] != 0 and Nd[ch_name] < N0[1]):
+            Nd[ch_name] = Un[ch_name].size - 1 
+        # Keep track of channel that shows seizure first, needed later for computing EI
+        if (Nd[ch_name] < N0[1]):
             N0 = (ch_name, Nd[ch_name])
+    # Compute EI for all channels
     for ch_name in seeg['ch_names']:
         start_idx = Nd[ch_name]
         H = int(
@@ -117,4 +123,4 @@ def comp_epindx(data_dir,
     k, v = zip(*ep_idx.items())
     v = v / max(v)
     ep_idx = dict(zip(k, v))
-    return ep_idx, Nd, N0
+    return ep_idx, Nd, N0, ER
