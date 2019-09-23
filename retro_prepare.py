@@ -141,128 +141,6 @@ def compute_slp(seeg, bip, hpf=10.0, lpf=1.0, filter_order=5.0):
     return slp
 
 
-# def prepare_data(data_dir, results_dir):
-#     try:
-#         with zipfile.ZipFile(
-#                 f'{data_dir}/tvb/connectivity.destrieux.zip') as sczip:
-#             with sczip.open('weights.txt') as weights:
-#                 SC = np.loadtxt(weights)
-#                 SC = SC/SC.max()
-#     except FileNotFoundError as err:
-#         print(f'Structural connectivity not found for {data_dir}')
-#         return
-#     # Read SEEG data from fif files
-#     raw_data = read_seeg(data_dir)
-#     gain = read_gain(data_dir, raw_data['picks'])
-#     # Compute seeg log power
-#     for i, szr in enumerate(raw_data['seizures']):
-#         slp = compute_slp(szr)
-#         snsr_pwr = np.sum(slp**2, axis=0)
-#         nn = gain.shape[1]
-#         ns = gain.shape[0]
-#         nt = slp.shape[0]
-#         I1 = 3.1
-#         time_step = 0.1
-#         x_init = -2.0 * np.ones(nn)
-#         z_init = 3.5 * np.ones(nn)
-#         epsilon_snsr_pwr = 5.0
-#         epsilon_slp = 0.1
-#         data = {
-#             'nn': nn,
-#             'ns': ns,
-#             'nt': nt,
-#             'I1': I1,
-#             'time_step': time_step,
-#             'SC': SC,
-#             'gain': gain,
-#             'x_init': x_init,
-#             'z_init': z_init,
-#             'slp': slp,
-#             'snsr_pwr': snsr_pwr,
-#             'epsilon_slp': epsilon_slp,
-#             'epsilon_snsr_pwr': epsilon_snsr_pwr
-#         }
-#         lib.io.stan.rdump(f"{results_dir}/Rfiles/fit_data_{szr['fname']}.R",
-#                           data)
-#     x0_star_star = np.zeros(nn)
-#     amplitude_star_star = 0.0
-#     offset = 0.0
-#     K_star_star = 0.0
-#     tau0_star_star = 0.0
-#     param_init = {
-#         'x0_star_star': x0_star_star,
-#         'amplitude_star_star': amplitude_star_star,
-#         'offset': offset,
-#         'K_star_star': K_star_star,
-#         'tau0_star_star': tau0_star_star
-#     }
-#     lib.io.stan.rdump(f'{results_dir}/Rfiles/param_init.R', param_init)
-
-
-# def prepare_data_pymc3(data_dir,
-#                        results_dir,
-#                        meta_data_fname,
-#                        raw_seeg_fname,
-#                        hpf=10.0,
-#                        lpf=1.0):
-#     try:
-#         with zipfile.ZipFile(
-#                 f'{data_dir}/tvb/connectivity.destrieux.zip') as sczip:
-#             with sczip.open('weights.txt') as weights:
-#                 SC = np.loadtxt(weights)
-#                 SC = SC / SC.max()
-#     except FileNotFoundError as err:
-#         print(f'Structural connectivity not found for {data_dir}')
-#         return
-#     # Read SEEG data from fif files
-#     raw_data = read_one_seeg(data_dir, meta_data_fname, raw_seeg_fname)
-#     gain = read_gain(data_dir, raw_data['picks'])
-#     # Compute seeg log power
-#     slp = compute_slp(raw_data, hpf, lpf)
-#     nn = gain.shape[1]
-#     ns = gain.shape[0]
-#     nt = slp.shape[0]
-#     I1 = 3.1
-#     time_step = 0.1
-#     eps_slp = 0.1
-#     eps_snsr_pwr = 0.1
-#     x_init = -2.0 * np.ones(nn)
-#     z_init = 3.5 * np.ones(nn)
-#     consts = {
-#         'nn': nn,
-#         'ns': ns,
-#         'nt': nt,
-#         'I1': I1,
-#         'time_step': time_step,
-#         'SC': SC,
-#         'gain': gain,
-#         'x_init': x_init,
-#         'z_init': z_init,
-#         'eps_slp': eps_slp,
-#         'eps_snsr_pwr': eps_snsr_pwr
-#     }
-#     obs = {
-#         'slp': slp,
-#     }
-#     x0_star = np.zeros(nn)
-#     amplitude_star = 0.0
-#     offset_star = 0.0
-#     K_star = 0.0
-#     tau0_star = 0.0
-#     x_init_star = np.zeros(nn)
-#     z_init_star = np.zeros(nn)
-#     params_init = {
-#         'x0_star': x0_star,
-#         'amplitude_star': amplitude_star,
-#         'offset_star': offset_star,
-#         'K_star': K_star,
-#         'tau0_star': tau0_star,
-#         'x_init_star': x_init_star,
-#         'z_init_star': z_init_star
-#     }
-#     return obs, consts, params_init
-
-
 def prepare_data(data_dir, meta_data_fname, raw_seeg_fname, fname_suffix, hpf=10.0, lpf=1.0):
     try:
         with zipfile.ZipFile(
@@ -307,7 +185,7 @@ def prepare_data_bip(data_dir, meta_data_fname, raw_seeg_fname, fname_suffix, hp
      # if(raw_data == -1):
     #     return -1, -1
     #gain = read_gain(data_dir, raw_data['picks'])
-    gain = np.load(f'{data_dir}/seeg/fif/{fname_suffix}.gain.npy')
+    gain = np.load(f'{data_dir}/elec/{fname_suffix}.gain.npy')
     # Compute seeg log power
     slp = compute_slp(seeg, bip, hpf, lpf)
     data = {
