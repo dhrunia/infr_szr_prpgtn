@@ -76,3 +76,73 @@ def source_sensors(cxyz: np.ndarray, rxyz: np.ndarray):
         subplot(3, 1, i + 1)
         plot(cxyz[:, j], cxyz[:, k], 'bo')
         plot(rxyz[:, j], rxyz[:, k], 'rx')
+
+def seeg_elecs(tvbzip_file, seegxyz, ez_idx, pz_idx, out_fig):
+    from ..io import tvb
+    from ..io import seeg
+    import zipfile
+    import matplotlib.pyplot as plt
+    import json
+
+    with open(
+            'datasets/syn_data/id001_bt/BTcrise1appportable_0006.json') as fp:
+        bad_chnls = json.load(fp)['bad_channels']
+
+    with zipfile.ZipFile(tvbzip_file) as tvbzip:
+        with tvbzip.open("centres.txt") as centres_file:
+            roi_cntrs, roi_lbls = tvb.read_roi_cntrs(tvbzip_file)
+    contacts = seeg.read_contacts(seegxyz)
+    contactsxyz = np.array([
+        contacts[ch_name] for ch_name in contacts.keys()
+        if ch_name not in bad_chnls
+    ])
+
+    fig = plt.figure(figsize=(10, 10))
+    labels = ['L --- R', 'P --- A', 'I --- S']
+
+    # reg_color = ['royalblue' if c == 1 else 'darkblue' for c in cortical]
+    reg_color = ['black' for c in roi_lbls]
+    for idx in ez_idx:
+        reg_color[idx] = 'xkcd:red'
+    for idx in pz_idx:
+        reg_color[idx] = 'xkcd:rust'
+
+    for pos, id1, id2 in [(111, 0, 1)]: #[(221, 0, 1), (224, 1, 2), (223, 0, 2)]:
+        ax = fig.add_subplot(pos)
+        ax.scatter(
+            roi_cntrs[:, id1],
+            roi_cntrs[:, id2],
+            color=reg_color,
+            alpha=0.8,
+            s=40)
+        for idx, name in enumerate(roi_lbls):
+            ax.annotate(str(idx), (roi_cntrs[idx, id1], roi_cntrs[idx, id2]))
+        ax.scatter(
+            contactsxyz[:, id1], contactsxyz[:, id2], color='black', s=10)
+        ax.set_xlabel(labels[id1])
+        ax.set_ylabel(labels[id2])
+        ax.set_aspect('equal')
+
+    # ax = fig.add_subplot(222, projection='3d')
+    # ax.scatter(regions.xyz[:, 0], regions.xyz[:, 1], regions.xyz[:, 2], color=reg_color, s=40)
+    # for name, idxs in contacts.electrodes.items():
+    #     ax.scatter(contacts.xyz[idxs, 0], contacts.xyz[idxs, 1], contacts.xyz[idxs, 2], s=10, label=name)
+    # ax.set_xlabel(labels[0])
+    # ax.set_ylabel(labels[1])
+    # ax.set_zlabel(labels[2])
+    # ax.set_aspect('equal')
+
+    plt.legend(loc='upper right')
+    plt.tight_layout()
+    plt.savefig(out_fig)
+
+def plot_gain(gain_mat):
+    from matplotlib import colors, cm
+    import matplotlib.pyplot as plt
+
+    norm = colors.LogNorm(gain_mat.min(), gain_mat.max())
+    im = plt.imshow(gain_mat, norm=norm, cmap=cm.jet)
+    plt.colorbar(im, fraction=0.046, pad=0.04)
+    plt.gca().set_title('Gain Matrix', fontsize=13.0)
+    plt.xlabel('Node')
+    plt.ylabel('Sensor')

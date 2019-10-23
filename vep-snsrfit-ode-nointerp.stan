@@ -63,6 +63,7 @@ parameters {
 
 transformed parameters{   
   // Euler integration of the 2D Epileptor
+  row_vector[nn] x[nt];
   row_vector[nn] z[nt];
   row_vector[ns] mu_slp[nt];
   row_vector[ns] mu_snsr_pwr = rep_row_vector(0, ns);
