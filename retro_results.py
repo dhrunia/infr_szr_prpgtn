@@ -284,46 +284,49 @@ if (__name__ == '__main__'):
     root_dir = '/home/anirudh/Nextcloud/Academia/Projects/VEP/results/exp10.67'
     patient_ids = dict()
     patient_ids['engel1'] = ['id001_bt','id003_mg','id004_bj','id010_cmn','id013_lk','id014_vc','id017_mk','id020_lma','id022_te','id025_mc','id027_sj','id030_bf','id039_mra','id050_sx']
-    patient_ids['engel2or3or4'] = ['id007_rd','id008_dmc','id021_jc','id023_br','id028_ca','id033_fc','id036_dm', 'id037_cg','id040_ms']
+    patient_ids['engel2'] = ['id021_jc','id040_ms']
+    patient_ids['engel3'] = ['id007_rd','id008_dmc','id023_br','id028_ca', 'id037_cg']
+    patient_ids['engel4'] = ['id033_fc','id036_dm']
+    patient_ids['engel2or3or4'] = patient_ids['engel2'] + patient_ids['engel3'] + patient_ids['engel4']
 
-    # Precision-Recall curves for bin thresholding
-    precision = []
-    recall = []
-    onst_thrshld = -0.05
-    nbins = 20
-    bin_thrshld =  np.arange(1, nbins, dtype=int)
-    for bin_thrshld_ in bin_thrshld:
-        find_ez(onst_thrshld, bin_thrshld_, nbins, patient_ids['engel1'], root_dir)
-        p, r = precision_recall(patient_ids['engel1'], root_dir)
-        precision.append(p)
-        recall.append(r)
-    plt.figure()
-    plt.plot(recall, precision, color='black')
-    plt.xlabel('Recall', fontsize=13)
-    plt.ylabel('Precision', fontsize=13)
-    plt.xticks(fontsize=12)
-    plt.yticks(fontsize=12)
-    plt.title('Engel score I', fontsize=15)
-    plt.show(block=False)
+    # # Precision-Recall curves for bin thresholding
+    # precision = []
+    # recall = []
+    # onst_thrshld = -0.05
+    # nbins = 20
+    # bin_thrshld =  np.arange(1, nbins, dtype=int)
+    # for bin_thrshld_ in bin_thrshld:
+    #     find_ez(onst_thrshld, bin_thrshld_, nbins, patient_ids['engel1'], root_dir)
+    #     p, r = precision_recall(patient_ids['engel1'], root_dir)
+    #     precision.append(p)
+    #     recall.append(r)
+    # plt.figure()
+    # plt.plot(recall, precision, color='black')
+    # plt.xlabel('Recall', fontsize=13)
+    # plt.ylabel('Precision', fontsize=13)
+    # plt.xticks(fontsize=12)
+    # plt.yticks(fontsize=12)
+    # plt.title('Engel score I', fontsize=15)
+    # plt.show(block=False)
 
-    precision = []
-    recall = []
-    onst_thrshld = -0.05
-    nbins = 20
-    bin_thrshld = np.arange(1, nbins, dtype=int)
-    for bin_thrshld_ in bin_thrshld:
-        find_ez(onst_thrshld, bin_thrshld_, nbins, patient_ids['engel2or3or4'], root_dir)
-        p, r = precision_recall(patient_ids['engel2or3or4'], root_dir)
-        precision.append(p)
-        recall.append(r)
-    plt.figure()
-    plt.plot(recall, precision, color='black')
-    plt.xlabel('Recall', fontsize=13)
-    plt.ylabel('Precision', fontsize=13)
-    plt.xticks(fontsize=12)
-    plt.yticks(fontsize=12)
-    plt.title('Engel score II, III and IV', fontsize=15)
-    plt.show(block=False)
+    # precision = []
+    # recall = []
+    # onst_thrshld = -0.05
+    # nbins = 20
+    # bin_thrshld = np.arange(1, nbins, dtype=int)
+    # for bin_thrshld_ in bin_thrshld:
+    #     find_ez(onst_thrshld, bin_thrshld_, nbins, patient_ids['engel2or3or4'], root_dir)
+    #     p, r = precision_recall(patient_ids['engel2or3or4'], root_dir)
+    #     precision.append(p)
+    #     recall.append(r)
+    # plt.figure()
+    # plt.plot(recall, precision, color='black')
+    # plt.xlabel('Recall', fontsize=13)
+    # plt.ylabel('Precision', fontsize=13)
+    # plt.xticks(fontsize=12)
+    # plt.yticks(fontsize=12)
+    # plt.title('Engel score II, III and IV', fontsize=15)
+    # plt.show(block=False)
 
     # ## Precision-Recall curves for onset thresholding
     # precision = []
@@ -361,18 +364,19 @@ if (__name__ == '__main__'):
     # plt.title('Engel score II, III and IV', fontsize=15)
     # plt.show(block=False)
 
-    # ## Bar plot
-    # precision = []
-    # recall = []
-    # onst_thrshlds = [-0.05]
-    # for threshold in onst_thrshlds:
-    #     find_ez(threshold, patient_ids['engel1'], root_dir)
-    #     p, r = precision_recall(patient_ids['engel1'], root_dir)
-    #     precision.append(p)
-    #     recall.append(r)
+    ## Bar plot
+    precision = []
+    recall = []
+    for i in range(4):
+        onst_thrshld = -0.05
+        bin_thrshld = 1
+        find_ez(onst_thrshld, bin_thrshld, 10, patient_ids['engel' + str(i + 1)], root_dir)
+        p, r = precision_recall(patient_ids['engel' + str(i + 1)], root_dir)
+        precision.append(p)
+        recall.append(r)
 
-    # ax = plt.subplot(111)
-    # ax.bar([1,2], [precision[0],recall[0]], color=['black', 'grey'])
+        ax = plt.subplot(111)
+        ax.bar([5*i + 1, 5*i + 2], [precision[i], recall[i]], color=['black', 'grey'])
 
     # precision = []
     # recall = []
@@ -384,15 +388,15 @@ if (__name__ == '__main__'):
     #     recall.append(r)
 
     # ax.bar([5,6], [precision[0],recall[0]], color=['black', 'grey'])
-    # ax.set_xticks([1.5, 5.5])
-    # ax.set_xticklabels(['Engel score I', 'Engel score II, III or IV'], fontsize=15)
-    # ax.tick_params(axis='y', labelsize=12)
-    # ax.spines['top'].set_visible(False)
-    # ax.spines['right'].set_visible(False)
-    # legend_elements = [Line2D([0], [0], color='black', lw=5, label='Precision'),
-    #                    Line2D([0], [0], color='grey', lw=5, label='Recall')]
-    # ax.legend(handles=legend_elements)
-    # plt.show()
+    ax.set_xticks([np.mean([5*i + 1, 5*i + 2]) for i in range(4)])
+    ax.set_xticklabels(['Engel score I', 'Engel score II', 'Engel score III', 'Engel score IV'], fontsize=15)
+    ax.tick_params(axis='y', labelsize=12)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    legend_elements = [Line2D([0], [0], color='black', lw=5, label='Precision'),
+                       Line2D([0], [0], color='grey', lw=5, label='Recall')]
+    ax.legend(handles=legend_elements)
+    plt.show()
 
 
     # tpr = []
