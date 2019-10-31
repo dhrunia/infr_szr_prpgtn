@@ -202,39 +202,28 @@ def ez_pred(patient_ids, nchains, fname_suffix, root_dir, x0_threshold):
         np.save(os.path.join(root_dir, patient_id, 'ez_pred.npy'), ez_pred)
 
 
-def find_ez(onst_thrshld, bin_thrshld, nbins, patient_ids, root_dir):
-    for patient_id in patient_ids:
-        csv_path = glob.glob(os.path.join(root_dir, patient_id, '*chain1.csv'))
-        optima = lib.io.stan.read_samples(csv_path)
-        x = optima['x'][0]
-        nn = x.shape[1]
-        onsets = 200*np.ones(nn)
-        for i in range(nn):
-            xt = x[:,i] > onst_thrshld
-            if(xt.any()):
-                onsets[i] = np.where(x[:,i] > onst_thrshld)[0][0]
-        a, b = np.histogram(onsets[onsets<150], bins=nbins)
-        ez_pred = np.zeros(nn)
-        ez_pred[np.where(onsets<b[bin_thrshld])] = 1
-        np.save(os.path.join(root_dir, patient_id, 'ez_pred.npy'), ez_pred)
-   
-
-def find_ez_single(onst_thrshld, bin_thrshld, nbins, csv_path, szr_len):
-    optima = lib.io.stan.read_samples([csv_path])
+def find_ez(onst_thrshld, bin_thrshld, nbins, csv_path, enforce_thrshld=False):
+    # for patient_id in patient_ids:
+    optima = lib.io.stan.read_samples(csv_path)
     x = optima['x'][0]
-    nn = x.shape[1]
-    onsets = (szr_len + 50)*np.ones(nn)
+    nt, nn = x.shape
+    onsets = (nt + 50)*np.ones(nn)
     for i in range(nn):
         xt = x[:,i] > onst_thrshld
         if(xt.any()):
-            onsets[i] = np.where(x[:, i] > onst_thrshld)[0][0]
-    a, b = np.histogram(onsets[onsets<szr_len], bins=nbins)
-    ez = np.nonzero(onsets < b[bin_thrshld])[0]
-    pz = np.nonzero(np.logical_and(onsets > b[bin_thrshld], onsets < szr_len))[0]
-    return ez, pz
+            onsets[i] = np.nonzero(x[:,i] > onst_thrshld)[0][0]
+    nszng = np.size(np.nonzero(onsets < nt))
+    a, b = np.histogram(onsets[onsets<nt], bins=nbins)
+    if(nszng <= 1 and not enforce_thrshld):
+        bin_thrshld = nbins
+    ez_pred = np.zeros(nn)
+    ez_pred[np.nonzero(onsets<b[bin_thrshld])[0]] = 1
+    pz_pred = np.zeros(nn)
+    pz_pred[np.nonzero(np.logical_and(onsets > b[bin_thrshld], onsets < nt))[0]] =1
+    return ez_pred, pz_pred
 
 
-def precision_recall(patient_ids, root_dir):
+def precision_recall(patient_ids, root_dir, onst_thrshld, bin_thrshld, nbins):
     tp = fp = fn = 0
     for patient_id in patient_ids:
         # Read EZ hypothesis or skip patient if hypothesis doesn't exist
@@ -243,7 +232,9 @@ def precision_recall(patient_ids, root_dir):
         except Exception as err:
             print(err)
             continue
-        ez_pred = np.load(os.path.join(root_dir, patient_id, 'ez_pred.npy')).astype(int)
+        # ez_pred = np.load(os.path.join(root_dir, patient_id, 'ez_pred.npy')).astype(int)
+        csv_path = glob.glob(os.path.join(root_dir, patient_id, '*chain1.csv'))
+        ez_pred, pz_pred = find_ez(onst_thrshld, bin_thrshld, nbins, csv_path)
         for a, b in zip(ez_hyp, ez_pred):
             if(a == 1 and b == 1):
                 tp += 1
@@ -283,8 +274,8 @@ def tpr_and_fpr(patient_ids, root_dir):
 if (__name__ == '__main__'):
     root_dir = '/home/anirudh/Nextcloud/Academia/Projects/VEP/results/exp10.67'
     patient_ids = dict()
-    patient_ids['engel1'] = ['id001_bt','id003_mg','id004_bj','id010_cmn','id013_lk','id014_vc','id017_mk','id020_lma','id022_te','id025_mc','id027_sj','id030_bf','id039_mra','id050_sx']
-    patient_ids['engel2'] = ['id021_jc','id040_ms']
+    patient_ids['engel1'] = ['id003_mg','id004_bj','id010_cmn','id013_lk','id014_vc','id017_mk','id020_lma','id022_te','id025_mc','id027_sj','id030_bf','id039_mra','id050_sx']
+    patient_ids['engel2'] = ['id001_bt','id021_jc','id040_ms']
     patient_ids['engel3'] = ['id007_rd','id008_dmc','id023_br','id028_ca', 'id037_cg']
     patient_ids['engel4'] = ['id033_fc','id036_dm']
     patient_ids['engel2or3or4'] = patient_ids['engel2'] + patient_ids['engel3'] + patient_ids['engel4']
@@ -370,8 +361,8 @@ if (__name__ == '__main__'):
     for i in range(4):
         onst_thrshld = -0.05
         bin_thrshld = 1
-        find_ez(onst_thrshld, bin_thrshld, 10, patient_ids['engel' + str(i + 1)], root_dir)
-        p, r = precision_recall(patient_ids['engel' + str(i + 1)], root_dir)
+        # find_ez(onst_thrshld, bin_thrshld, 10, patient_ids['engel' + str(i + 1)], root_dir)
+        p, r = precision_recall(patient_ids['engel' + str(i + 1)], root_dir, onst_thrshld, bin_thrshld, nbins=10)
         precision.append(p)
         recall.append(r)
 
