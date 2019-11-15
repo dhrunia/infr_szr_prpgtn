@@ -47,7 +47,7 @@ def compute_slp_syn(data,
     data_hpf = bfilt(data, samp_rate, hpf, 'highpass', axis=0)
     # compute the log power over a sliding window
     data_lpwr = np.log(mov_avg(data_hpf**2, win_len) +
-                       1) if logtransform else mov_avg(data_hpf**2, win_len)
+                       10) if logtransform else mov_avg(data_hpf**2, win_len)
     # low pass filter the log power for smoothing
     data_lpwr = bfilt(data_lpwr, samp_rate, lpf, 'lowpass', axis=0)
     return data_lpwr
@@ -63,6 +63,17 @@ def compute_slp(seeg, hpf=10.0, lpf=1.0, filter_order=5.0):
     slp = seeg_log_power(slp, 100)
     # Low pass filter the data to smooth
     slp = bfilt(slp, seeg['sfreq'], lpf, 'lowpass', axis=0)
+    # Subtract the log.power before onset to avoid channels with strong noise having a log. power
+    slp_pre_onset = seeg['time_series'][int(seeg['onset']*seeg['sfreq']-5*seeg['sfreq']):int(seeg['onset']*seeg['sfreq'])]
+    # High pass filter the data
+    slp_pre_onset = bfilt(slp_pre_onset, seeg['sfreq'], hpf, 'highpass', axis=0)
+    # Compute seeg log power
+    slp_pre_onset = seeg_log_power(slp_pre_onset, 100)
+    # Low pass filter the data to smooth
+    slp_pre_onset = bfilt(slp_pre_onset, seeg['sfreq'], lpf, 'lowpass', axis=0)
+    slp_pre_onset_mean = slp_pre_onset.mean(axis=0)
+    # offseting all channels by 5 to avoid having to predict zero power
+    slp = slp - slp_pre_onset_mean + 5 
     return slp
 
 
