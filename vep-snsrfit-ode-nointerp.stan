@@ -76,7 +76,7 @@ transformed parameters{
       x[t] = x_step(x[t-1], z[t-1], I1, time_step);
       z[t] = z_step(x[t-1], z[t-1], x0, K*SC, time_step, tau0);
     }
-    mu_slp[t] = amplitude * (log(gain * exp(x[t])')' + offset);
+    mu_slp[t] = amplitude * (log(gain * exp(x[t])' + 10)' + offset);
     mu_snsr_pwr += mu_slp[t] .* mu_slp[t];
   }
   mu_snsr_pwr = mu_snsr_pwr / nt;
