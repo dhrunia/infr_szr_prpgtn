@@ -6,6 +6,7 @@ import lib.plots.stan
 import lib.io.stan
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+import lib.utils.stan
 
 # def check_completed(patient_ids, nchains, fname_suffix, root_dir):
 #     with open(os.path.join(root_dir, 'chains_report.csv'), 'w') as fd:
@@ -202,75 +203,6 @@ def ez_pred(patient_ids, nchains, fname_suffix, root_dir, x0_threshold):
         np.save(os.path.join(root_dir, patient_id, 'ez_pred.npy'), ez_pred)
 
 
-def find_ez(onst_thrshld, bin_thrshld, nbins, csv_path, enforce_thrshld=False):
-    # for patient_id in patient_ids:
-    optima = lib.io.stan.read_samples(csv_path)
-    x = optima['x'][0]
-    nt, nn = x.shape
-    onsets = (nt + 50)*np.ones(nn)
-    for i in range(nn):
-        xt = x[:,i] > onst_thrshld
-        if(xt.any()):
-            onsets[i] = np.nonzero(x[:,i] > onst_thrshld)[0][0]
-    nszng = np.size(np.nonzero(onsets < nt))
-    a, b = np.histogram(onsets[onsets<nt], bins=nbins)
-    if(nszng <= 1 and not enforce_thrshld):
-        bin_thrshld = nbins
-    ez_pred = np.zeros(nn)
-    ez_pred[np.nonzero(onsets<b[bin_thrshld])[0]] = 1
-    pz_pred = np.zeros(nn)
-    pz_pred[np.nonzero(np.logical_and(onsets > b[bin_thrshld], onsets < nt))[0]] =1
-    return ez_pred, pz_pred
-
-
-def precision_recall(patient_ids, root_dir, onst_thrshld, bin_thrshld, nbins):
-    tp = fp = fn = 0
-    for patient_id in patient_ids:
-        # Read EZ hypothesis or skip patient if hypothesis doesn't exist
-        try:
-            ez_hyp = np.loadtxt(f'datasets/retro/{patient_id}/tvb/ez_hypothesis.destrieux.txt')
-        except Exception as err:
-            print(err)
-            continue
-        # ez_pred = np.load(os.path.join(root_dir, patient_id, 'ez_pred.npy')).astype(int)
-        csv_path = glob.glob(os.path.join(root_dir, patient_id, '*chain1.csv'))
-        ez_pred, pz_pred = find_ez(onst_thrshld, bin_thrshld, nbins, csv_path)
-        for a, b in zip(ez_hyp, ez_pred):
-            if(a == 1 and b == 1):
-                tp += 1
-            elif(a == 1 and b == 0):
-                fn += 1
-            elif(a == 0 and b == 1):
-                fp += 1
-    precision = tp / (tp + fp)
-    recall = tp / (tp + fn)
-    return precision, recall
-
-
-def tpr_and_fpr(patient_ids, root_dir):
-    tp = fp = fn = tn = 0
-    for patient_id in patient_ids:
-        # Read EZ hypothesis or skip patient if hypothesis doesn't exist
-        try:
-            ez_hyp = np.loadtxt(f'datasets/retro/{patient_id}/tvb/ez_hypothesis.destrieux.txt')
-        except Exception as err:
-            print(err)
-            continue
-        ez_pred = np.load(os.path.join(root_dir, patient_id, 'ez_pred.npy')).astype(int)
-        for a, b in zip(ez_hyp, ez_pred):
-            if(a == 1 and b == 1):
-                tp += 1
-            elif(a == 1 and b == 0):
-                fn += 1
-            elif(a == 0 and b == 1):
-                fp += 1
-            elif(a ==0 and b == 0):
-                tn += 1
-    tpr = tp / (tp + fn)
-    fpr = fp / (tn + fp)
-    return tpr, fpr
-
-
 if (__name__ == '__main__'):
     root_dir = '/home/anirudh/Nextcloud/Academia/Projects/VEP/results/exp10.67'
     patient_ids = dict()
@@ -280,19 +212,19 @@ if (__name__ == '__main__'):
     patient_ids['engel4'] = ['id033_fc','id036_dm']
     patient_ids['engel2or3or4'] = patient_ids['engel2'] + patient_ids['engel3'] + patient_ids['engel4']
 
-    # # Precision-Recall curves for bin thresholding
+    # # Precision-Recall curves for onset window threshold
     # precision = []
     # recall = []
-    # onst_thrshld = -0.05
-    # nbins = 20
-    # bin_thrshld =  np.arange(1, nbins, dtype=int)
-    # for bin_thrshld_ in bin_thrshld:
-    #     find_ez(onst_thrshld, bin_thrshld_, nbins, patient_ids['engel1'], root_dir)
-    #     p, r = precision_recall(patient_ids['engel1'], root_dir)
+    # src_thrshld = -0.05
+    # onst_wndw_sz =  np.arange(0, 50, dtype=int)
+    # for onst_wndw_sz_ in onst_wndw_sz:
+    #     p, r = lib.utils.stan.precision_recall(patient_ids['engel1'], root_dir, src_thrshld, onst_wndw_sz_)
     #     precision.append(p)
     #     recall.append(r)
     # plt.figure()
     # plt.plot(recall, precision, color='black')
+    # for i,wndw_sz in enumerate(onst_wndw_sz):
+    #     plt.annotate(str(wndw_sz), (recall[i], precision[i]))
     # plt.xlabel('Recall', fontsize=13)
     # plt.ylabel('Precision', fontsize=13)
     # plt.xticks(fontsize=12)
@@ -302,16 +234,16 @@ if (__name__ == '__main__'):
 
     # precision = []
     # recall = []
-    # onst_thrshld = -0.05
-    # nbins = 20
-    # bin_thrshld = np.arange(1, nbins, dtype=int)
-    # for bin_thrshld_ in bin_thrshld:
-    #     find_ez(onst_thrshld, bin_thrshld_, nbins, patient_ids['engel2or3or4'], root_dir)
-    #     p, r = precision_recall(patient_ids['engel2or3or4'], root_dir)
+    # src_thrshld = -0.05
+    # onst_wndw_sz =  np.arange(1, 50, dtype=int)
+    # for onst_wndw_sz_ in onst_wndw_sz:
+    #     p, r = lib.utils.stan.precision_recall(patient_ids['engel2or3or4'], root_dir, src_thrshld, onst_wndw_sz_)
     #     precision.append(p)
     #     recall.append(r)
     # plt.figure()
     # plt.plot(recall, precision, color='black')
+    # for i,wndw_sz in enumerate(onst_wndw_sz):
+    #     plt.annotate(str(wndw_sz), (recall[i], precision[i]))
     # plt.xlabel('Recall', fontsize=13)
     # plt.ylabel('Precision', fontsize=13)
     # plt.xticks(fontsize=12)
@@ -319,50 +251,14 @@ if (__name__ == '__main__'):
     # plt.title('Engel score II, III and IV', fontsize=15)
     # plt.show(block=False)
 
-    # ## Precision-Recall curves for onset thresholding
-    # precision = []
-    # recall = []
-    # nbins = 10
-    # onst_thrshld = np.linspace(0, -2.0, 10)
-    # bin_thrshld = 1
-    # for onst_thrshld_ in onst_thrshld:
-    #     find_ez(onst_thrshld_, bin_thrshld, nbins, patient_ids['engel1'], root_dir)
-    #     p, r = precision_recall(patient_ids['engel1'], root_dir)
-    #     precision.append(p)
-    #     recall.append(r)
-    #     print(onst_thrshld_, p, r)
-    # plt.figure()
-    # plt.plot(recall, precision)
-    # plt.xlabel('Recall', fontsize=13)
-    # plt.ylabel('Precision', fontsize=13)
-    # plt.title('Engel score I', fontsize=15)
-    # plt.show(block=False)
 
-    # precision = []
-    # recall = []
-    # nbins = 10
-    # onst_thrshld =  np.linspace(0, -0.5, 20)
-    # bin_thrshld = 1
-    # for onst_thrshld_ in onst_thrshld:
-    #     find_ez(onst_thrshld_, bin_thrshld, nbins, patient_ids['engel2or3or4'], root_dir)
-    #     p, r = precision_recall(patient_ids['engel2or3or4'], root_dir)
-    #     precision.append(p)
-    #     recall.append(r)
-    # plt.figure()
-    # plt.plot(recall, precision)
-    # plt.xlabel('Recall', fontsize=13)
-    # plt.ylabel('Precision', fontsize=13)
-    # plt.title('Engel score II, III and IV', fontsize=15)
-    # plt.show(block=False)
-
-    ## Bar plot
+    # Bar plot
     precision = []
     recall = []
     for i in range(4):
-        onst_thrshld = -0.05
-        bin_thrshld = 1
-        # find_ez(onst_thrshld, bin_thrshld, 10, patient_ids['engel' + str(i + 1)], root_dir)
-        p, r = precision_recall(patient_ids['engel' + str(i + 1)], root_dir, onst_thrshld, bin_thrshld, nbins=10)
+        src_thrshld = -0.05
+        onst_wndw_sz = 10
+        p, r = lib.utils.stan.precision_recall(patient_ids['engel' + str(i + 1)], root_dir, src_thrshld, onst_wndw_sz)
         precision.append(p)
         recall.append(r)
 
