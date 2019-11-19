@@ -211,52 +211,54 @@ if (__name__ == '__main__'):
     patient_ids['engel3'] = ['id007_rd','id008_dmc','id023_br','id028_ca', 'id037_cg']
     patient_ids['engel4'] = ['id033_fc','id036_dm']
     patient_ids['engel2or3or4'] = patient_ids['engel2'] + patient_ids['engel3'] + patient_ids['engel4']
-
     # # Precision-Recall curves for onset window threshold
-    # precision = []
-    # recall = []
-    # src_thrshld = -0.05
-    # onst_wndw_sz =  np.arange(0, 50, dtype=int)
-    # for onst_wndw_sz_ in onst_wndw_sz:
-    #     p, r = lib.utils.stan.precision_recall(patient_ids['engel1'], root_dir, src_thrshld, onst_wndw_sz_)
-    #     precision.append(p)
-    #     recall.append(r)
-    # plt.figure()
-    # plt.plot(recall, precision, color='black')
-    # for i,wndw_sz in enumerate(onst_wndw_sz):
-    #     plt.annotate(str(wndw_sz), (recall[i], precision[i]))
-    # plt.xlabel('Recall', fontsize=13)
-    # plt.ylabel('Precision', fontsize=13)
-    # plt.xticks(fontsize=12)
-    # plt.yticks(fontsize=12)
-    # plt.title('Engel score I', fontsize=15)
-    # plt.show(block=False)
+    # engel_scores = ['engel1', 'engel2or3or4']
+    # engel_scores_rmn = ['I', 'II, III, IV']
+    # for i,es in enumerate(engel_scores):
+    #     precision = []
+    #     recall = []
+    #     src_thrshld = 0
+    #     onst_wndw_sz = np.arange(0, 100, dtype=int)
+    #     for onst_wndw_sz_ in onst_wndw_sz:
+    #         p, r = lib.utils.stan.precision_recall(patient_ids[es], root_dir, src_thrshld, onst_wndw_sz_)
+    #         precision.append(p)
+    #         recall.append(r)
+    #     plt.figure()
+    #     plt.plot(recall, precision, color='black')
+    #     # for i,wndw_sz in enumerate(onst_wndw_sz):
+    #     #     plt.annotate(str(wndw_sz), (recall[i], precision[i]))
+    #     plt.xlabel('Recall', fontsize=13)
+    #     plt.ylabel('Precision', fontsize=13)
+    #     plt.xticks(fontsize=12)
+    #     plt.yticks(fontsize=12)
+    #     plt.title('Engel score ' + engel_scores_rmn[i], fontsize=15)
+    #     plt.show(block=False)
 
-    # precision = []
-    # recall = []
-    # src_thrshld = -0.05
-    # onst_wndw_sz =  np.arange(1, 50, dtype=int)
-    # for onst_wndw_sz_ in onst_wndw_sz:
-    #     p, r = lib.utils.stan.precision_recall(patient_ids['engel2or3or4'], root_dir, src_thrshld, onst_wndw_sz_)
-    #     precision.append(p)
-    #     recall.append(r)
-    # plt.figure()
-    # plt.plot(recall, precision, color='black')
-    # for i,wndw_sz in enumerate(onst_wndw_sz):
-    #     plt.annotate(str(wndw_sz), (recall[i], precision[i]))
-    # plt.xlabel('Recall', fontsize=13)
-    # plt.ylabel('Precision', fontsize=13)
-    # plt.xticks(fontsize=12)
-    # plt.yticks(fontsize=12)
-    # plt.title('Engel score II, III and IV', fontsize=15)
-    # plt.show(block=False)
+    # # precision = []
+    # # recall = []
+    # # src_thrshld = 0
+    # # onst_wndw_sz =  np.arange(1, 100, dtype=int)
+    # # for onst_wndw_sz_ in onst_wndw_sz:
+    # #     p, r = lib.utils.stan.precision_recall(patient_ids['engel2or3or4'], root_dir, src_thrshld, onst_wndw_sz_)
+    # #     precision.append(p)
+    # #     recall.append(r)
+    # # plt.figure()
+    # # plt.plot(recall, precision, color='black')
+    # # # for i,wndw_sz in enumerate(onst_wndw_sz):
+    # # #     plt.annotate(str(wndw_sz), (recall[i], precision[i]))
+    # # plt.xlabel('Recall', fontsize=13)
+    # # plt.ylabel('Precision', fontsize=13)
+    # # plt.xticks(fontsize=12)
+    # # plt.yticks(fontsize=12)
+    # # plt.title('Engel score II, III and IV', fontsize=15)
+    # # plt.show(block=False)
 
 
     # Bar plot
     precision = []
     recall = []
     for i in range(4):
-        src_thrshld = -0.05
+        src_thrshld = 0
         onst_wndw_sz = 10
         p, r = lib.utils.stan.precision_recall(patient_ids['engel' + str(i + 1)], root_dir, src_thrshld, onst_wndw_sz)
         precision.append(p)
@@ -276,7 +278,8 @@ if (__name__ == '__main__'):
 
     # ax.bar([5,6], [precision[0],recall[0]], color=['black', 'grey'])
     ax.set_xticks([np.mean([5*i + 1, 5*i + 2]) for i in range(4)])
-    ax.set_xticklabels(['Engel score I', 'Engel score II', 'Engel score III', 'Engel score IV'], fontsize=15)
+    ax.set_xticklabels(['I', 'II', 'III', 'IV'], fontsize=15, fontweight='bold')
+    ax.set_xlabel('Engel Score', fontsize=15, fontweight='bold')
     ax.tick_params(axis='y', labelsize=12)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
