@@ -1,0 +1,3 @@
+id010_cmn: 
+id017_mk: Good EZ identification and good propagation
+id020_lma: Good EZ identification but no propagation
