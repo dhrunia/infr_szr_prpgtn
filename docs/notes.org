@@ -1,3 +1,11 @@
+* Engel score I
 id010_cmn: 
 id017_mk: Good EZ identification and good propagation
 id020_lma: Good EZ identification but no propagation
+
+* Engel score II
+id001_bt
+
+* Engel score III
+id023_br: Good mismatch with EZ hypothesis but many regions are seizing
+id028_ca: Good mismatch with EZ hypothesis and some clin. EZ are in predicted PZ. PZ is smaller relative to id023_br
