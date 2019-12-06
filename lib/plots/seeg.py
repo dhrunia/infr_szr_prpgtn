@@ -77,20 +77,17 @@ def source_sensors(cxyz: np.ndarray, rxyz: np.ndarray):
         plot(cxyz[:, j], cxyz[:, k], 'bo')
         plot(rxyz[:, j], rxyz[:, k], 'rx')
 
-def seeg_elecs(tvbzip_file, seegxyz, ez_idx, pz_idx, out_fig):
+def seeg_elecs(json_fname, tvbzip_file, seegxyz, ez_idx, pz_idx, out_fig=''):
     from ..io import tvb
     from ..io import seeg
     import zipfile
     import matplotlib.pyplot as plt
     import json
 
-    with open(
-            'datasets/syn_data/id001_bt/BTcrise1appportable_0006.json') as fp:
+    with open(json_fname) as fp:
         bad_chnls = json.load(fp)['bad_channels']
 
-    with zipfile.ZipFile(tvbzip_file) as tvbzip:
-        with tvbzip.open("centres.txt") as centres_file:
-            roi_cntrs, roi_lbls = tvb.read_roi_cntrs(tvbzip_file)
+    roi_cntrs, roi_lbls = tvb.read_roi_cntrs(tvbzip_file)
     contacts = seeg.read_contacts(seegxyz)
     contactsxyz = np.array([
         contacts[ch_name] for ch_name in contacts.keys()
@@ -132,9 +129,10 @@ def seeg_elecs(tvbzip_file, seegxyz, ez_idx, pz_idx, out_fig):
     # ax.set_zlabel(labels[2])
     # ax.set_aspect('equal')
 
-    plt.legend(loc='upper right')
+    # plt.legend(loc='upper right')
     plt.tight_layout()
-    plt.savefig(out_fig)
+    if(out_fig):
+        plt.savefig(out_fig)
 
 def plot_gain(gain_mat):
     from matplotlib import colors, cm
