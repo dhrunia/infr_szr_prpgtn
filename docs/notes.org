@@ -1,4 +1,5 @@
 * Engel score I
+id003_mg: Decent EZ identification, one false positive in EZ and many ROI in PZ
 id010_cmn: 
 id017_mk: Good EZ identification and good propagation
 id020_lma: Good EZ identification but no propagation
