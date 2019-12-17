@@ -212,28 +212,31 @@ if (__name__ == '__main__'):
     patient_ids['engel4'] = ['id033_fc','id036_dm']
     patient_ids['engel3or4'] = patient_ids['engel3'] + patient_ids['engel4']
     patient_ids['engel2or3or4'] = patient_ids['engel2'] + patient_ids['engel3'] + patient_ids['engel4']
-    # # Precision-Recall curves for onset window threshold
-    # engel_scores = ['engel1', 'engel2or3or4']
-    # engel_scores_rmn = ['I', 'II, III, IV']
-    # for i,es in enumerate(engel_scores):
-    #     precision = []
-    #     recall = []
-    #     src_thrshld = 0
-    #     onst_wndw_sz = np.arange(0, 100, dtype=int)
-    #     for onst_wndw_sz_ in onst_wndw_sz:
-    #         p, r = lib.utils.stan.precision_recall(patient_ids[es], root_dir, src_thrshld, onst_wndw_sz_)
-    #         precision.append(p)
-    #         recall.append(r)
-    #     plt.figure()
-    #     plt.plot(recall, precision, color='black')
-    #     # for i,wndw_sz in enumerate(onst_wndw_sz):
-    #     #     plt.annotate(str(wndw_sz), (recall[i], precision[i]))
-    #     plt.xlabel('Recall', fontsize=13)
-    #     plt.ylabel('Precision', fontsize=13)
-    #     plt.xticks(fontsize=12)
-    #     plt.yticks(fontsize=12)
-    #     plt.title('Engel score ' + engel_scores_rmn[i], fontsize=15)
-    #     plt.show(block=False)
+    # Precision-Recall curves for onset window threshold
+    engel_scores = ['engel1', 'engel2', 'engel3or4']
+    engel_scores_rmn = ['I', 'II', 'III and IV']
+    for i,es in enumerate(engel_scores):
+        precision = []
+        recall = []
+        src_thrshld = 0
+        onst_wndw_sz = np.arange(0, 100, 5, dtype=int)
+        for onst_wndw_sz_ in onst_wndw_sz:
+            p, r = lib.utils.stan.precision_recall(patient_ids[es], root_dir, src_thrshld, onst_wndw_sz_)
+            precision.append(p)
+            recall.append(r)
+        plt.figure()
+        plt.plot(recall, precision, color='black')
+        plt.scatter(recall, precision, marker='x')
+        # for i,wndw_sz in enumerate(onst_wndw_sz):
+        #     plt.annotate(str(wndw_sz), (recall[i], precision[i]))
+        plt.xlabel('Recall', fontsize=13)
+        plt.ylabel('Precision', fontsize=13)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        # plt.xlim([0, 1])
+        # plt.ylim([0, 1])
+        plt.title('Engel score ' + engel_scores_rmn[i], fontsize=15)
+        plt.show(block=False)
 
     # # precision = []
     # # recall = []
@@ -254,39 +257,40 @@ if (__name__ == '__main__'):
     # # plt.title('Engel score II, III and IV', fontsize=15)
     # # plt.show(block=False)
 
-    # Bar plot
-    precision = []
-    recall = []
-    for i in range(4):
-        src_thrshld = 0
-        onst_wndw_sz = 10
-        p, r = lib.utils.stan.precision_recall(patient_ids['engel' + str(i + 1)], root_dir, src_thrshld, onst_wndw_sz)
-        precision.append(p)
-        recall.append(r)
-
-        ax = plt.subplot(111)
-        ax.bar([5*i + 1, 5*i + 2], [precision[i], recall[i]], color=['black', 'grey'])
-
+    # # Bar plot
     # precision = []
     # recall = []
-    # onst_thrshlds = [-0.05]
-    # for threshold in onst_thrshlds:
-    #     find_ez(threshold, patient_ids['engel2or3or4'], root_dir)
-    #     p, r = precision_recall(patient_ids['engel2or3or4'], root_dir)
+    # engel_scores = ['engel1', 'engel2', 'engel3or4']
+    # for i,scr in enumerate(engel_scores):
+    #     src_thrshld = 0
+    #     onst_wndw_sz = 10
+    #     p, r = lib.utils.stan.precision_recall(patient_ids[scr], root_dir, src_thrshld, onst_wndw_sz)
     #     precision.append(p)
     #     recall.append(r)
 
-    # ax.bar([5,6], [precision[0],recall[0]], color=['black', 'grey'])
-    ax.set_xticks([np.mean([5*i + 1, 5*i + 2]) for i in range(4)])
-    ax.set_xticklabels(['I', 'II', 'III', 'IV'], fontsize=15, fontweight='bold')
-    ax.set_xlabel('Engel Score', fontsize=15, fontweight='bold')
-    ax.tick_params(axis='y', labelsize=12)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    legend_elements = [Line2D([0], [0], color='black', lw=5, label='Precision'),
-                       Line2D([0], [0], color='grey', lw=5, label='Recall')]
-    ax.legend(handles=legend_elements)
-    plt.show()
+    #     ax = plt.subplot(111)
+    #     ax.bar([5*i + 1, 5*i + 2], [precision[i], recall[i]], color=['black', 'grey'])
+
+    # # precision = []
+    # # recall = []
+    # # onst_thrshlds = [-0.05]
+    # # for threshold in onst_thrshlds:
+    # #     find_ez(threshold, patient_ids['engel2or3or4'], root_dir)
+    # #     p, r = precision_recall(patient_ids['engel2or3or4'], root_dir)
+    # #     precision.append(p)
+    # #     recall.append(r)
+
+    # # ax.bar([5,6], [precision[0],recall[0]], color=['black', 'grey'])
+    # ax.set_xticks([np.mean([5*i + 1, 5*i + 2]) for i in range(len(engel_scores))])
+    # ax.set_xticklabels(['I', 'II', 'III and IV'], fontsize=15, fontweight='bold')
+    # ax.set_xlabel('Engel Score', fontsize=15, fontweight='bold')
+    # ax.tick_params(axis='y', labelsize=12)
+    # ax.spines['top'].set_visible(False)
+    # ax.spines['right'].set_visible(False)
+    # legend_elements = [Line2D([0], [0], color='black', lw=5, label='Precision'),
+    #                    Line2D([0], [0], color='grey', lw=5, label='Recall')]
+    # ax.legend(handles=legend_elements)
+    # plt.show()
 
     # # scatter plot
     # precision = dict() #[]
