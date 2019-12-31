@@ -34,56 +34,35 @@ data {
   int ns;
   int nt;
   matrix[ns,nn] gain;
-  matrix<lower=0.0, upper=1.0>[nn, nn] SC;
+  matrix<lower=0.0>[nn, nn] SC;
 
   // Modelled data
   row_vector[ns] slp[nt]; //seeg log power
   row_vector[ns] snsr_pwr; //seeg sensor power
 
+  // Data on priors
+  row_vector[nn] x0_mu;
 }
+
 transformed data{
   real I1 = 3.1;
   real time_step = 0.1;
-
+  real<lower=0> eps_slp = 0.1;
+  real<lower=0> eps_snsr_pwr = 5;
   row_vector[nn] x_init = rep_row_vector(-2.0, nn);
   row_vector[nn] z_init = rep_row_vector(3.5, nn);
-
-  // Hyperparameters
-  real eps_slp = 0.02;
-  real eps_snsr_pwr = 0.1;
 }
 
 parameters {
-  row_vector[nn] x0_star_star;
-  real amplitude_star_star;
-  real offset_star_star;
-  real K_star_star;
-  real tau0_star_star;
-  //Rescaling parameters
-  row_vector<lower=0, upper=1>[nn] x0_alpha;
-  real<lower=0, upper=1> amplitude_alpha;
-  real<lower=0, upper=1> offset_alpha;
-  real<lower=0, upper=1> K_alpha;
-  real<lower=0, upper=1> tau0_alpha;
+  row_vector[nn] x0;
+  real<lower=0> amplitude;
+  real offset;
+  real<lower=0> K;
+  real<lower=5> tau0;
 }
 
-transformed parameters{
-  row_vector[nn] x0_star = inv(x0_alpha) .* x0_star_star;
-  real amplitude_star = inv(amplitude_alpha) * amplitude_star_star;
-  real offset_star= inv(offset_alpha) * offset_star_star;
-  real K_star= inv(K_alpha) * K_star_star;
-  real tau0_star= inv(tau0_alpha) * tau0_star_star;
-  /* row_vector[nn] x_init_star = (1/alpha)*x_init_star_star; */
-  /* row_vector[nn] z_init_star = (1/alpha)*z_init_star_star; */
-    
-  row_vector[nn] x0 = -3.0 + x0_star;
-  real amplitude = exp(pow(1.0, 2) + log(1.0) + 1.0*amplitude_star);
-  real offset = offset_star;
-  real tau0 = exp(pow(1.0, 2) + log(30.0) + 1.0*tau0_star);
-  real K = exp(pow(1.0, 2) + log(1.0) + 1.0*K_star);
-  
-
-  // Euler integration of the epileptor without noise 
+transformed parameters{   
+  // Euler integration of the 2D Epileptor
   row_vector[nn] x[nt];
   row_vector[nn] z[nt];
   row_vector[ns] mu_slp[nt];
@@ -100,22 +79,21 @@ transformed parameters{
     mu_slp[t] = amplitude * (log(gain * exp(x[t])')' + offset);
     mu_snsr_pwr += mu_slp[t] .* mu_slp[t];
   }
-  mu_snsr_pwr = mu_snsr_pwr ./ nt;
+  mu_snsr_pwr = mu_snsr_pwr / nt;
 }
 
 model {
-  // Log. Piror probability
-  target += normal_lpdf(x0_star | 0, 1.0);
-  target += normal_lpdf(amplitude_star | 0, 1.0);
-  target += normal_lpdf(offset_star | 0, 1.0);
-  target += normal_lpdf(tau0_star | 0, 1.0);
-  target += normal_lpdf(K_star | 0, 1.0);
-  target += sum(log(inv(x0_alpha)));
-  target += log(inv(amplitude_alpha));
-  target += log(inv(offset_alpha));
-  target += log(inv(K_alpha));
-  target += log(inv(tau0_alpha));
-  // Log. Likelihood
+  x0 ~ normal(x0_mu, 1.0);
+  amplitude ~ normal(1.0, 10.0);
+  offset ~ normal(0, 10.0);
+  tau0 ~ normal(20, 10.0);
+  K ~ normal(1.0, 10.0);
+  for (i in 1:nn){
+    x_init[i] ~ normal(-2.0, 10.0);
+    z_init[i] ~ normal(3.5, 10.0);
+  }
+  eps_slp ~ normal(1, 10);
+  eps_snsr_pwr ~ normal(1, 10);
   for (t in 1:nt) {
     target += normal_lpdf(slp[t] | mu_slp[t], eps_slp);
   }
