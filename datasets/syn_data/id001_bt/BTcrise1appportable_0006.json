@@ -1,0 +1,24 @@
+{
+    "filename": "BTcrise1appportable_0006.raw.fif",
+    "onset": 22.494,
+    "termination": 350.337,
+    "bad_channels": [
+        "OF'1",
+        "OF'2",
+        "OF'3",
+        "OF'4",
+        "OF'5",
+        "OF'6",
+        "OF'7",
+        "OF'8",
+        "OF'9",
+        "A4",
+        "A5"
+    ],
+    "non_seeg_channels": [
+        "ECG",
+        "SAT"
+    ],
+    "type": "Spontaneous seizure",
+    "note": "Partial seizure"
+}
