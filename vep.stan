@@ -47,8 +47,7 @@ data {
 transformed data{
   real I1 = 3.1;
   real time_step = 0.1;
-  real<lower=0> eps_slp = 0.1;
-  real<lower=0> eps_snsr_pwr = 5;
+
   row_vector[nn] x_init = rep_row_vector(-2.0, nn);
   row_vector[nn] z_init = rep_row_vector(3.5, nn);
 }
@@ -59,6 +58,8 @@ parameters {
   real offset;
   real<lower=0> K;
   real<lower=5> tau0;
+  real<lower=0> eps_slp;
+  real<lower=0> eps_snsr_pwr;
 }
 
 transformed parameters{   
@@ -88,10 +89,10 @@ model {
   offset ~ normal(0, 10.0);
   tau0 ~ normal(20, 10.0);
   K ~ normal(1.0, 10.0);
-  for (i in 1:nn){
-    x_init[i] ~ normal(-2.0, 10.0);
-    z_init[i] ~ normal(3.5, 10.0);
-  }
+  /* for (i in 1:nn){ */
+  /*   x_init[i] ~ normal(-2.0, 10.0); */
+  /*   z_init[i] ~ normal(3.5, 10.0); */
+  /* } */
   eps_slp ~ normal(1, 10);
   eps_snsr_pwr ~ normal(1, 10);
   for (t in 1:nt) {
