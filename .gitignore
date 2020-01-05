@@ -18,7 +18,6 @@ datasets/
 *.R
 *.out
 .vscode
-*.png
 *.zip
 .ipynb_checkpoints
 __pycache__
