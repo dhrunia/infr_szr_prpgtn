@@ -14,6 +14,7 @@
     "subcaption")
    (LaTeX-add-labels
     "fig:syn-data"
-    "fig:data-features"))
+    "fig:data-features"
+    "fig:vep_model"))
  :latex)
 

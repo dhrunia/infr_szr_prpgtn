@@ -1,15 +1,15 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.20 (TeX Live 2019/Debian) (preloaded format=pdflatex 2019.10.25)  2 JAN 2020 19:23
+This is pdfTeX, Version 3.14159265-2.6-1.40.20 (TeX Live 2019/Debian) (preloaded format=pdflatex 2019.12.15)  5 JAN 2020 19:57
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
  %&-line parsing enabled.
 **report.tex
 (./report.tex
-LaTeX2e <2018-12-01>
+LaTeX2e <2019-10-01> patch level 3
 (/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
-Document Class: article 2018/09/03 v1.4i Standard LaTeX document class
+Document Class: article 2019/10/25 v1.4k Standard LaTeX document class
 (/usr/share/texlive/texmf-dist/tex/latex/base/size12.clo
-File: size12.clo 2018/09/03 v1.4i Standard LaTeX file (size option)
+File: size12.clo 2019/10/25 v1.4k Standard LaTeX file (size option)
 )
 \c@part=\count80
 \c@section=\count81
@@ -30,15 +30,17 @@ Package: geometry 2018/04/16 v5.8 Page Geometry
 Package: keyval 2014/10/28 v1.15 key=value parser (DPC)
 \KV@toks@=\toks14
 )
-(/usr/share/texlive/texmf-dist/tex/generic/oberdiek/ifpdf.sty
-Package: ifpdf 2018/09/07 v3.3 Provides the ifpdf switch
+(/usr/share/texlive/texmf-dist/tex/generic/iftex/ifpdf.sty
+Package: ifpdf 2019/10/25 v3.4 ifpdf legacy package. Use iftex instead.
+
+(/usr/share/texlive/texmf-dist/tex/generic/iftex/iftex.sty
+Package: iftex 2019/11/07 v1.0c TeX engine tests
+))
+(/usr/share/texlive/texmf-dist/tex/generic/iftex/ifvtex.sty
+Package: ifvtex 2019/10/25 v1.7 ifvtex legacy package. Use iftex instead.
 )
-(/usr/share/texlive/texmf-dist/tex/generic/oberdiek/ifvtex.sty
-Package: ifvtex 2016/05/16 v1.6 Detect VTeX and its facilities (HO)
-Package ifvtex Info: VTeX not detected.
-)
-(/usr/share/texlive/texmf-dist/tex/generic/ifxetex/ifxetex.sty
-Package: ifxetex 2010/09/12 v0.6 Provides ifxetex conditional
+(/usr/share/texlive/texmf-dist/tex/generic/iftex/ifxetex.sty
+Package: ifxetex 2019/10/25 v0.7 ifxetex legacy package. Use iftex instead.
 )
 \Gm@cnth=\count88
 \Gm@cntv=\count89
@@ -57,7 +59,7 @@ Package: ifxetex 2010/09/12 v0.6 Provides ifxetex conditional
 Package: graphicx 2017/06/01 v1.1a Enhanced LaTeX Graphics (DPC,SPQR)
 
 (/usr/share/texlive/texmf-dist/tex/latex/graphics/graphics.sty
-Package: graphics 2017/06/25 v1.2c Standard LaTeX Graphics (DPC,SPQR)
+Package: graphics 2019/11/01 v1.3d Standard LaTeX Graphics (DPC,SPQR)
 
 (/usr/share/texlive/texmf-dist/tex/latex/graphics/trig.sty
 Package: trig 2016/01/03 v1.10 sin cos tan (DPC)
@@ -65,7 +67,7 @@ Package: trig 2016/01/03 v1.10 sin cos tan (DPC)
 (/usr/share/texlive/texmf-dist/tex/latex/graphics-cfg/graphics.cfg
 File: graphics.cfg 2016/06/04 v1.11 sample graphics configuration
 )
-Package graphics Info: Driver file: pdftex.def on input line 99.
+Package graphics Info: Driver file: pdftex.def on input line 105.
 
 (/usr/share/texlive/texmf-dist/tex/latex/graphics-def/pdftex.def
 File: pdftex.def 2018/01/08 v1.0l Graphics/color driver for pdftex
@@ -74,13 +76,13 @@ File: pdftex.def 2018/01/08 v1.0l Graphics/color driver for pdftex
 \Gin@req@width=\dimen112
 )
 (/usr/share/texlive/texmf-dist/tex/latex/caption/subcaption.sty
-Package: subcaption 2018/05/01 v1.1-162 Sub-captions (AR)
+Package: subcaption 2019/09/01 v1.3a Sub-captions (AR)
 
 (/usr/share/texlive/texmf-dist/tex/latex/caption/caption.sty
-Package: caption 2018/10/06 v3.3-154 Customizing captions (AR)
+Package: caption 2019/10/18 v3.4a Customizing captions (AR)
 
 (/usr/share/texlive/texmf-dist/tex/latex/caption/caption3.sty
-Package: caption3 2018/09/12 v1.8c caption3 kernel (AR)
+Package: caption3 2019/09/09 v1.8e caption3 kernel (AR)
 Package caption3 Info: TeX engine: e-TeX on input line 64.
 \captionmargin=\dimen113
 \captionmargin@=\dimen114
@@ -89,9 +91,10 @@ Package caption3 Info: TeX engine: e-TeX on input line 64.
 \caption@indent=\dimen117
 \caption@parindent=\dimen118
 \caption@hangindent=\dimen119
+Package caption Info: Standard document class detected.
 )
 \c@caption@flags=\count91
-\c@ContinuedFloat=\count92
+\c@continuedfloat=\count92
 )
 \c@subfigure=\count93
 \c@subtable=\count94
@@ -157,48 +160,10 @@ LaTeX Font Info:    ... okay on input line 7.
 \MPnumerator=\count99
 \makeMPintoPDFobject=\count100
 \everyMPtoPDFconversion=\toks17
-) (/usr/share/texlive/texmf-dist/tex/latex/oberdiek/epstopdf-base.sty
-Package: epstopdf-base 2016/05/15 v2.6 Base part for package epstopdf
-
-(/usr/share/texlive/texmf-dist/tex/generic/oberdiek/infwarerr.sty
-Package: infwarerr 2016/05/16 v1.4 Providing info/warning/error messages (HO)
-)
-(/usr/share/texlive/texmf-dist/tex/latex/oberdiek/grfext.sty
-Package: grfext 2016/05/16 v1.2 Manage graphics extensions (HO)
-
-(/usr/share/texlive/texmf-dist/tex/generic/oberdiek/kvdefinekeys.sty
-Package: kvdefinekeys 2016/05/16 v1.4 Define keys (HO)
-
-(/usr/share/texlive/texmf-dist/tex/generic/oberdiek/ltxcmds.sty
-Package: ltxcmds 2016/05/16 v1.23 LaTeX kernel commands for general use (HO)
-)))
-(/usr/share/texlive/texmf-dist/tex/latex/oberdiek/kvoptions.sty
-Package: kvoptions 2016/05/16 v3.12 Key value format for package options (HO)
-
-(/usr/share/texlive/texmf-dist/tex/generic/oberdiek/kvsetkeys.sty
-Package: kvsetkeys 2016/05/16 v1.17 Key value parser (HO)
-
-(/usr/share/texlive/texmf-dist/tex/generic/oberdiek/etexcmds.sty
-Package: etexcmds 2016/05/16 v1.6 Avoid name clashes with e-TeX commands (HO)
-
-(/usr/share/texlive/texmf-dist/tex/generic/oberdiek/ifluatex.sty
-Package: ifluatex 2016/05/16 v1.4 Provides the ifluatex switch (HO)
-Package ifluatex Info: LuaTeX not detected.
-))))
-(/usr/share/texlive/texmf-dist/tex/generic/oberdiek/pdftexcmds.sty
-Package: pdftexcmds 2018/09/10 v0.29 Utility functions of pdfTeX for LuaTeX (HO
-)
-Package pdftexcmds Info: LuaTeX not detected.
-Package pdftexcmds Info: \pdf@primitive is available.
-Package pdftexcmds Info: \pdf@ifprimitive is available.
-Package pdftexcmds Info: \pdfdraftmode found.
-)
+) (/usr/share/texlive/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty
+Package: epstopdf-base 2019-11-30 v2.9 Base part for package epstopdf
 Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
-38.
-Package grfext Info: Graphics extension search list:
-(grfext)             [.pdf,.png,.jpg,.mps,.jpeg,.jbig2,.jb2,.PDF,.PNG,.JPG,.JPE
-G,.JBIG2,.JB2,.eps]
-(grfext)             \AppendGraphicsExtensions on input line 456.
+85.
 
 (/usr/share/texlive/texmf-dist/tex/latex/latexconfig/epstopdf-sys.cfg
 File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
@@ -217,52 +182,101 @@ LaTeX Warning: No \author given.
 [1
 
 {/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}]
-<figures/source_activity_syn_data.png, id=8, 1802.735pt x 326.21875pt>
-File: figures/source_activity_syn_data.png Graphic file (type png)
-<use figures/source_activity_syn_data.png>
-Package pdftex.def Info: figures/source_activity_syn_data.png  used on input li
-ne 17.
-(pdftex.def)             Requested size: 418.25368pt x 75.68578pt.
+
+LaTeX Warning: File `figures/source_activity_syn_data.png' not found on input l
+ine 17.
+
+
+./report.tex:17: Package pdftex.def Error: File `figures/source_activity_syn_da
+ta.png' not found: using draft setting.
+
+See the pdftex.def package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.17 ...dth]{figures/source_activity_syn_data.png}
+                                                  
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <12> on input line 19.
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <8> on input line 19.
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <6> on input line 19.
-<figures/seeg_syn_data.png, id=10, 1422.31375pt x 318.18875pt>
-File: figures/seeg_syn_data.png Graphic file (type png)
-<use figures/seeg_syn_data.png>
-Package pdftex.def Info: figures/seeg_syn_data.png  used on input line 21.
-(pdftex.def)             Requested size: 418.25368pt x 93.5687pt.
-<figures/modelled_data_features.png, id=11, 1084.05pt x 1084.05pt>
-File: figures/modelled_data_features.png Graphic file (type png)
-<use figures/modelled_data_features.png>
-Package pdftex.def Info: figures/modelled_data_features.png  used on input line
- 31.
-(pdftex.def)             Requested size: 418.25368pt x 418.2455pt.
+
+LaTeX Warning: File `figures/seeg_syn_data.png' not found on input line 21.
+
+
+./report.tex:21: Package pdftex.def Error: File `figures/seeg_syn_data.png' not
+ found: using draft setting.
+
+See the pdftex.def package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.21 ...dth=\textwidth]{figures/seeg_syn_data.png}
+                                                  
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+LaTeX Warning: Float too large for page by 309.9075pt on input line 26.
 
 
 LaTeX Warning: `!h' float specifier changed to `!ht'.
 
-[1 <./figures/source_activity_syn_data.png> <./figures/seeg_syn_data.png>]
-[2 <./figures/modelled_data_features.png>] (./report.aux) ) 
+
+LaTeX Warning: File `figures/modelled_data_features.png' not found on input lin
+e 31.
+
+
+./report.tex:31: Package pdftex.def Error: File `figures/modelled_data_features
+.png' not found: using draft setting.
+
+See the pdftex.def package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.31 ...width]{figures/modelled_data_features.png}
+                                                  
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+LaTeX Warning: `!h' float specifier changed to `!ht'.
+
+<figures/vep_model.png, id=8, 768.8725pt x 690.58pt>
+File: figures/vep_model.png Graphic file (type png)
+<use figures/vep_model.png>
+Package pdftex.def Info: figures/vep_model.png  used on input line 38.
+(pdftex.def)             Requested size: 418.25368pt x 375.66844pt.
+
+LaTeX Warning: `!h' float specifier changed to `!ht'.
+
+[1] [2] [3] [4 <./figures/vep_model.png>] (./report.aux)
+
+LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+
+ ) 
 Here is how much of TeX's memory you used:
- 3112 strings out of 492609
- 49219 string characters out of 6131461
- 119524 words of memory out of 5000000
- 7019 multiletter control sequences out of 15000+600000
- 8801 words of font info for 31 fonts, out of 8000000 for 9000
+ 2781 strings out of 492164
+ 43697 string characters out of 6127731
+ 113470 words of memory out of 5000000
+ 7143 multiletter control sequences out of 15000+600000
+ 8970 words of font info for 32 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 42i,8n,40p,452b,439s stack positions out of 5000i,500n,10000p,200000b,80000s
-</usr/share/texlive/
-texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></usr/share/texlive/texmf-
-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/share/texlive/texmf-dist/fo
-nts/type1/public/amsfonts/cm/cmr12.pfb></usr/share/texlive/texmf-dist/fonts/typ
-e1/public/amsfonts/cm/cmr17.pfb>
-Output written on report.pdf (3 pages, 246780 bytes).
+ 45i,7n,46p,452b,442s stack positions out of 5000i,500n,10000p,200000b,80000s
+</usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></us
+r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/share
+/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/share/texliv
+e/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/share/texlive/texmf
+-dist/fonts/type1/public/amsfonts/cm/cmtt12.pfb>
+Output written on report.pdf (5 pages, 177037 bytes).
 PDF statistics:
- 37 PDF objects out of 1000 (max. 8388607)
- 21 compressed objects within 1 object stream
+ 43 PDF objects out of 1000 (max. 8388607)
+ 28 compressed objects within 1 object stream
  0 named destinations out of 1000 (max. 500000)
- 16 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 6 words of extra memory for PDF output out of 10000 (max. 10000000)
 
