@@ -11,10 +11,18 @@
     "art12"
     "geometry"
     "graphicx"
-    "subcaption")
+    "subcaption"
+    "placeins"
+    "amsmath"
+    "amsfonts")
    (LaTeX-add-labels
     "fig:syn-data"
     "fig:data-features"
-    "fig:vep_model"))
+    "fig:vep_model"
+    "tab:priors"
+    "fig:nuts_diags_chain1"
+    "fig:nuts_diags_chain2"
+    "fig:nuts_diags_chain3"
+    "fig:nuts_diags_chain4"))
  :latex)
 
