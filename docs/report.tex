@@ -39,7 +39,7 @@ Given appropriate parameter values 2D Epileptor can capture some of the importan
 \end{figure}
 \FloatBarrier
 \section*{Model}
-The dependency structure of virtual epileptic patient(VEP) model is shown in figure \ref{fig:vep_model}
+The dependency structure between parameters of virtual epileptic patient(VEP) model is shown in figure \ref{fig:vep_model}
 \begin{figure}
   \centering
   \includegraphics[width=\textwidth]{figures/vep_model.png}
@@ -115,18 +115,33 @@ Prior distributions of all inferred parameters are given in table \ref{tab:prior
 
 
  \section*{Results}
- Results from 4 chains with 200 warmup iterations and 200 sampling iterations are shown below. Target acceptance statistic ($\delta$) is set to 0.9 and max. tree depth is set to 10 for all chains.
+ NUTS parameters across iterations and pair plots for inferred scalar parameters from 4 chains are shown in figures \ref{fig:nuts_diags_chain1} - \ref{fig:nuts_diags_chain4}.
+
+ \textit{sampler parameters:}
+ 
+ \begin{tabular}{lcc}
+   No. of warmup iterations & : & 200 \\
+   No. of sampling iterations & : & 200 \\
+   Target acceptance statistic ($\delta$) & : & 0.9 \\
+   Max. tree depth & : & 10 \\
+   Metric & : & diagonal \\
+ \end{tabular}
+
+ \clearpage
+ \textbf{Problems}: 
  \begin{itemize}
+ \item Inference works well when the observations are at source space but fails when observations are in sensor space. 
  \item All chains hit max. tree depth
  \item Sampling is very slow, it takes 3-4 days to finish 200 warmup + 200 sampling itearations
+ \item Fixing observation noise($\epsilon_1=1, \epsilon_2=1$) causes many divergent transitions in all chains
  \end{itemize}
  \begin{figure}[h!]
    \centering
    \begin{subfigure}{1.0\linewidth}
-     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/nuts_diagnostics_syn_hmc_chain1.png}
+     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/nuts_diagnostics_syn_hmc_chain4.png}
    \end{subfigure}
    \begin{subfigure}{1.0\linewidth}
-     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/params_pair_plots_syn_hmc_chain1.png}
+     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/params_pair_plots_syn_hmc_chain4.png}
    \end{subfigure}
    \caption{Chain 1}
    \label{fig:nuts_diags_chain1}
@@ -134,10 +149,10 @@ Prior distributions of all inferred parameters are given in table \ref{tab:prior
  \begin{figure}[h!]
    \centering
    \begin{subfigure}{1.0\linewidth}
-     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/nuts_diagnostics_syn_hmc_chain2.png}
+     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/nuts_diagnostics_syn_hmc_chain1.png}
    \end{subfigure}
    \begin{subfigure}{1.0\linewidth}
-     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/params_pair_plots_syn_hmc_chain2.png}
+     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/params_pair_plots_syn_hmc_chain1.png}
    \end{subfigure}
    \caption{Chain 2}
    \label{fig:nuts_diags_chain2}
@@ -156,10 +171,10 @@ Prior distributions of all inferred parameters are given in table \ref{tab:prior
  \begin{figure}[h!]
    \centering
    \begin{subfigure}{1.0\linewidth}
-     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/nuts_diagnostics_syn_hmc_chain4.png}
+     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/nuts_diagnostics_syn_hmc_chain2.png}
    \end{subfigure}
    \begin{subfigure}{1.0\linewidth}
-     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/params_pair_plots_syn_hmc_chain4.png}
+     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/params_pair_plots_syn_hmc_chain2.png}
    \end{subfigure}
    \caption{Chain 4}
    \label{fig:nuts_diags_chain4}
