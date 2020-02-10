@@ -3,15 +3,22 @@ import numpy as np
 import glob
 import os
 
+def find_onsets(ts, thrshld):
+    nt, nn = ts.shape
+    onsets = (nt + 50)*np.ones(nn)
+    for i in range(nn):
+        ts_i_thrshd = ts[:,i] > thrshld
+        if(ts_i_thrshd.any()):
+            onsets[i] = np.nonzero(ts_i_thrshd)[0][0]
+        else:
+            onsets[i] = np.inf
+    return onsets
+
 def find_ez(src_thrshld, onst_wndw_sz, csv_path):
     optima = lib.io.stan.read_samples(csv_path)
     x = optima['x'][0]
     nt, nn = x.shape
-    onsets = (nt + 50)*np.ones(nn)
-    for i in range(nn):
-        xt = x[:,i] > src_thrshld
-        if(xt.any()):
-            onsets[i] = np.nonzero(xt)[0][0]
+    onsets = find_onsets(x, src_thrshld)
     nszng = np.size(np.nonzero(onsets < nt))
     assert nszng > 0, "No seizing regions found for: {}".format(csv_path) 
     # counts, edges = np.histogram(onsets[onsets<nt], range=(0,nt), bins=nbins)
