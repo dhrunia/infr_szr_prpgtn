@@ -9,12 +9,23 @@
 
 \title{Report for diagnosing problems with HMC}
 \begin{document}
+
 \begin{titlepage}
   \maketitle
+  \begin{center}
+    Theoretical Neurosciences Group \\
+    Institut de Neurosciences des Systèmes \\
+    Aix-Marseille Université
+  \end{center}
 \end{titlepage}
-The objective of this work is to identify spatio-temporal seizure propagation patterns i.e to find the regions of brain where seizure starts and propagates towards. The network of regions which initiate the seizure is called as Epileptogenic Zone(EZ) and the network of regions where seizure propagates is called as Propagation Zone(PZ)
 
-\section*{Dataset}
+\subsection*{Introduction}
+The objective of this work is to identify spatio-temporal seizure propagation patterns i.e to find the regions of brain where seizure starts and propagates towards by inverting a dynamical model of epileptic seizures namely Epileptor \cite{jirsa2014nature}. Coupled Epileptor model \cite{proix2014permittivity} is shown to reproduce patient specific seizures by adjusting the parameters of the model. So we aim to build virtual epileptic patient models using STAN to infer the parameter subspaces that would best explain log. power profiles of each patients intracranial recordings. More details about the approach are given in \cite{jirsa2017virtual}
+
+\subsubsection*{Notations}
+The network of regions which initiate the seizure is referred to as Epileptogenic Zone(EZ) and the network of regions where seizure propagates is referred to as Propagation Zone(PZ)
+
+\subsection*{Dataset}
 In order test the model, a synthetic dataset is generated using 5D Epileptor
 \begin{figure}[h!]
   \centering
@@ -39,11 +50,12 @@ Given appropriate parameter values 2D Epileptor can capture some of the importan
   \label{fig:data-features}
 \end{figure}
 \FloatBarrier
-\section*{Model}
+
+\subsection*{Model}
 The dependency structure between parameters of virtual epileptic patient(VEP) model is shown in figure \ref{fig:vep_model}
 \begin{figure}
   \centering
-  \includegraphics[width=\textwidth]{figures/vep_model.png}
+  \includegraphics[width=\textwidth]{figures/vep_model.pdf}
   \caption{Probabilistic graphical model of virtual epileptic patient}
   \label{fig:vep_model}
 \end{figure}
@@ -115,7 +127,7 @@ Prior distributions of all inferred parameters are given in table \ref{tab:prior
  \end{table}
 
 
- \section*{Results}
+ \subsection*{Results}
  NUTS parameters across iterations and pair plots for inferred scalar parameters from 4 chains are shown in figures \ref{fig:nuts_diags_chain1} - \ref{fig:nuts_diags_chain4}.
 
  \textit{sampler parameters:}
@@ -127,18 +139,62 @@ Prior distributions of all inferred parameters are given in table \ref{tab:prior
    Max. tree depth & : & 10 \\
    Metric & : & diagonal \\
  \end{tabular}
+ 
+ \begin{figure}[h!]
+   \centering
+   \begin{subfigure}{1.0\linewidth}
+     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/nuts_diagnostics_syn_hmc_chain4.png}
+   \end{subfigure}
+   \begin{subfigure}{1.0\linewidth}
+     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/params_pair_plots_syn_hmc_chain4.png}
+   \end{subfigure}
+   \caption{NUTS diagnostics and pair plots of scalar parameters from Chain 1}
+   \label{fig:nuts_diags_chain1}
+ \end{figure}
+ \begin{figure}[h!]
+   \centering
+   \begin{subfigure}{1.0\linewidth}
+     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/nuts_diagnostics_syn_hmc_chain1.png}
+   \end{subfigure}
+   \begin{subfigure}{1.0\linewidth}
+     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/params_pair_plots_syn_hmc_chain1.png}
+   \end{subfigure}
+   \caption{NUTS diagnostics and pair plots of scalar parameters from Chain 2}
+   \label{fig:nuts_diags_chain2}
+ \end{figure}
+ \begin{figure}[h!]
+   \centering
+   \begin{subfigure}{1.0\linewidth}
+     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/nuts_diagnostics_syn_hmc_chain3.png}
+   \end{subfigure}
+   \begin{subfigure}{1.0\linewidth}
+     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/params_pair_plots_syn_hmc_chain3.png}
+   \end{subfigure}
+   \caption{NUTS diagnostics and pair plots of scalar parameters from Chain 3}
+   \label{fig:nuts_diags_chain3}
+ \end{figure}
+ \begin{figure}[h!]
+   \centering
+   \begin{subfigure}{1.0\linewidth}
+     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/nuts_diagnostics_syn_hmc_chain2.png}
+   \end{subfigure}
+   \begin{subfigure}{1.0\linewidth}
+     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/params_pair_plots_syn_hmc_chain2.png}
+   \end{subfigure}
+   \caption{NUTS diagnostics and pair plots of scalar parameters from Chain 4}
+   \label{fig:nuts_diags_chain4}
+ \end{figure}
 
  \clearpage
- \textbf{Problems}: 
+ \subsection*{Problems/Diagnostics} 
  \begin{itemize}
- \item Inference works well when the observations are at source space but fails when observations are in sensor space. 
  \item All chains hit max. tree depth
  \item Sampling is very slow, it takes 3-4 days to finish 200 warmup + 200 sampling itearations
- \item Fixing observation noise($\epsilon_1=1, \epsilon_2=1$) causes many divergent transitions in all chains
+ \item Some chains report divergent transitions and fixing observation noise($\epsilon_1=1, \epsilon_2=1$) causes many divergent transitions in all chains.
  \end{itemize}
  
 
-Some diagnostics from cmdstan \textit{diagnose} utility:
+ Some diagnostics from cmdstan \textit{diagnose} utility:
 
 \begin{lstlisting}[breaklines]
  789 of 1600 (49%) transitions hit the maximum treedepth limit of 10, or 2^10 leapfrog steps. Trajectories that are prematurely terminated due to this limit will result in slow exploration and you should increase the limit to ensure optimal performance.
@@ -150,50 +206,15 @@ Some diagnostics from cmdstan \textit{diagnose} utility:
  The following parameters had split R-hat greater than 1.1:
  Almost all the parameters
 \end{lstlisting}
- 
- \begin{figure}[h!]
-   \centering
-   \begin{subfigure}{1.0\linewidth}
-     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/nuts_diagnostics_syn_hmc_chain4.png}
-   \end{subfigure}
-   \begin{subfigure}{1.0\linewidth}
-     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/params_pair_plots_syn_hmc_chain4.png}
-   \end{subfigure}
-   \caption{Chain 1}
-   \label{fig:nuts_diags_chain1}
- \end{figure}
- \begin{figure}[h!]
-   \centering
-   \begin{subfigure}{1.0\linewidth}
-     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/nuts_diagnostics_syn_hmc_chain1.png}
-   \end{subfigure}
-   \begin{subfigure}{1.0\linewidth}
-     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/params_pair_plots_syn_hmc_chain1.png}
-   \end{subfigure}
-   \caption{Chain 2}
-   \label{fig:nuts_diags_chain2}
- \end{figure}
- \begin{figure}[h!]
-   \centering
-   \begin{subfigure}{1.0\linewidth}
-     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/nuts_diagnostics_syn_hmc_chain3.png}
-   \end{subfigure}
-   \begin{subfigure}{1.0\linewidth}
-     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/params_pair_plots_syn_hmc_chain3.png}
-   \end{subfigure}
-   \caption{Chain 3}
-   \label{fig:nuts_diags_chain3}
- \end{figure}
- \begin{figure}[h!]
-   \centering
-   \begin{subfigure}{1.0\linewidth}
-     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/nuts_diagnostics_syn_hmc_chain2.png}
-   \end{subfigure}
-   \begin{subfigure}{1.0\linewidth}
-     \includegraphics[width=\textwidth]{../results/hmc_debug/hmc/figures/params_pair_plots_syn_hmc_chain2.png}
-   \end{subfigure}
-   \caption{Chain 4}
-   \label{fig:nuts_diags_chain4}
- \end{figure}
+
+ \clearpage
+ \subsection*{Questions}
+ \begin{itemize}
+ \item Inference works well while using the source activity as observations but performs poorly while using the sensor activity as observations. Does this mean nonlinear correlations between parameters are induced by the transformation from source space to sensor space? If so how could we address this?
+ \item Some chains for example chain 2 (see fig. \ref{fig:nuts_diags_chain2}) get stuck at a point and lead to samples with almost zero variance. Is this due to pathological geometries like Neal's funnel in the posterior? Are there any other reasons for such a behavior? 
+ \end{itemize}
+
+ \bibliographystyle{abbrv}
+ \bibliography{references}
 \end{document}
 
