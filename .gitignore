@@ -7,6 +7,7 @@ tmp/
 tvbpipeline/
 pipeline-master/
 datasets/
+docs/auto/
 *~
 *.swp
 *.pyc
@@ -18,6 +19,7 @@ datasets/
 *.R
 *.out
 .vscode
+*.png
 *.zip
 .ipynb_checkpoints
 __pycache__
@@ -27,7 +29,8 @@ vep-*
 !vep*.ipynb
 exp*
 \#*\#
-*#
-*.el
-*.log
 *.aux
+*.bbl
+*.blg
+docs/*.log
+*.d
