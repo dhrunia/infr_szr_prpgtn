@@ -89,10 +89,6 @@ model {
   offset ~ normal(0, 10.0);
   tau0 ~ normal(20, 10.0);
   K ~ normal(1.0, 10.0);
-  /* for (i in 1:nn){ */
-  /*   x_init[i] ~ normal(-2.0, 10.0); */
-  /*   z_init[i] ~ normal(3.5, 10.0); */
-  /* } */
   eps_slp ~ normal(1, 10);
   eps_snsr_pwr ~ normal(1, 10);
   for (t in 1:nt) {
