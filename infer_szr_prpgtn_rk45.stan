@@ -3,9 +3,9 @@ functions {
     int nn = data_i[1];
     matrix[nn,nn] SC = to_matrix(data_r[1:nn*nn], nn, nn);
     real I1 = data_r[nn*nn + 1];
-    real tau0 = theta[1];
-    real K = theta[2];
-    row_vector[nn] x0 = to_row_vector(theta[3:3+nn-1]);
+    row_vector[nn] x0 = to_row_vector(theta[1:nn]);
+    real tau0 = theta[nn+1];
+    real K = theta[nn+2];
     row_vector[nn] x = to_row_vector(y_t[1:nn]);
     row_vector[nn] z = to_row_vector(y_t[nn+1:2*nn]);
     row_vector[nn] I1_vec = rep_row_vector(I1 + 1.0, nn);
@@ -52,6 +52,7 @@ transformed data{
   real t0 = 0;
   int data_i[1];
   real data_r[nn*nn + 1];
+
   data_i[1] = nn;
   data_r[1:nn*nn] = to_array_1d(SC);
   data_r[nn*nn + 1] = I1;
@@ -75,16 +76,15 @@ transformed parameters{
   real y_init[2*nn];
   real y[nt,2*nn];
   
-  theta[1] = tau0;
-  theta[2] = K;
-  theta[3:3+nn-1] = to_array_1d(x0);
+  theta[1:nn] = to_array_1d(x0);
+  theta[nn+1] = tau0;
+  theta[nn+2] = K;
   y_init[1:nn] = to_array_1d(x_init);
   y_init[nn+1:2*nn] = to_array_1d(z_init);
   y = integrate_ode_rk45(epileptor_2D, y_init, t0, ts, theta, data_r, data_i);
 }
 
 model {
-
   row_vector[ns] mu_slp[nt];
   row_vector[ns] mu_snsr_pwr = rep_row_vector(0, ns);
   row_vector[nn] x_t;
@@ -105,7 +105,7 @@ model {
     z_t = to_row_vector(y[t,nn+1:2*nn]);
     mu_slp[t] = alpha * (log(gain * exp(x_t)')') + beta;
     mu_snsr_pwr += mu_slp[t] .* mu_slp[t];
-    /* print("tau0=",tau0,"K=",K,"x0=",x0,"x_t=",x_t,"z_t=",z_t,"x_init=",x_init,"z_init=",z_init); */
+    /* print("tau0=",tau0,"K=",K,"x0=",x0,"eps_slp=",eps_slp,"eps_snsr_pwr=",eps_snsr_pwr,"x_t=",x_t,"z_t=",z_t,"x_init=",x_init,"z_init=",z_init,"mu_slp[t]=",mu_slp[t],"mu_snsr_pwr=",mu_snsr_pwr); */
     target += normal_lpdf(slp[t] | mu_slp[t], eps_slp);
   }
   mu_snsr_pwr = mu_snsr_pwr / nt;
@@ -113,14 +113,15 @@ model {
 }
 
 generated quantities {
+  /* real y_gq[nt,2*nn]; */
   /* row_vector[nn] x[nt]; */
   /* row_vector[nn] z[nt]; */
   /* row_vector[ns] mu_slp[nt]; */
   /* row_vector[ns] mu_snsr_pwr = rep_row_vector(0, ns); */
 
-  /* /\* print("y_init=", y_init); *\/ */
-  /* /\* print("tau0=",tau0,"K=",K,"x0=",x0,"x_init=",x_init,"z_init=",z_init,"y_init=", y_init, "t0=",t0,"ts=",ts); *\/ */
-  
+  /* print("y_init=", y_init); */
+  /* print("tau0=",tau0,"K=",K,"x0=",x0,"x_init=",x_init,"z_init=",z_init,"y_init=", y_init, "t0=",t0,"ts=",ts); */
+  /* y_gq = integrate_ode_rk45(epileptor_2D, y_init, t0, ts, theta, data_r, data_i); */
   /* for (t in 1:nt) { */
   /*   /\* if(t == 1) *\/ */
   /*   /\*   y[t] = to_array_1d(to_vector(y_init) + 0.1*to_vector(epileptor_2D(1, y_init, theta, data_r, data_i))); *\/ */
