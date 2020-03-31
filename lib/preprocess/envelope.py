@@ -46,8 +46,9 @@ def compute_slp_syn(data,
     # high pass filter to remove baseline shift
     data_hpf = bfilt(data, samp_rate, hpf, 'highpass', axis=0)
     # compute the log power over a sliding window
-    data_lpwr = np.log(mov_avg(data_hpf**2, win_len) +
-                       1) if logtransform else mov_avg(data_hpf**2, win_len)
+    # data_lpwr = np.log(mov_avg(data_hpf**2, win_len) +
+    #                    1) if logtransform else mov_avg(data_hpf**2, win_len)
+    data_lpwr = np.log(mov_avg(data_hpf**2, win_len)) if logtransform else mov_avg(data_hpf**2, win_len)
     # low pass filter the log power for smoothing
     data_lpwr = bfilt(data_lpwr, samp_rate, lpf, 'lowpass', axis=0)
     return data_lpwr
