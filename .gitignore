@@ -2,6 +2,7 @@ jureca/
 slurm_logs/
 ltxpng/
 data/
+datasets/
 results/
 tmp/
 tvbpipeline/
@@ -24,9 +25,9 @@ docs/auto/
 .ipynb_checkpoints
 __pycache__
 cmdstan
-vep-*
-!vep*.stan
-!vep*.ipynb
+infer_szr_prpgtn*
+!infer_szr_prpgtn*.stan
+!infer_szr_prpgtn*.ipynb
 exp*
 \#*\#
 *.aux
