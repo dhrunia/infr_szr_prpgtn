@@ -85,3 +85,26 @@ def prepare_data(data_dir, meta_data_fname, raw_seeg_fname, hpf=10.0, lpf=1.0):
     slp = compute_slp(raw_data, hpf, lpf)
     data = {'SC': SC, 'gain': gain, 'slp': slp}
     return data
+
+
+def find_bst_szr(data_dir):
+    szr_max_var = ''
+    max_snsr_pwr_var = 0
+    pat_data_dir = os.path.join(data_dir)
+    for fif_path in glob.glob(os.path.join(data_dir, 'seeg/fif')+'/*.json'):
+        szr_name = os.path.splitext(os.path.basename(fif_path))[0]
+        raw_seeg_fname = f'{szr_name}.raw.fif'
+        meta_data_fname = f'{szr_name}.json'
+        try:
+            data = lib.preprocess.envelope.prepare_data(pat_data_dir, meta_data_fname, raw_seeg_fname, 10, 0.05)
+        except (FileNotFoundError, Exception):
+            continue
+        ds_freq = int(data['slp'].shape[0]/150)
+        data['slp'] = data['slp'][0:-1:ds_freq]
+        snsr_pwr = (data['slp']**2).mean(axis=0)
+        snsr_pwr_var = snsr_pwr.var()
+        if(snsr_pwr_var > max_snsr_pwr_var):
+            szr_max_var = szr_name
+            max_snsr_pwr_var = snsr_pwr_var
+        print('\t', szr_name, snsr_pwr_var)
+    return (szr_max_var, max_snsr_pwr_var)
