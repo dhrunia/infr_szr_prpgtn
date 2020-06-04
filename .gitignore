@@ -27,6 +27,9 @@ cmdstan
 vep-*
 !vep*.stan
 !vep*.ipynb
+infer_szr_prpgtn*
+!infer_szr_prpgtn_*.stan
+!infer_szr_prpgtn_*.ipynb
 exp*
 \#*\#
 *.aux
