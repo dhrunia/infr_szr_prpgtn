@@ -87,7 +87,7 @@ def prepare_data(data_dir, meta_data_fname, raw_seeg_fname, hpf=10.0, lpf=1.0):
     return data
 
 
-def find_bst_szr(data_dir):
+def find_bst_szr(data_dir, hpf=10.0, lpf=0.05):
     szr_max_var = ''
     max_snsr_pwr_var = 0
     pat_data_dir = os.path.join(data_dir)
@@ -96,7 +96,7 @@ def find_bst_szr(data_dir):
         raw_seeg_fname = f'{szr_name}.raw.fif'
         meta_data_fname = f'{szr_name}.json'
         try:
-            data = lib.preprocess.envelope.prepare_data(pat_data_dir, meta_data_fname, raw_seeg_fname, 10, 0.05)
+            data = lib.preprocess.envelope.prepare_data(pat_data_dir, meta_data_fname, raw_seeg_fname, hpf, lpf)
         except (FileNotFoundError, Exception):
             continue
         ds_freq = int(data['slp'].shape[0]/150)
