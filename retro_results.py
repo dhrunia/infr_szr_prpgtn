@@ -206,6 +206,7 @@ def ez_pred(patient_ids, nchains, fname_suffix, root_dir, x0_threshold):
 
 
 if (__name__ == '__main__'):
+    figs_dir = '/home/anirudh/Academia/papers/infr_szr_prpgtn_paper/figures/Retro/'
     root_dir = '/home/anirudh/Academia/projects/infer_szr_prpgtn/results/exp10/retro_results'
     patient_ids = dict()
     patient_ids['engel1'] = ['id001_bt', 'id003_mg', 'id004_bj', 'id010_cmn', 'id013_lk', 'id014_vc',
@@ -303,6 +304,7 @@ if (__name__ == '__main__'):
     # precision = []
     # recall = []
     # engel_scores = ['engel1', 'engel2', 'engel3or4']
+    # plt.figure(figsize=(8,5))
     # ax = plt.subplot(111)
     # for i,scr in enumerate(engel_scores):
     #     src_thrshld = 0
@@ -310,7 +312,7 @@ if (__name__ == '__main__'):
     #     p, r = lib.utils.stan.precision_recall(patient_ids[scr], root_dir, src_thrshld, onst_wndw_sz)
     #     precision.append(p)
     #     recall.append(r)
-    #     ax.bar([5*i + 1, 5*i + 2], [precision[i], recall[i]], color=['black', 'grey'])
+    #     ax.bar([3*i + 1, 3*i + 2], [precision[i], recall[i]], color=['teal', 'purple'], alpha=0.5, width=0.5)
 
     # # precision = []
     # # recall = []
@@ -322,18 +324,86 @@ if (__name__ == '__main__'):
     # #     recall.append(r)
 
     # # ax.bar([5,6], [precision[0],recall[0]], color=['black', 'grey'])
-    # ax.set_xticks([np.mean([5*i + 1, 5*i + 2]) for i in range(len(engel_scores))])
+    # ax.set_xticks([np.mean([3*i + 1, 3*i + 2]) for i in range(len(engel_scores))])
     # ax.set_xticklabels(['I', 'II', 'III and IV'], fontsize=15)
     # ax.set_xlabel('Engel Score', fontsize=15)
     # ax.tick_params(axis='y', labelsize=12)
     # ax.spines['top'].set_visible(False)
     # ax.spines['right'].set_visible(False)
-    # legend_elements = [Line2D([0], [0], color='black', lw=5, label='Precision'),
-    #                    Line2D([0], [0], color='grey', lw=5, label='Recall')]
-    # ax.legend(handles=legend_elements, frameon=False)
-    # plt.show()
+    # legend_elements = [Line2D([0], [0], color='teal', alpha=0.5, lw=5, label='Precision'),
+    #                    Line2D([0], [0], color='purple', lw=5, alpha=0.5, label='Recall')]
+    # ax.legend(handles=legend_elements)
+    # plt.savefig(os.path.join(figs_dir,'precision_recall_pergroup.png'), dpi=500)
+    # # plt.show()
 
-    # Box plot
+    # # Box plot
+    # engel_scores = ['engel1', 'engel2', 'engel3or4']
+    # engel_labels = {'engel1': 'Engel I',
+    #                 'engel2': 'Engel II', 'engel3or4': 'Engel III/IV'}
+    # precision = dict()  # []
+    # recall = dict()  # []
+    # cdf_prcsn = dict()
+    # cdf_recall = dict()
+    # fig = plt.figure(figsize=(8, 5))
+    # ax_bxplt = fig.add_subplot(111)
+    # # ax_cdf = fig.add_subplot(122)
+
+    # for i, score in enumerate(engel_scores):
+    #     src_thrshld = 0
+    #     onst_wndw_sz = 10
+    #     precision[score] = []
+    #     recall[score] = []
+    #     # print(score)
+    #     for subj_id in patient_ids[score]:
+    #         p, r = lib.utils.stan.precision_recall(
+    #             [subj_id], root_dir, src_thrshld, onst_wndw_sz)
+    #         precision[score].append(p)
+    #         recall[score].append(r)
+    #         # print(f'\t {subj_id} \t precision = {p} \t recall = {r}')
+    #     # cdf_prcsn[score] = []
+    #     # cdf_recall[score] = []
+    #     # prcsn_arr = np.array(precision[score])
+    #     # recall_arr = np.array(recall[score])
+    #     # for p in np.arange(0, 1.1, 0.1):
+    #     #     cdf_prcsn[score].append(
+    #     #         np.count_nonzero(prcsn_arr <= p)/prcsn_arr.size)
+    #     #     cdf_recall[score].append(np.count_nonzero(
+    #     #         recall_arr <= p)/recall_arr.size)
+    #     # ax_cdf.plot(np.arange(0, 1.1, 0.1),
+    #     #             cdf_prcsn[score], label=engel_labels[score])
+    # box_prcsn = ax_bxplt.boxplot([precision[score] for score in engel_scores], positions=[3*i+1 for i in range(3)], whis='range', boxprops={
+    #                              'linewidth': 1, 'color': 'teal', 'alpha': 0.5}, patch_artist=True, medianprops={'linewidth': 2, 'color':'brown'},
+    #                              whiskerprops={'color': 'teal', 'alpha': 0.5}, capprops={'color': 'teal', 'alpha': 0.5}, showmeans=True,
+    #                              meanprops={'marker':'*', 'markerfacecolor':'navy', 'markeredgecolor':'navy'})
+    # for patch_artist in box_prcsn['boxes']:
+    #     patch_artist.set_facecolor('teal')
+    #     patch_artist.set_alpha(0.5)
+    # box_recall = ax_bxplt.boxplot([recall[score] for score in engel_scores], positions=[3*i+2 for i in range(3)], whis='range', boxprops={
+    #                               'linewidth': 1, 'color': 'purple', 'alpha': 0.5}, patch_artist=True, medianprops={'linewidth': 2, 'color':'brown'},
+    #                                whiskerprops={'color': 'purple', 'alpha': 0.5}, capprops={'color': 'purple', 'alpha': 0.5}, showmeans=True,
+    #                                meanprops={'marker':'*', 'markerfacecolor':'navy', 'markeredgecolor':'navy'})
+    # for patch_artist in box_recall['boxes']:
+    #     patch_artist.set_facecolor('purple')
+    #     patch_artist.set_alpha(0.5)
+
+    # ax_bxplt.set_xticks([np.mean([3*i + 1, 3*i + 2])
+    #                      for i in range(len(engel_scores))])
+    # ax_bxplt.set_xticklabels(['I', 'II', 'III and IV'], fontsize=15)
+    # ax_bxplt.set_xlabel('Engel Score', fontsize=15)
+    # ax_bxplt.tick_params(axis='y', labelsize=12)
+    # ax_bxplt.tick_params(axis='x', labelsize=12)
+    # ax_bxplt.spines['top'].set_visible(False)
+    # ax_bxplt.spines['right'].set_visible(False)
+    # legend_elements = [Line2D([0], [0], color='teal', alpha=0.5, lw=5, label='Precision'),
+    #                    Line2D([0], [0], color='purple', alpha=0.5, lw=5, label='Recall')]
+    # ax_bxplt.legend(handles=legend_elements, loc='best')
+
+    # # ax_cdf.legend()
+    # # plt.tight_layout()
+    # plt.savefig(os.path.join(figs_dir,'precision_recall_perpatient.png'), dpi=500)
+    # # plt.show()
+    
+    # Violin plot
     engel_scores = ['engel1', 'engel2', 'engel3or4']
     engel_labels = {'engel1': 'Engel I',
                     'engel2': 'Engel II', 'engel3or4': 'Engel III/IV'}
@@ -341,58 +411,35 @@ if (__name__ == '__main__'):
     recall = dict()  # []
     cdf_prcsn = dict()
     cdf_recall = dict()
-    fig = plt.figure(figsize=(20, 5))
-    ax_bxplt = fig.add_subplot(121)
-    ax_cdf = fig.add_subplot(122)
+    fig = plt.figure(figsize=(8, 5))
+    ax_vlnplt = fig.add_subplot(111)
 
     for i, score in enumerate(engel_scores):
         src_thrshld = 0
         onst_wndw_sz = 10
         precision[score] = []
         recall[score] = []
-        # print(score)
         for subj_id in patient_ids[score]:
             p, r = lib.utils.stan.precision_recall(
                 [subj_id], root_dir, src_thrshld, onst_wndw_sz)
             precision[score].append(p)
             recall[score].append(r)
-            # print(f'\t {subj_id} \t precision = {p} \t recall = {r}')
-        cdf_prcsn[score] = []
-        cdf_recall[score] = []
-        prcsn_arr = np.array(precision[score])
-        recall_arr = np.array(recall[score])
-        for p in np.arange(0, 1.1, 0.1):
-            cdf_prcsn[score].append(
-                np.count_nonzero(prcsn_arr <= p)/prcsn_arr.size)
-            cdf_recall[score].append(np.count_nonzero(
-                recall_arr <= p)/recall_arr.size)
-        ax_cdf.plot(np.arange(0, 1.1, 0.02),
-                    cdf_prcsn[score], label=engel_labels[score])
-        # ax_bxplt.scatter((5*i+1)*np.ones(len(patient_ids[score])), precision[score], color='black', alpha=0.3)
-        # ax_bxplt.scatter((5*i+2)*np.ones(len(patient_ids[score])), recall[score], color='black', alpha=0.3)
-
-    ax_bxplt.boxplot([precision[score] for score in engel_scores],
-                     positions=[5*i+1 for i in range(3)])
-    ax_bxplt.boxplot([recall[score] for score in engel_scores],
-                     positions=[5*i+2 for i in range(3)])
-    ax_bxplt.violinplot([precision[score] for score in engel_scores],
-                     positions=[5*i+1 for i in range(3)], widths=0.2)
-    ax_bxplt.violinplot([recall[score] for score in engel_scores],
-                     positions=[5*i+2 for i in range(3)], widths=0.2)
-
-    ax_bxplt.set_xticks([np.mean([5*i + 1, 5*i + 2])
+    ax_vlnplt.violinplot([precision[score] for score in engel_scores], positions=[5*i+1 for i in range(3)], widths=1, points=500)
+    ax_vlnplt.violinplot([recall[score] for score in engel_scores], positions=[5*i+2 for i in range(3)], widths=1, points=500)
+    
+    ax_vlnplt.set_xticks([np.mean([5*i + 1, 5*i + 2])
                          for i in range(len(engel_scores))])
-    ax_bxplt.set_xticklabels(['I', 'II', 'III and IV'], fontsize=15)
-    ax_bxplt.set_xlabel('Engel Score', fontsize=15)
-    ax_bxplt.tick_params(axis='y', labelsize=12)
-    ax_bxplt.tick_params(axis='x', labelsize=12)
-    ax_bxplt.spines['top'].set_visible(False)
-    ax_bxplt.spines['right'].set_visible(False)
-    # legend_elements = [Line2D([0], [0], color='black', lw=5, label='Precision'),
-    #                    Line2D([0], [0], color='grey', lw=5, label='Recall')]
-    # ax.legend(handles=legend_elements, loc='upper right')
+    ax_vlnplt.set_xticklabels(['I', 'II', 'III and IV'], fontsize=15)
+    ax_vlnplt.set_xlabel('Engel Score', fontsize=15)
+    ax_vlnplt.tick_params(axis='y', labelsize=12)
+    ax_vlnplt.tick_params(axis='x', labelsize=12)
+    ax_vlnplt.spines['top'].set_visible(False)
+    ax_vlnplt.spines['right'].set_visible(False)
+    # legend_elements = [Line2D([0], [0], color='teal', alpha=0.5, lw=5, label='Precision'),
+    #                    Line2D([0], [0], color='purple', alpha=0.5, lw=5, label='Recall')]
+    # ax_vlnplt.legend(handles=legend_elements, loc='best')
 
-    ax_cdf.legend()
+    # plt.savefig(os.path.join(figs_dir,'precision_recall_perpatient.png'), dpi=500)
     plt.show()
 
     # tpr = []
