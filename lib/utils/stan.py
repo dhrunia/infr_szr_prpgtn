@@ -15,6 +15,7 @@ def find_onsets(ts, thrshld):
     return onsets
 
 def find_ez(src_thrshld, onst_wndw_sz, csv_path):
+    # print(csv_path)
     optima = lib.io.stan.read_samples(csv_path)
     x = optima['x'][0]
     nt, nn = x.shape
