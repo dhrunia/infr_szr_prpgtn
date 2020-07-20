@@ -5,7 +5,7 @@ Plots to look at Stan behavior or common requested, e.g. pair plots.
 
 
 def trace_nuts(csv, extras='', skip=0):
-    from pylab import subplot, plot, gca, title,  grid, xticks
+    from pylab import subplot, plot, gca, title, grid, xticks
     if isinstance(extras, str):
         extras = extras.split()
     for csvi in csv:
@@ -18,7 +18,7 @@ def trace_nuts(csv, extras='', skip=0):
                     gca().set_yscale('log')
                 title(key)
                 grid(1)
-                if ((i - 1)/4) < 4:
+                if ((i - 1) / 4) < 4:
                     xticks(xticks()[0], [])
                 i += 1
 
@@ -42,7 +42,7 @@ def trace_nuts(csv, extras='', skip=0):
 #                 pl.ylabel(key_i)
 #     pl.tight_layout()
 
-    
+
 def nuts_diagnostics(data, figsize, figname='', plt_close=False):
     import matplotlib.pyplot as plt
     plt.figure(figsize=figsize)
@@ -77,11 +77,17 @@ def nuts_diagnostics(data, figsize, figname='', plt_close=False):
     plt.tight_layout()
     if (figname):
         plt.savefig(figname)
-    if(plt_close):
+    if (plt_close):
         plt.close()
 
 
-def x0_violin_syn(x0_infer, x0_true, ez, pz, figsize, figname='', legend_loc='upper right'):
+def x0_violin_syn(x0_infer,
+                  x0_true,
+                  ez,
+                  pz,
+                  figsize,
+                  figname='',
+                  legend_loc='upper right'):
     import matplotlib.pyplot as plt
     import numpy as np
     from matplotlib.lines import Line2D
@@ -91,32 +97,56 @@ def x0_violin_syn(x0_infer, x0_true, ez, pz, figsize, figname='', legend_loc='up
     non_ez_pz = np.setdiff1d(np.arange(0, nn), ez_pz)
 
     plt.figure(figsize=figsize)
-    plt.violinplot(x0_infer, showmeans=True, points=1000);
+    plt.violinplot(x0_infer, showmeans=True, points=1000)
     plt.axhline(-2.0, color='green', alpha=0.3)
     xtick_labels = []
 
     for i in range(nn):
-        if(i%2 == 0):
-            xtick_labels.append(str(i+1))
+        if (i % 2 == 0):
+            xtick_labels.append(str(i + 1))
         else:
             xtick_labels.append('')
-    plt.xticks(np.r_[1:nn+1],xtick_labels);
-    plt.xlabel('Region#',fontsize=15);
-    plt.ylabel('$x_0$',fontsize=15);
+    plt.xticks(np.r_[1:nn + 1], xtick_labels)
+    plt.xlabel('Region#', fontsize=15)
+    plt.ylabel('$x_0$', fontsize=15)
 
-    plt.plot(ez+1, x0_true[ez], color='red', marker='*', markersize=5, linestyle='None')
-    plt.plot(pz+1, x0_true[pz], color='orange', marker='*', markersize=5, linestyle='None')
+    plt.plot(ez + 1,
+             x0_true[ez],
+             color='red',
+             marker='*',
+             markersize=5,
+             linestyle='None')
+    plt.plot(pz + 1,
+             x0_true[pz],
+             color='orange',
+             marker='*',
+             markersize=5,
+             linestyle='None')
     plt.plot(non_ez_pz + 1, x0_true[non_ez_pz], color='black', marker='*', markersize=5, \
              linestyle='None')
-    legend_elements = [Line2D([0], [0], linewidth=3, color='red', marker='*',
-                              linestyle='None', label='EZ'),
-                       Line2D([0], [0], linewidth=3, color='orange', marker='*',
-                              linestyle='None', label='PZ'),
-                       Line2D([0], [0], linewidth=3, color='black', marker='*',
-                              linestyle='None', label='Non seizing'),
-                       Line2D([0], [0], linewidth=3, color='C0', alpha=0.8, label='Inferred')]
+    legend_elements = [
+        Line2D([0], [0],
+               linewidth=3,
+               color='red',
+               marker='*',
+               linestyle='None',
+               label='EZ'),
+        Line2D([0], [0],
+               linewidth=3,
+               color='orange',
+               marker='*',
+               linestyle='None',
+               label='PZ'),
+        Line2D([0], [0],
+               linewidth=3,
+               color='black',
+               marker='*',
+               linestyle='None',
+               label='Non seizing'),
+        Line2D([0], [0], linewidth=3, color='C0', alpha=0.8, label='Inferred')
+    ]
     plt.legend(handles=legend_elements, loc=legend_loc)
-    if(figname):
+    if (figname):
         plt.savefig(figname)
 
 
@@ -131,8 +161,7 @@ def x0_violin_patient(x0_infer,
     from matplotlib.lines import Line2D
     nn = x0_infer.shape[1]
     plt.figure(figsize=figsize)
-    violins = plt.violinplot(
-        x0_infer, showmeans=True, points=1000)
+    violins = plt.violinplot(x0_infer, showmeans=True, points=1000)
     for i, violin_i in enumerate(violins['bodies']):
         if (i in ez_hyp):
             violin_i.set_facecolor('red')
@@ -154,19 +183,16 @@ def x0_violin_patient(x0_infer,
     #     else:
     #         xtick_labels.append('')
     plt.xticks(np.r_[1:nn + 1:2], np.r_[1:nn + 1:2])
-    plt.xlabel(
-        'Region#', fontsize=15)
-    plt.ylabel(
-        '$x_0$', fontsize=15)
+    plt.xlabel('Region#', fontsize=15)
+    plt.ylabel('$x_0$', fontsize=15)
     # plt.plot(ez_hyp, -2.0+np.zeros_like(ez_hyp), color='red', marker='*',
     #          markersize=5, linestyle='None')
     legend_elements = [
-        Line2D(
-            [0], [0],
-            linewidth=4,
-            color='red',
-            alpha=0.8,
-            label='EZ clinical hypothesis')
+        Line2D([0], [0],
+               linewidth=4,
+               color='red',
+               alpha=0.8,
+               label='EZ clinical hypothesis')
     ]
     # Line2D([0], [0], linewidth=3, color='C0', alpha=0.8, label='Inferred')]
     plt.legend(handles=legend_elements, loc=legend_loc, frameon=True)
@@ -176,10 +202,16 @@ def x0_violin_patient(x0_infer,
         plt.close()
 
 
-def pair_plots(samples, params, figname='', sampler=None, plt_close=False):
+def pair_plots(samples,
+               params,
+               param_labels,
+               figname='',
+               sampler=None,
+               plt_close=False):
     import numpy as np
     import matplotlib.pyplot as plt
-    div_iters = np.where(samples['divergent__'] == 1)[0] if sampler == 'HMC' else []
+    div_iters = np.where(
+        samples['divergent__'] == 1)[0] if sampler == 'HMC' else []
     plt.figure(figsize=(23, 13))
     nParams = len(params)
     for i in range(nParams):
@@ -188,25 +220,23 @@ def pair_plots(samples, params, figname='', sampler=None, plt_close=False):
             if (i == j):
                 plt.hist(samples[params[i]].flatten(), bins=50, color='black')
             else:
-                xvals = np.mean(
-                    samples[params[j]], axis=1) if len(
-                        samples[params[j]].shape) > 1 else samples[params[j]]
-                yvals = np.mean(
-                    samples[params[i]], axis=1) if len(
-                        samples[params[i]].shape) > 1 else samples[params[i]]
+                xvals = np.mean(samples[params[j]], axis=1) if len(
+                    samples[params[j]].shape) > 1 else samples[params[j]]
+                yvals = np.mean(samples[params[i]], axis=1) if len(
+                    samples[params[i]].shape) > 1 else samples[params[i]]
                 for k in range(xvals.shape[0]):
                     if (k in div_iters):
                         plt.plot(xvals[k], yvals[k], 'ro', alpha=0.8)
                     else:
                         plt.plot(xvals[k], yvals[k], 'ko', alpha=0.1)
             if (i == 0):
-                plt.title(params[j], fontsize=13)
+                plt.title(param_labels[j], fontsize=15)
             if (j == 0):
-                plt.ylabel(params[i], fontsize=13, rotation=90)
+                plt.ylabel(param_labels[i], fontsize=15, rotation=90)
     plt.tight_layout()
     if (figname):
-        plt.savefig(figname)
-    if(plt_close):
+        plt.savefig(figname, dpi=1024)
+    if (plt_close):
         plt.close()
 
 
@@ -229,8 +259,8 @@ def plot_source(x, z, ez=[], pz=[], figname='', plt_close=False):
             plt.plot(x[:, i], color='black')
     plt.xlabel('Time', fontsize=15)
     plt.ylabel('x', fontsize=15)
-    plt.title(
-        'Sample mean of posterior predicted source activity', fontsize=15)
+    plt.title('Sample mean of posterior predicted source activity',
+              fontsize=15)
     plt.legend(handles=legend_elements)
     plt.subplot(212)
     for i in range(nn):
@@ -242,17 +272,24 @@ def plot_source(x, z, ez=[], pz=[], figname='', plt_close=False):
             plt.plot(z[:, i], color='black')
     plt.xlabel('Time', fontsize=15)
     plt.ylabel('z', fontsize=15)
-    plt.title(
-        'Sample mean of posterior predicted source activity', fontsize=15)
+    plt.title('Sample mean of posterior predicted source activity',
+              fontsize=15)
     plt.legend(handles=legend_elements)
     if (figname):
         plt.savefig(figname)
-    if(plt_close):
+    if (plt_close):
         plt.close()
 
 
-def plot_phase(x, z, ez, pz, rest, xlims=[-2.5, 1.0], ylims=[2, 5],
-               figname='', plt_close=False):
+def plot_phase(x,
+               z,
+               ez,
+               pz,
+               rest,
+               xlims=[-2.5, 1.0],
+               ylims=[2, 5],
+               figname='',
+               plt_close=False):
     import matplotlib.pyplot as plt
     plt.figure(figsize=(25, 5))
     plt.subplot(131)
@@ -276,10 +313,11 @@ def plot_phase(x, z, ez, pz, rest, xlims=[-2.5, 1.0], ylims=[2, 5],
     plt.title('Rest', fontsize=15, fontweight='bold')
     plt.xlabel(r'$x$', fontsize=15, fontweight='bold')
     plt.ylabel(r'$z$', fontsize=15, fontweight='bold')
-    if(figname):
+    if (figname):
         plt.savefig(figname)
-    if(plt_close):
+    if (plt_close):
         plt.close()
+
 
 def plot_fit_target(data_pred, data_true, figname='', plt_close=False):
     import matplotlib.pyplot as plt
@@ -293,14 +331,18 @@ def plot_fit_target(data_pred, data_true, figname='', plt_close=False):
     plt.ylabel('SLP', fontsize=15)
     plt.title('Sample mean of posterior predicted SLP', fontsize=15)
     plt.subplot(212)
-    plt.bar(
-        np.arange(1, ns + 1), data_pred['snsr_pwr'], color='red', alpha=0.3)
-    plt.bar(
-        np.arange(1, ns + 1), data_true['snsr_pwr'], color='black', alpha=0.3)
+    plt.bar(np.arange(1, ns + 1),
+            data_pred['snsr_pwr'],
+            color='red',
+            alpha=0.3)
+    plt.bar(np.arange(1, ns + 1),
+            data_true['snsr_pwr'],
+            color='black',
+            alpha=0.3)
     plt.xlabel('Electrode', fontsize=15)
     plt.ylabel('Power', fontsize=15)
     plt.xticks(np.r_[1:ns + 1:3], np.r_[1:ns + 1:3])
     if (figname):
         plt.savefig(figname)
-    if(plt_close):
+    if (plt_close):
         plt.close()
