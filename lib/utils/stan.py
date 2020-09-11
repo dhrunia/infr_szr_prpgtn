@@ -2,6 +2,7 @@ import lib.io.stan
 import numpy as np
 import glob
 import os
+import json
 
 def find_onsets(ts, thrshld):
     nt, nn = ts.shape
@@ -17,7 +18,8 @@ def find_onsets(ts, thrshld):
 def find_ez(src_thrshld, onst_wndw_sz, csv_path):
     # print(csv_path)
     optima = lib.io.stan.read_samples(csv_path)
-    x = optima['x'][0]
+    # x = optima['x'][0]
+    x = optima['y'][0][:, 0:int(optima['y'].shape[2]/2)]
     nt, nn = x.shape
     onsets = find_onsets(x, src_thrshld)
     nszng = np.size(np.nonzero(onsets < nt))
@@ -32,18 +34,30 @@ def find_ez(src_thrshld, onst_wndw_sz, csv_path):
     return ez_pred, pz_pred
 
 
-def precision_recall(patient_ids, root_dir, src_thrshld, onst_wndw_sz):
+def precision_recall(patient_ids, root_dir, src_thrshld, onst_wndw_sz,
+                    parcellation="destrieux", outfile_regex="*chain1.csv"):
     tp = fp = fn = 0
     for patient_id in patient_ids:
         # Read EZ hypothesis or skip patient if hypothesis doesn't exist
+        print(patient_id)
         try:
-            ez_hyp = np.loadtxt(f'datasets/retro/{patient_id}/tvb/ez_hypothesis.destrieux.txt')
+            if(parcellation == 'destrieux'):
+                ez_hyp = np.loadtxt(
+                    f'datasets/retro/{patient_id}/tvb/ez_hypothesis.destrieux.txt')
+            elif(parcellation == 'vep'):
+                with open('datasets/retro/ei-vep_53.json') as fd:
+                    ez_hyp_all = json.load(fd)
+                    ez_hyp_roi = ez_hyp_all[patient_id]['i_ez']
         except Exception as err:
             print(err)
             continue
         # ez_pred = np.load(os.path.join(root_dir, patient_id, 'ez_pred.npy')).astype(int)
-        csv_path = glob.glob(os.path.join(root_dir, patient_id, '*chain1.csv'))
+        csv_path = glob.glob(os.path.join(root_dir, patient_id, outfile_regex))
         ez_pred, pz_pred = find_ez(src_thrshld, onst_wndw_sz, csv_path)
+        ez_hyp = np.zeros_like(ez_pred)
+        ez_hyp[ez_hyp_roi] = 1
+        print(f'EZ hypothesis: {np.where(ez_hyp == 1)[0]}')
+        print(f'EZ hypothesis: {np.where(ez_pred == 1)[0]}')
         for a, b in zip(ez_hyp, ez_pred):
             if(a == 1 and b == 1):
                 tp += 1
