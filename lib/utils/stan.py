@@ -16,7 +16,7 @@ def find_onsets(ts, thrshld):
 
 def find_ez(src_thrshld, onst_wndw_sz, csv_path):
     optima = lib.io.stan.read_samples(csv_path)
-    x = optima['x'][0]
+    x = optima['y'][0][:, 0:int(optima['y'].shape[2]/2)]
     nt, nn = x.shape
     onsets = find_onsets(x, src_thrshld)
     nszng = np.size(np.nonzero(onsets < nt))
