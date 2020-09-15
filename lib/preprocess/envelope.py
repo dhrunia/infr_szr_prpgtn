@@ -66,10 +66,10 @@ def compute_slp(seeg, hpf=10.0, lpf=1.0, filter_order=5.0):
     return slp
 
 
-def prepare_data(data_dir, meta_data_fname, raw_seeg_fname, hpf=10.0, lpf=1.0):
+def prepare_data(data_dir, meta_data_fname, raw_seeg_fname, hpf=10.0, lpf=1.0, parcellation='destrieux'):
     try:
         with zipfile.ZipFile(
-                f'{data_dir}/tvb/connectivity.destrieux.zip') as sczip:
+                f'{data_dir}/tvb/connectivity.{parcellation}.zip') as sczip:
             with sczip.open('weights.txt') as weights:
                 SC = np.loadtxt(weights)
                 SC[np.diag_indices(SC.shape[0])] = 0
@@ -80,7 +80,7 @@ def prepare_data(data_dir, meta_data_fname, raw_seeg_fname, hpf=10.0, lpf=1.0):
     # Read SEEG data from fif files
     raw_data = lib.io.seeg.read_one_seeg(data_dir, meta_data_fname,
                                          raw_seeg_fname)
-    gain = lib.io.seeg.read_gain(data_dir, raw_data['picks'])
+    gain = lib.io.seeg.read_gain(data_dir, raw_data['picks'], parcellation)
     # Compute seeg log power
     slp = compute_slp(raw_data, hpf, lpf)
     data = {'SC': SC, 'gain': gain, 'slp': slp}
