@@ -87,7 +87,7 @@ def prepare_data(data_dir, meta_data_fname, raw_seeg_fname, hpf=10.0, lpf=1.0, p
     return data
 
 
-def find_bst_szr(data_dir, hpf=10.0, lpf=0.05):
+def find_bst_szr_slp(data_dir, hpf=10.0, lpf=0.05, npoints=150):
     szr_max_var = ''
     max_snsr_pwr_var = 0
     pat_data_dir = os.path.join(data_dir)
@@ -99,8 +99,9 @@ def find_bst_szr(data_dir, hpf=10.0, lpf=0.05):
             data = lib.preprocess.envelope.prepare_data(pat_data_dir, meta_data_fname, raw_seeg_fname, hpf, lpf)
         except (FileNotFoundError, Exception):
             continue
-        ds_freq = int(data['slp'].shape[0]/150)
+        ds_freq = int(data['slp'].shape[0]/npoints)
         data['slp'] = data['slp'][0:-1:ds_freq]
+        data['slp'] = data['slp'] - data['slp'].mean(axis=0)
         snsr_pwr = (data['slp']**2).mean(axis=0)
         snsr_pwr_var = snsr_pwr.var()
         if(snsr_pwr_var > max_snsr_pwr_var):
