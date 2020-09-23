@@ -101,7 +101,7 @@ def find_bst_szr_slp(data_dir, hpf, lpf, npoints):
             continue
         ds_freq = int(data['slp'].shape[0]/npoints)
         data['slp'] = data['slp'][0:-1:ds_freq]
-        data['slp'] = data['slp'] #- data['slp'].mean(axis=0)
+        data['slp'] = data['slp'] - data['slp'].mean(axis=0)
         snsr_pwr = (data['slp']**2).mean(axis=0)
         snsr_pwr_var = snsr_pwr.var()
         if(snsr_pwr_var > max_snsr_pwr_var):

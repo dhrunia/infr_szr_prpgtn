@@ -48,7 +48,7 @@ patient_ids['engel4'] = ['id011_gr', 'id033_fc', 'id036_dm', 'id045_bc']
 patient_ids['all'] = patient_ids['engel1'] + patient_ids['engel2'] + patient_ids['engel3'] + patient_ids['engel4']
 
 # %%
-results_dir = 'results/exp10/exp10.87'
+results_dir = 'results/exp10/exp10.86'
 os.makedirs(results_dir, exist_ok=True)
 raw_data_dir = 'datasets/retro/'
 
