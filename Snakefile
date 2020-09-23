@@ -14,22 +14,22 @@ iters = '20000'
 
 
 for pat_id in patient_ids['all']:
-    szr_fname = glob.glob(f'results/exp10/exp10.86/{pat_id}/Rfiles/fit_data*.R')[0]
+    szr_fname = glob.glob(f'results/exp10/exp10.87/{pat_id}/Rfiles/fit_data*.R')[0]
     szr_name[pat_id] = os.path.basename(szr_fname)[9:-2]
 
 
 rule all:
-    input:[f'results/exp10/exp10.86/{pat_id}/samples_{szr_name[pat_id]}.csv' for pat_id in patient_ids['all']]
+    input:[f'results/exp10/exp10.87/{pat_id}/samples_{szr_name[pat_id]}.csv' for pat_id in patient_ids['all']]
 
 rule map_fit:
     input:
-        fit_data='results/exp10/exp10.86/{pat_id}/Rfiles/fit_data_{szr_name}.R',
-        init_data='results/exp10/exp10.86/{pat_id}/Rfiles/param_init.R'
+        fit_data='results/exp10/exp10.87/{pat_id}/Rfiles/fit_data_{szr_name}.R',
+        init_data='results/exp10/exp10.87/{pat_id}/Rfiles/param_init.R'
     output:
-        csv='results/exp10/exp10.86/{pat_id}/samples_{szr_name}.csv'
-    log:'results/exp10/exp10.86/{pat_id}/snsrfit_ode_{szr_name}.log'
+        csv='results/exp10/exp10.87/{pat_id}/samples_{szr_name}.csv'
+    log:'results/exp10/exp10.87/{pat_id}/logs/snsrfit_ode_{szr_name}.log'
     shell:
-        f"./{stan_fname} optimize algorithm=lbfgs iter={iters} save_iterations=0  "
+        f"./{stan_fname} optimize algorithm=lbfgs iter={iters} save_iterations=0 "
         " data file={input.fit_data} "
         "init={input.init_data} "
-        "output file=output.csv refresh=10 &> {log}"
+        "output file={output.csv} refresh=10 &> {log}"

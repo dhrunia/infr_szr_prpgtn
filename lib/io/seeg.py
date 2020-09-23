@@ -141,3 +141,17 @@ def read_seeg(data_dir):
             t['sfreq'] = raw.info['sfreq']
             data['seizures'].append(t)
     return data
+
+
+def find_szr_len(data_dir, szr_name):
+    '''
+    Returns the length of the given seizure in seconds
+    '''
+    seeg = read_one_seeg(data_dir=data_dir,
+                         meta_data_fname=f'{szr_name}.json',
+                         raw_seeg_fname=f'{szr_name}.raw.fif')
+    start_idx = int(seeg['onset'] * seeg['sfreq']) - int(seeg['sfreq'])
+    end_idx = int(seeg['offset'] * seeg['sfreq']) + int(seeg['sfreq'])
+    seeg_trunc = seeg['time_series'][start_idx:end_idx]
+    szr_len = seeg_trunc.shape[0]/seeg['sfreq']
+    return szr_len
