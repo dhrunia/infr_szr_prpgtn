@@ -4,6 +4,12 @@ import json
 import mne
 import os
 
+class BadSeizure(Exception):
+    '''
+    Excpetion to raise when the seizure is not a spontaneous seizure
+    '''
+    def __init__(self):
+        super().__init__('Not a spontaneous seizure')
 
 def _maybe_bip(seeg, time, proj_bip=None):
     if proj_bip is not None:
@@ -46,8 +52,8 @@ def read_seeg_xyz(data_dir):
     return lines
 
 
-def read_gain(data_dir, picks):
-    gain = np.loadtxt(f'{data_dir}/elec/gain_inv-square.destrieux.txt')
+def read_gain(data_dir, picks, parcellation='destrieux'):
+    gain = np.loadtxt(f'{data_dir}/elec/gain_inv-square.{parcellation}.txt')
     seeg_xyz = read_seeg_xyz(data_dir)
     # Re-order the gain matrix to match with order of channels read using MNE
     gain_idxs = []
@@ -73,7 +79,7 @@ def find_picks(json_fnames):
                         'ch_names'])
             picks.append(ch_names - set(exclude))
         else:
-            raise Exception('Not a spontaneous seizure')
+            raise BadSeizure()
     return set.intersection(*picks)
 
 
@@ -135,3 +141,17 @@ def read_seeg(data_dir):
             t['sfreq'] = raw.info['sfreq']
             data['seizures'].append(t)
     return data
+
+
+def find_szr_len(data_dir, szr_name):
+    '''
+    Returns the length of the given seizure in seconds
+    '''
+    seeg = read_one_seeg(data_dir=data_dir,
+                         meta_data_fname=f'{szr_name}.json',
+                         raw_seeg_fname=f'{szr_name}.raw.fif')
+    start_idx = int(seeg['onset'] * seeg['sfreq']) - int(seeg['sfreq'])
+    end_idx = int(seeg['offset'] * seeg['sfreq']) + int(seeg['sfreq'])
+    seeg_trunc = seeg['time_series'][start_idx:end_idx]
+    szr_len = seeg_trunc.shape[0]/seeg['sfreq']
+    return szr_len
