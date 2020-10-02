@@ -16,6 +16,12 @@ def find_onsets(ts, thrshld):
             onsets[i] = np.inf
     return onsets
 
+def teps_to_wndwsz(data_dir, szr_name, t_eps, npoints):
+    szr_len = lib.io.seeg.find_szr_len(data_dir, szr_name)
+    dt = szr_len/npoints
+    wndw_sz = int(np.round(t_eps/dt))
+    return wndw_sz
+
 def find_ez(src_thrshld, onst_wndw_sz, csv_path):
     # print(csv_path)
     optima = lib.io.stan.read_samples(csv_path)
@@ -40,7 +46,7 @@ def precision_recall(patient_ids, root_dir, src_thrshld, t_eps,
     tp = fp = fn = 0
     for patient_id in patient_ids:
         # Read EZ hypothesis or skip patient if hypothesis doesn't exist
-        print(patient_id)
+        # print(patient_id)
         try:
             if(parcellation == 'destrieux'):
                 # ez_hyp = np.loadtxt(
@@ -63,8 +69,8 @@ def precision_recall(patient_ids, root_dir, src_thrshld, t_eps,
         ez_pred, pz_pred = find_ez(src_thrshld, int(np.round(t_eps/dt)), csv_path)
         ez_hyp = np.zeros_like(ez_pred)
         ez_hyp[ez_hyp_roi] = 1
-        print(f'EZ hypothesis: {np.where(ez_hyp == 1)[0]}')
-        print(f'EZ prediction: {np.where(ez_pred == 1)[0]}')
+        # print(f'EZ hypothesis: {np.where(ez_hyp == 1)[0]}')
+        # print(f'EZ prediction: {np.where(ez_pred == 1)[0]}')
         for a, b in zip(ez_hyp, ez_pred):
             if(a == 1 and b == 1):
                 tp += 1
