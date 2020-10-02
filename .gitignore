@@ -2,12 +2,12 @@ jureca/
 slurm_logs/
 ltxpng/
 data/
-results/
+results
 tmp/
 tvbpipeline/
 pipeline-master/
-datasets/
-docs/auto/
+datasets
+documents
 *~
 *.swp
 *.pyc
