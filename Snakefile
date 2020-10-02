@@ -18,8 +18,14 @@ for pat_id in patient_ids['all']:
     szr_name[pat_id] = os.path.basename(szr_fname)[9:-2]
 
 
+
 rule all:
-    input:[f'results/exp10/exp10.86/{pat_id}/samples_{szr_name[pat_id]}.csv' for pat_id in patient_ids['all']]
+    input:
+        csv=[f'results/exp10/exp10.86/{pat_id}/samples_{szr_name[pat_id]}.csv' for pat_id in patient_ids['all']],
+        x0_violin=[f'results/exp10/exp10.86/{pat_id}/figures/x0_violin_{szr_name[pat_id]}.png' for pat_id in patient_ids['all']],
+        pair_plot=[f'results/exp10/exp10.86/{pat_id}/figures/params_pair_plots_{szr_name[pat_id]}.png' for pat_id in patient_ids['all']],
+        src_plot=[f'results/exp10/exp10.86/{pat_id}/figures/posterior_predicted_src_{szr_name[pat_id]}.png' for pat_id in patient_ids['all']],
+        fit_to_slp=[f'results/exp10/exp10.86/{pat_id}/figures/posterior_predicted_slp_{szr_name[pat_id]}.png' for pat_id in patient_ids['all']]
 
 rule map_fit:
     input:
@@ -33,3 +39,17 @@ rule map_fit:
         " data file={input.fit_data} "
         "init={input.init_data} "
         "output file={output.csv} refresh=10 &> {log}"
+
+rule plots:
+    input:
+        fit_data='results/exp10/exp10.86/{pat_id}/Rfiles/fit_data_{szr_name}.R',
+        csv='results/exp10/exp10.86/{pat_id}/samples_{szr_name}.csv'
+    output:
+        x0_violin='results/exp10/exp10.86/{pat_id}/figures/x0_violin_{szr_name}.png',
+        pair_plot='results/exp10/exp10.86/{pat_id}/figures/params_pair_plots_{szr_name}.png',
+        pred_src='results/exp10/exp10.86/{pat_id}/figures/posterior_predicted_src_{szr_name}.png',
+        fit_to_slp='results/exp10/exp10.86/{pat_id}/figures/posterior_predicted_slp_{szr_name}.png'
+    params:
+        patient_id='{pat_id}'
+    script:
+        'figures.py'
