@@ -17,44 +17,56 @@ tfpl = tfp.layers
 
 # %% 
 @tf.function
-def epileptor2D_ode_fn(y, x0, tau):
-    x = y[0]
-    z = y[1]
+def epileptor2D_ode_fn(y, x0, tau, K, SC):
+    nn = tf.math.floordiv(y.shape[0], 2)
+    x = y[0:nn]
+    z = y[nn:2*nn]
     I1 = tf.constant(4.1, dtype=tf.float32)
     dx = 1.0 - tf.math.pow(x, 3) - 2 * tf.math.pow(x, 2) - z + I1
-    dz = (1.0/tau)*(4*(x - x0) - z)
-    return tf.stack([dx, dz], axis=0)
+    gx = tf.reduce_sum(K * SC * (x[tf.newaxis, :] - x[:, tf.newaxis]), axis=1)
+    dz = (1.0/tau)*(4*(x - x0) - z - gx)
+    return tf.concat((dx, dz), axis=0)
 
 @tf.function
-def integrator(ode_fn, nsteps, time_step, y_init, x0, tau):
+def integrator(ode_fn, nsteps, time_step, y_init, x0, tau, K, SC):
     y = tf.TensorArray(dtype=tf.float32, size=nsteps, clear_after_read=False)
     y_next = y_init
     h = time_step/100
     for i in tf.range(nsteps, dtype=tf.int32):
         for j in tf.range(100):
-            k1 = epileptor2D_ode_fn(y_next, x0, tau)
-            k2 = epileptor2D_ode_fn(y_next + h*(k1/2), x0, tau)
-            k3 = epileptor2D_ode_fn(y_next + h*(k2/2), x0, tau)
-            k4 = epileptor2D_ode_fn(y_next + h*k3, x0, tau)
+            k1 = epileptor2D_ode_fn(y_next, x0, tau, K, SC)
+            k2 = epileptor2D_ode_fn(y_next + h*(k1/2), x0, tau, K, SC)
+            k3 = epileptor2D_ode_fn(y_next + h*(k2/2), x0, tau, K, SC)
+            k4 = epileptor2D_ode_fn(y_next + h*k3, x0, tau, K, SC)
             y_next = y_next + (h/6) * (k1 + 2*k2 + 2*k3 + k4)
         y = y.write(i, y_next)
     return y.stack()
 
 # %%
-x_init_true = -2.0
-z_init_true = 5.0
-y_init_true = tf.constant([x_init_true, z_init_true], dtype=tf.float32)
-
+tvb_syn_data = np.load("datasets/syn_data/id001_bt/syn_tvb_ez=48-79_pz=11-17-22-75.npz")
+SC = np.load(f'datasets/syn_data/id001_bt/network.npz')['SC']
+K_true = tf.constant(np.max(SC), dtype=tf.float32)
+SC = SC / K_true.numpy()
+SC[np.diag_indices(SC.shape[0])] = 0
+SC = tf.constant(SC, dtype=tf.float32)
+nn = SC.shape[0]
+x_init_true = tf.constant(-2.0, dtype=tf.float32) * tf.ones(nn, dtype=tf.float32)
+z_init_true = tf.constant(5.0, dtype=tf.float32) * tf.ones(nn, dtype=tf.float32)
+y_init_true = tf.concat((x_init_true, z_init_true), axis=0)
 tau_true = tf.constant(25, dtype=tf.float32)
-x0_true = tf.constant(-1.8, dtype=tf.float32)
+x0_true = tf.constant(tvb_syn_data['x0'], dtype=tf.float32)
 time_step = tf.constant(0.1, dtype=tf.float32)
 nsteps = tf.constant(300, dtype=tf.int32)
 
 # %%
-y_true = integrator(epileptor2D_ode_fn, nsteps, time_step, y_init_true, x0_true, tau_true)
+start_time = time.time()
+y_true = integrator(epileptor2D_ode_fn, nsteps, time_step,
+                    y_init_true, x0_true, tau_true, K_true, SC)
+print(f"Simulation took {time.time() - start_time} seconds")
 obs_data = dict()
-obs_data['x'] = y_true[:,0].numpy() + tfd.Normal(loc=0, scale=0.1, ).sample(y_true.shape[0])
-obs_data['z'] = y_true[:,1]
+obs_data['x'] = y_true[:, 0:nn].numpy() + tfd.Normal(loc=0, scale=0.1,
+                                                     ).sample((y_true.shape[0], nn))
+obs_data['z'] = y_true[:, nn:2*nn]
 
 #%%
 plt.figure(figsize=(15,7))
@@ -69,45 +81,53 @@ plt.xlabel('Time', fontsize=15)
 plt.ylabel('z', fontsize=15)
 plt.tight_layout()
 
-plt.figure()
-plt.title("Phase space plot", fontsize=15)
-plt.plot(obs_data['x'], obs_data['z'])
-plt.xlabel('x', fontsize=15)
-plt.ylabel('z', fontsize=15)
+# plt.figure()
+# plt.title("Phase space plot", fontsize=15)
+# plt.plot(obs_data['x'], obs_data['z'])
+# plt.xlabel('x', fontsize=15)
+# plt.ylabel('z', fontsize=15)
 
 # %% [markdown]
 #### Define Generative Model
 
 # %%  
 @tf.function
-def epileptor2D_log_prob(theta, x_obs):
+def epileptor2D_log_prob(theta, x_obs, SC):
     time_step = tf.constant(0.1)
     nsteps = tf.constant(300, dtype=tf.int32)
     eps = tf.constant(0.1)
     # y_init = tf.constant([-2.0, 5.0], dtype=tf.float32)
-    x0 = theta[0]
-    tau = theta[1]
+    nn = x_obs.shape[1]
+    x0 = theta[0:nn]
+    tau = theta[nn]
     tau_trans = tf.constant(10.0, dtype=tf.float32) + tf.math.exp(tau)
-    y_init = theta[2:4]
+    y_init = theta[nn+1:3*nn+1]
+    K = theta[3*nn+1]
+    K_trans = tf.math.exp(K)
     # tf.print('x0=', x0, '\t tau=', tau_trans, '\t y_init=', y_init)
     # log_prob = 0.0
     # Compute Likelihood
-    y_pred = integrator(epileptor2D_ode_fn, nsteps, time_step, y_init, x0, tau_trans)
-    x_mu = y_pred[:,0]
+    y_pred = integrator(epileptor2D_ode_fn, nsteps,
+                        time_step, y_init, x0, tau_trans, K, SC)
+    x_mu = y_pred[:, 0:nn]
     likelihood = tf.reduce_sum(tfd.Normal(loc=x_mu, scale=eps).log_prob(x_obs))
     # Compute Prior probability
-    prior_x0 = tfd.Normal(loc=-3.0, scale=5.0).log_prob(x0)
+    prior_x0 = tf.reduce_sum(tfd.Normal(loc=-3.0, scale=5.0).log_prob(x0))
     prior_tau = tfd.Normal(loc=0, scale=5.0).log_prob(tau)
-    prior_y_init = tfd.Independent(tfd.Normal(loc=[0.0, 0.0], scale=[10.0, 10.0]), reinterpreted_batch_ndims=1).log_prob(y_init)
-    return likelihood + prior_x0 + prior_tau + prior_y_init
+    y_init_mu = tf.concat((-3.0*tf.ones(nn), 4.0*tf.ones(nn)), axis=0)
+    prior_y_init = tfd.MultivariateNormalDiag(
+        loc=y_init_mu, scale_diag=10*tf.ones(2*nn)).log_prob(y_init)
+    prior_K = tfd.Normal(loc=0.0, scale=10.0).log_prob(K)
+    return likelihood + prior_x0 + prior_tau + prior_y_init + prior_K
 
 # %%
 # @tf.function
 # def find_log_prob(theta):
 #     return gm.log_prob(theta)
 import time
+theta = np.zeros(3*nn+2)
 start_time = time.time()
-theta = tf.constant([-1.73248208, -0.970714927, 4.35790968, 1.16606486])
+theta = tf.concat((x0, ))
 print(epileptor2D_log_prob(theta, obs_data['x']))
 print("Elapsed: %s seconds" % (time.time()-start_time))
 
@@ -139,18 +159,19 @@ tf.random.set_seed(1234567)
 bijectors = []
 for i in range(num_bijectors-1):
     made = tfb.AutoregressiveNetwork(
-        params=2, hidden_units=[256, 256], activation='relu')
+        params=2, hidden_units=[1024, 1024], activation='relu')
     maf = tfb.MaskedAutoregressiveFlow(shift_and_log_scale_fn=made)
     bijectors.append(maf)
-    bijectors.append(tfb.Permute(permutation=tf.random.shuffle(tf.range(4))))
+    bijectors.append(tfb.Permute(
+        permutation=tf.random.shuffle(tf.range(3*nn+2))))
 
 made = tfb.AutoregressiveNetwork(
-    params=2, hidden_units=[256, 256], activation='relu')
+    params=2, hidden_units=[1024, 1024], activation='relu')
 maf = tfb.MaskedAutoregressiveFlow(shift_and_log_scale_fn=made)
 bijectors.append(maf)
 chained_maf = tfb.Chain(list(reversed(bijectors)))
-base_dist = tfd.Independent(tfd.Normal(loc=tf.ones(4, dtype=tf.float32),
-                                       scale=tf.ones(4, dtype=tf.float32),
+base_dist = tfd.Independent(tfd.Normal(loc=tf.zeros(3*nn+2, dtype=tf.float32),
+                                       scale=tf.ones(3*nn+2, dtype=tf.float32),
                                        name='Base Distribution'),
                             reinterpreted_batch_ndims=1)
 flow_dist = tfd.TransformedDistribution(distribution=base_dist,
@@ -173,14 +194,14 @@ plt.title('Variational Posterior before training')
 
 #%%
 @tf.function
-def loss(posterior_approx, base_dist_samples, x_obs):
+def loss(posterior_approx, base_dist_samples, x_obs, SC):
     posterior_samples = posterior_approx.bijector.forward(base_dist_samples)
     # tf.print(posterior_samples)
     # tf.print(posterior_samples)
     nsamples = base_dist_samples.shape[0]
     loss_val = 0.0
     for theta in posterior_samples:
-        gm_log_prob = epileptor2D_log_prob(theta, x_obs)
+        gm_log_prob = epileptor2D_log_prob(theta, x_obs, SC)
         posterior_approx_log_prob = posterior_approx.log_prob(theta)
         loss_val += (posterior_approx_log_prob - gm_log_prob)/nsamples
         # tf.print("theta: ", theta)
@@ -194,10 +215,10 @@ def loss(posterior_approx, base_dist_samples, x_obs):
 # eps = tf.constant(0.1)
 
 @tf.function
-def get_loss_and_gradients(posterior_approx, base_dist_samples, x_obs):
+def get_loss_and_gradients(posterior_approx, base_dist_samples, x_obs, SC):
     # nsamples = base_dist_samples.shape[0]
     with tf.GradientTape() as tape:
-        loss_val = loss(flow_dist, base_dist_samples, x_obs)
+        loss_val = loss(flow_dist, base_dist_samples, x_obs, SC)
         return loss_val, tape.gradient(loss_val, posterior_approx.trainable_variables)
 
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
@@ -225,7 +246,7 @@ for i in range(10):
 # %% [markdown]
 #### Training
 # %%
-batch_size = 5
+batch_size = 1
 base_dist_samples = tf.data.Dataset.from_tensor_slices(
     base_dist.sample((batch_size*500))).batch(batch_size)
 
@@ -238,7 +259,7 @@ start_time = time.time()
 for epoch in range(num_epochs):
     for batch_base_dist_samples in base_dist_samples.as_numpy_iterator():
         loss_value, grads = get_loss_and_gradients(flow_dist, tf.constant(
-            batch_base_dist_samples, dtype=tf.float32), obs_data['x'])
+            batch_base_dist_samples, dtype=tf.float32), obs_data['x'], SC)
         tf.print("loss: ", loss_value)
         training_loss.append(loss_value)
         optimizer.apply_gradients(
