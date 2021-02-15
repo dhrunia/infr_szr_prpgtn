@@ -76,6 +76,22 @@ def precision_recall(patient_ids, root_dir, src_thrshld, t_eps,
     recall = tp / (tp + fn)
     return precision, recall
 
+def precision_recall_single(src_thrshld, t_eps, csv_path, ez_hyp_roi):
+    tp = fp = fn = 0
+    ez_pred, pz_pred = find_ez(src_thrshld, t_eps, csv_path)
+    ez_hyp = np.zeros_like(ez_pred)
+    ez_hyp[ez_hyp_roi] = 1
+    for a, b in zip(ez_hyp, ez_pred):
+        if(a == 1 and b == 1):
+            tp += 1
+        elif(a == 1 and b == 0):
+            fn += 1
+        elif(a == 0 and b == 1):
+            fp += 1
+    precision = tp / (tp + fp)
+    recall = tp / (tp + fn)
+    return precision, recall
+
 
 def tpr_and_fpr(patient_ids, root_dir):
     tp = fp = fn = tn = 0
