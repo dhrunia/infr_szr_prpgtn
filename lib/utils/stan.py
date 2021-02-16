@@ -24,6 +24,8 @@ def find_ez(src_thrshld, onst_wndw_sz, csv_path):
     nt, nn = x.shape
     onsets = find_onsets(x, src_thrshld)
     nszng = np.size(np.nonzero(onsets < nt))
+    if nszng == 0:
+        return None, None
     assert nszng > 0, "No seizing regions found for: {}".format(csv_path) 
     # counts, edges = np.histogram(onsets[onsets<nt], range=(0,nt), bins=nbins)
     first_onset_time = onsets.min()
@@ -79,6 +81,8 @@ def precision_recall(patient_ids, root_dir, src_thrshld, t_eps,
 def precision_recall_single(src_thrshld, t_eps, csv_path, ez_hyp_roi):
     tp = fp = fn = 0
     ez_pred, pz_pred = find_ez(src_thrshld, t_eps, csv_path)
+    if ez_pred is None:
+        return 0.0, 0.0
     ez_hyp = np.zeros_like(ez_pred)
     ez_hyp[ez_hyp_roi] = 1
     for a, b in zip(ez_hyp, ez_pred):
