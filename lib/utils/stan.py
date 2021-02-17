@@ -32,6 +32,12 @@ def find_onsets(ts, thrshld):
             onsets[i] = np.inf
     return onsets
 
+def teps_to_wndwsz(data_dir, szr_name, t_eps, npoints):
+    szr_len = lib.io.seeg.find_szr_len(data_dir, szr_name)
+    dt = szr_len/npoints
+    wndw_sz = int(np.round(t_eps/dt))
+    return wndw_sz
+
 def find_ez(src_thrshld, onst_wndw_sz, csv_path):
     # print(csv_path)
     optima = lib.io.stan.read_samples(csv_path)
