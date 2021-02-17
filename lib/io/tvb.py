@@ -2,6 +2,22 @@ import zipfile
 import numpy as np
 
 def read_roi_cntrs(cntrs_zipfile):
+    '''
+    Read ROI centers, labels from the TVB connecitivty zip file
+
+    Parameters:
+    ----------
+    cntrs_zipfile : zipfile
+        TVB connectivity zip file
+
+    Returns:
+    -------
+    Centers : list
+        Talairach ROI centers
+    
+    Labels : list
+        ROI names/labels
+    '''
     zf = zipfile.ZipFile(cntrs_zipfile)
     roi_cntrs = []
     roi_lbls = []

@@ -6,6 +6,22 @@ import json
 import lib.io.seeg
 
 def find_onsets(ts, thrshld):
+    '''
+    Returns onset times of all regions
+    Note: Regions not recruited by seizure will have onset time of infinity
+
+    Parameters:
+    ----------
+    ts : 2D-array
+        Time series of regions with shape no. of time points x no. of ROI
+    thrshld : float
+        Threshold for the time series beyond which ROI would be considered as seizing
+
+    Returns:
+    -------
+    onsets : list
+        Onset times of all regions
+    '''
     nt, nn = ts.shape
     onsets = (nt + 50)*np.ones(nn)
     for i in range(nn):
@@ -40,7 +56,7 @@ def precision_recall(patient_ids, root_dir, src_thrshld, t_eps,
     tp = fp = fn = 0
     for patient_id in patient_ids:
         # Read EZ hypothesis or skip patient if hypothesis doesn't exist
-        print(patient_id)
+        # print(patient_id)
         try:
             if(parcellation == 'destrieux'):
                 # ez_hyp = np.loadtxt(
@@ -63,8 +79,8 @@ def precision_recall(patient_ids, root_dir, src_thrshld, t_eps,
         ez_pred, pz_pred = find_ez(src_thrshld, int(np.round(t_eps/dt)), csv_path)
         ez_hyp = np.zeros_like(ez_pred)
         ez_hyp[ez_hyp_roi] = 1
-        print(f'EZ hypothesis: {np.where(ez_hyp == 1)[0]}')
-        print(f'EZ prediction: {np.where(ez_pred == 1)[0]}')
+        # print(f'EZ hypothesis: {np.where(ez_hyp == 1)[0]}')
+        # print(f'EZ prediction: {np.where(ez_pred == 1)[0]}')
         for a, b in zip(ez_hyp, ez_pred):
             if(a == 1 and b == 1):
                 tp += 1
