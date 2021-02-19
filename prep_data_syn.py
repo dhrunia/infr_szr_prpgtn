@@ -8,7 +8,7 @@ import os
 import lib.io.stan
 # %%
 data_dir = 'datasets/syn_data/id001_bt'
-results_dir = 'results/exp10/exp10.88.1/snr0.1_5.0_step0.1/'
+results_dir = 'results/exp10/exp10.88.1/snr0.1_5.0_step0.1_multiple_samples_per_step/'
 os.makedirs(results_dir, exist_ok=True)
 tvb_syn_data = np.load(os.path.join(
     data_dir, 'syn_tvb_ez=48-79_pz=11-17-22-75.npz'))
@@ -69,17 +69,18 @@ lib.io.stan.rdump(f'{results_dir}/Rfiles/param_init.R', param_init)
 
 # %%
 for el_snr in snr:
-    seeg_noised = seeg + \
-        np.random.normal(loc=0.0, scale=avg_pwr/el_snr, size=seeg.shape)
-    slp = lib.preprocess.envelope.compute_slp_syn(data=seeg_noised,
-                                                  samp_rate=256, win_len=50, hpf=10.0, lpf=2.0, logtransform=True)
-    ds_freq = int(np.round(slp.shape[0]/nt))
-    slp_ds = slp[0:-1:ds_freq, :]
-    snsr_pwr = np.mean(slp_ds**2, axis=0)
-    data = {'nn': nn, 'ns': ns, 'nt': slp_ds.shape[0], 'SC': SC, 'gain': gain_mat,
-            'slp': slp_ds, 'snsr_pwr': snsr_pwr, 'x0_mu': x0_mu}
-    input_Rfile = f'fit_data_snsrfit_ode_snr{el_snr:.1f}.R'
-    lib.io.stan.rdump(os.path.join(results_dir, 'Rfiles', input_Rfile), data)
+    for i in range(50):
+        seeg_noised = seeg + \
+            np.random.normal(loc=0.0, scale=avg_pwr/el_snr, size=seeg.shape)
+        slp = lib.preprocess.envelope.compute_slp_syn(data=seeg_noised,
+                                                    samp_rate=256, win_len=50, hpf=10.0, lpf=2.0, logtransform=True)
+        ds_freq = int(np.round(slp.shape[0]/nt))
+        slp_ds = slp[0:-1:ds_freq, :]
+        snsr_pwr = np.mean(slp_ds**2, axis=0)
+        data = {'nn': nn, 'ns': ns, 'nt': slp_ds.shape[0], 'SC': SC, 'gain': gain_mat,
+                'slp': slp_ds, 'snsr_pwr': snsr_pwr, 'x0_mu': x0_mu}
+        input_Rfile = f'fit_data_snsrfit_ode_snr{el_snr:.1f}_sample{i}.R'
+        lib.io.stan.rdump(os.path.join(results_dir, 'Rfiles', input_Rfile), data)
 
 # %%
 fit_data = lib.io.stan.rload(os.path.join(results_dir,
