@@ -105,6 +105,10 @@ data_dir = 'datasets/syn_data/id001_bt'
 results_dir = 'results/exp10/exp10.88.2'
 os.makedirs(results_dir, exist_ok=True)
 os.makedirs(f'{results_dir}/Rfiles',exist_ok=True)
+os.makedirs(f'{results_dir}/samples',exist_ok=True)
+os.makedirs(f'{results_dir}/logs',exist_ok=True)
+os.makedirs(f'{results_dir}/code',exist_ok=True)
+os.makedirs(f'{results_dir}/code/slurm_logs',exist_ok=True)
 network = np.load(f'{data_dir}/network.npz')
 SC = network['SC']
 K = np.max(SC)
@@ -131,9 +135,9 @@ pz_hyp = tvb_syn_data['pz']
 x0_mu[ez_hyp] = -1.8
 x0_mu[pz_hyp] = -2.3
 
-sigma_prior = np.arange(1.0, 11.0, 1.0)
+sigma_prior = np.arange(0.1, 1.1, 0.1)
 for el_sigma_prior in sigma_prior:
-    for i in range(100):
+    for i in range(1,11):
         x0_clip_a, x0_clip_b = -5.0, 0.0
         x0_loc = x0_mu
         x0 = stats.truncnorm.rvs(a=(x0_clip_a - x0_loc)/el_sigma_prior, b=(
@@ -149,32 +153,32 @@ for el_sigma_prior in sigma_prior:
         beta = stats.truncnorm.rvs(a=(beta_clip_a - beta_loc)/el_sigma_prior, b=(
             beta_clip_b - beta_loc)/el_sigma_prior, loc=beta_loc, scale=el_sigma_prior)[0]
 
-        K_clip_a, K_clip_b = 0.0, 10.0
+        K_clip_a, K_clip_b = 0.0, 5.0
         K_loc = 1.0
         K = stats.truncnorm.rvs(a=(K_clip_a - K_loc)/el_sigma_prior, b=(
             K_clip_b - K_loc)/el_sigma_prior, loc=K_loc, scale=el_sigma_prior)[0]
 
-        tau0_clip_a, tau0_clip_b = 10.0, 100.0
+        tau0_clip_a, tau0_clip_b = 15.0, 100.0
         tau0_loc = 20.0
         tau0 = stats.truncnorm.rvs(a=(tau0_clip_a - tau0_loc)/el_sigma_prior, b=(
             tau0_clip_b - tau0_loc)/el_sigma_prior, loc=tau0_loc, scale=el_sigma_prior)[0]
 
-        eps_slp_clip_a, eps_slp_clip_b = 0.5, 100.0
+        eps_slp_clip_a, eps_slp_clip_b = 0.5, 10.0
         eps_slp_loc = 1.0
         eps_slp = stats.truncnorm.rvs(a=(eps_slp_clip_a - eps_slp_loc)/el_sigma_prior, b=(
             eps_slp_clip_b - eps_slp_loc)/el_sigma_prior, loc=eps_slp_loc, scale=el_sigma_prior)[0]
 
-        eps_snsr_pwr_clip_a, eps_snsr_pwr_clip_b = 0.5, 100.0
+        eps_snsr_pwr_clip_a, eps_snsr_pwr_clip_b = 0.5, 10.0
         eps_snsr_pwr_loc = 1.0
         eps_snsr_pwr = stats.truncnorm.rvs(a=(eps_snsr_pwr_clip_a - eps_snsr_pwr_loc)/el_sigma_prior, b=(
             eps_snsr_pwr_clip_b - eps_snsr_pwr_loc)/el_sigma_prior, loc=eps_snsr_pwr_loc, scale=el_sigma_prior)[0]
 
-        x_init_clip_a, x_init_clip_b = -10.0, -1.0
+        x_init_clip_a, x_init_clip_b = -2.5, -1.5
         x_init_loc = -2.0*np.ones(nn)
         x_init = stats.truncnorm.rvs(a=(x_init_clip_a - x_init_loc)/el_sigma_prior, b=(
             x_init_clip_b - x_init_loc)/el_sigma_prior, loc=x_init_loc, scale=el_sigma_prior)
 
-        z_init_clip_a, z_init_clip_b = 2.0, 10.0
+        z_init_clip_a, z_init_clip_b = 3.0, 5.0
         z_init_loc = 3.5*np.ones(nn)
         z_init = stats.truncnorm.rvs(a=(z_init_clip_a - z_init_loc)/el_sigma_prior, b=(
             z_init_clip_b - z_init_loc)/el_sigma_prior, loc=z_init_loc, scale=el_sigma_prior)
@@ -183,7 +187,7 @@ for el_sigma_prior in sigma_prior:
                       'beta': beta, 'K': K, 'tau0': tau0, 'x_init': x_init, 'z_init': z_init,
                       'eps_slp': eps_slp, 'eps_snsr_pwr': eps_snsr_pwr}
         lib.io.stan.rdump(
-            f'{results_dir}/Rfiles/param_init_sigmaprior{el_sigma_prior:.0f}_sample{i}.R', param_init)
+            f'{results_dir}/Rfiles/param_init_sigmaprior{el_sigma_prior:.1f}_sample{i}.R', param_init)
 
 data = {'nn': nn, 'ns': ns, 'nt': nt, 'SC': SC, 'gain': gain_mat,
         'slp': slp_ds, 'snsr_pwr': snsr_pwr, 'x0_mu': x0_mu}
