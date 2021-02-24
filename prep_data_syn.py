@@ -8,7 +8,11 @@ import os
 import lib.io.stan
 # %%
 data_dir = 'datasets/syn_data/id001_bt'
-results_dir = 'results/exp10/exp10.88.1/snr0.1_5.0_step0.1_multiple_samples_per_step/'
+results_dir = 'results/exp10/exp10.88.1/snr0.1_5.0_step0.1_10samples_per_step/'
+os.makedirs(os.path.join(results_dir,'Rfiles'), exist_ok=True)
+os.makedirs(os.path.join(results_dir,'samples'), exist_ok=True)
+os.makedirs(os.path.join(results_dir,'logs'), exist_ok=True)
+os.makedirs(os.path.join(results_dir,'code'), exist_ok=True)
 os.makedirs(results_dir, exist_ok=True)
 tvb_syn_data = np.load(os.path.join(
     data_dir, 'syn_tvb_ez=48-79_pz=11-17-22-75.npz'))
@@ -60,7 +64,6 @@ eps_snsr_pwr = 1.0
 x_init = -2.0*np.ones(nn)
 z_init = 3.5*np.ones(nn)
 
-os.makedirs(os.path.join(results_dir, 'Rfiles'), exist_ok=True)
 param_init = {'x0':x0, 'alpha':alpha,
               'beta':beta, 'K':K, 'tau0':tau0, 'x_init':x_init, 'z_init':z_init,
               'eps_slp':eps_slp, 'eps_snsr_pwr':eps_snsr_pwr}
@@ -69,7 +72,7 @@ lib.io.stan.rdump(f'{results_dir}/Rfiles/param_init.R', param_init)
 
 # %%
 for el_snr in snr:
-    for i in range(50):
+    for i in range(1,11):
         seeg_noised = seeg + \
             np.random.normal(loc=0.0, scale=avg_pwr/el_snr, size=seeg.shape)
         slp = lib.preprocess.envelope.compute_slp_syn(data=seeg_noised,
