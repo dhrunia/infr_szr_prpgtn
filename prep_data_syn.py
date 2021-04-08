@@ -194,3 +194,97 @@ data = {'nn': nn, 'ns': ns, 'nt': nt, 'SC': SC, 'gain': gain_mat,
 input_Rfile = f'fit_data_snsrfit_ode.R'
 os.makedirs(f'{results_dir}/Rfiles', exist_ok=True)
 lib.io.stan.rdump(f'{results_dir}/Rfiles/{input_Rfile}', data)
+
+# %% [markdown]
+### Create datasets with different inital conditions and SNR for synthetic data with different no.of EZ/PZ
+# %%
+import numpy as np
+import matplotlib.pyplot as plt
+import lib.preprocess.envelope
+import os
+import lib.io.stan
+import lib.preprocess.fit
+# %%
+syn_data_fnames = \
+    ['datasets/syn_data/id001_bt_3ez/syn_tvb_ez=37-72-74_pz=20-24-36-163.npz',
+     'datasets/syn_data/id001_bt_4ez/syn_tvb_ez=14-37-72-74_pz=20-24-36-53-104-163.npz',
+     'datasets/syn_data/id001_bt_5ez/syn_tvb_ez=14-37-72-74-79_pz=20-22-24-36-53-75-104-163.npz']
+results_dir = 'results/exp10/exp10.88.4'
+os.makedirs(os.path.join(results_dir, 'Rfiles'), exist_ok=True)
+os.makedirs(os.path.join(results_dir, 'samples'), exist_ok=True)
+os.makedirs(os.path.join(results_dir, 'code'), exist_ok=True)
+os.makedirs(os.path.join(results_dir, 'figures'), exist_ok=True)
+for fname in syn_data_fnames:
+    tvb_syn_data = np.load(fname)
+    seeg = tvb_syn_data['seeg'].T
+    # seeg_hpf = lib.preprocess.envelope.bfilt(
+    #     seeg, samp_rate=256, fs=10.0, mode='highpass', axis=0)
+    # avg_pwr = (seeg_hpf**2).mean(axis=0).mean()
+    network = np.load(os.path.join(os.path.split(fname)[0], 'network.npz'))
+    SC = network['SC']
+    K = np.max(SC)
+    SC = SC / K
+    SC[np.diag_indices(SC.shape[0])] = 0
+    gain_mat = network['gain_mat']
+    nn = SC.shape[0]
+    ns = gain_mat.shape[0]
+    nt = 300
+    x0_mu = -3.0*np.ones(nn)
+    ez_hyp = np.array(tvb_syn_data['ez'])
+    pz_hyp = tvb_syn_data['pz']
+    x0_mu[ez_hyp] = -1.8
+    x0_mu[pz_hyp] = -2.3
+    snr = np.arange(0.1, 2.6, 0.1)
+    nez = fname.split('/')[-2].split('_')[-1]
+    # for el_snr in snr:
+    #     for i in range(1, 11):
+    #         seeg_noised = seeg + \
+    #             np.random.normal(loc=0.0, scale=avg_pwr /
+    #                              el_snr, size=seeg.shape)
+    #         slp = lib.preprocess.envelope.compute_slp_syn(data=seeg_noised,
+    #                                                       samp_rate=256, win_len=50, hpf=10.0, lpf=2.0, logtransform=True)
+    #         ds_freq = int(np.round(slp.shape[0]/nt))
+    #         slp_ds = slp[0:-1:ds_freq, :]
+    #         snsr_pwr = np.mean(slp_ds**2, axis=0)
+    #         data = {'nn': nn, 'ns': ns, 'nt': slp_ds.shape[0], 'SC': SC, 'gain': gain_mat,
+    #                 'slp': slp_ds, 'snsr_pwr': snsr_pwr, 'x0_mu': x0_mu}
+            
+    #         input_Rfile = f'fit_data_snsrfit_ode_{nez}_snr{el_snr:.1f}_sample{i}.R'
+    #         lib.io.stan.rdump(os.path.join(
+    #             results_dir, 'Rfiles', input_Rfile), data)
+    slp = lib.preprocess.envelope.compute_slp_syn(data=seeg,
+                                                    samp_rate=256, win_len=50, hpf=10.0, lpf=2.0, logtransform=True)
+    ds_freq = int(np.round(slp.shape[0]/nt))
+    slp_ds = slp[0:-1:ds_freq, :]
+    snsr_pwr = np.mean(slp_ds**2, axis=0)
+    data = {'nn': nn, 'ns': ns, 'nt': slp_ds.shape[0], 'SC': SC, 'gain': gain_mat,
+            'slp': slp_ds, 'snsr_pwr': snsr_pwr, 'x0_mu': x0_mu}
+    
+    input_Rfile = f'fit_data_snsrfit_ode_{nez}.R'
+    lib.io.stan.rdump(os.path.join(
+        results_dir, 'Rfiles', input_Rfile), data)
+    param_loc = dict()
+    param_loc['x0'] = x0_mu
+    param_loc['alpha'] = 1.0
+    param_loc['beta'] = 0.0
+    param_loc['K'] = 1.0
+    param_loc['tau0'] = 20.0
+    param_loc['eps_slp'] = 1.0
+    param_loc['eps_snsr_pwr'] = 1.0
+    param_loc['x_init'] = -2.0*np.ones(nn)
+    param_loc['z_init'] = 3.5*np.ones(nn)
+    sigma_prior = np.arange(0.1, 1.1, 0.1)
+    for el_sigma_prior in sigma_prior:
+        for i in range(1, 11):
+            param_init = lib.preprocess.fit.gen_ic(
+                loc=param_loc, scale=el_sigma_prior)
+            lib.io.stan.rdump(os.path.join(
+                results_dir, 'Rfiles', f'param_init_{nez}_sigmaprior{el_sigma_prior:.1f}_sample{i}.R'), param_init)
+
+# %%
+fit_data = lib.io.stan.rload('results/exp10/exp10.88.4/Rfiles/fit_data_snsrfit_ode_4ez.R')
+print(fit_data['slp'].shape)
+plt.figure(figsize=(25,5))
+plt.plot(fit_data['slp'], 'k');
+plt.figure(figsize=(25,5))
+plt.bar(np.r_[1:162],fit_data['snsr_pwr']);

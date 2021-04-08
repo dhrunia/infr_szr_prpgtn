@@ -90,7 +90,7 @@ model {
   x0 ~ normal(x0_mu, 100.0);
   alpha ~ normal(1.0, 10.0);
   beta ~ normal(0, 10.0);
-  tau0 ~ uniform(5, 5000);
+  tau0 ~ normal(20, 10.0);
   K ~ normal(1.0, 10.0);
   for (i in 1:nn){
     x_init[i] ~ normal(-2.0, 10.0);
