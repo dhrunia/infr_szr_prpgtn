@@ -35,7 +35,7 @@ public:
     // Define temporary variables and any constants in the 2D Epileptor model
     const float I1 = 4.1;
     const float dt = 0.1;
-    float tau = 50.0;
+    const float tau = 50.0;
     float dx;
     float dz;
 
