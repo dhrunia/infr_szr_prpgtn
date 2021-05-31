@@ -90,10 +90,10 @@ assert err < 1e-4, "Theoretical and numerical gradients did not match"
 #### Generate synthetic observations
 # %%
 start_time = time.time()
-theta = tf.constant([-1.8, 50.0], dtype=tf.float32)
-y_init = tf.constant([-2.0, 4.8], dtype=tf.float32)
+theta_true = tf.constant([-1.8, 50.0], dtype=tf.float32)
+y_init_true = tf.constant([-2.0, 4.8], dtype=tf.float32)
 nsteps = 500
-y_true = integrator(nsteps, theta, y_init)
+y_true = integrator(nsteps, theta_true, y_init_true)
 print(f"Simulation took {time.time() - start_time} seconds")
 obs_data = dict()
 obs_data['x'] = y_true[:, 0] + tfd.Normal(loc=0, scale=0.1,
@@ -123,19 +123,29 @@ plt.tight_layout()
 #### Define Generative Model
 
 # %%  
+
+
 @tf.function
 def epileptor2D_log_prob(theta, x_obs):
     # time_step = tf.constant(0.1)
     nsteps = tf.constant(500, dtype=tf.int32)
     eps = tf.constant(0.1)
-    y_init = tf.constant([-2.0, 4.8], dtype=tf.float32)
+    # y_init = tf.constant([-2.0, 4.8], dtype=tf.float32)
     # nn = x_obs.shape[1]
     x0 = theta[0]
     x0_trans = tf.constant(-5.0, dtype=tf.float32) + \
         tf.constant(5.0, dtype=tf.float32)*tf.math.sigmoid(x0)
     # tf.print(x0_trans)
     tau = theta[1]
-    tau_trans = tf.constant(10.0, dtype=tf.float32) + tf.constant(90.0, dtype=tf.float32)*tf.math.sigmoid(tau)
+    tau_trans = tf.constant(10.0, dtype=tf.float32) + \
+        tf.constant(90.0, dtype=tf.float32)*tf.math.sigmoid(tau)
+    y_init = theta[2:4]
+    x_init_trans = tf.constant(-5.0, dtype=tf.float32) + \
+        tf.constant(3.5, dtype=tf.float32) * tf.math.sigmoid(y_init[0])
+    z_init_trans = tf.constant(
+        2, dtype=tf.float32) + tf.constant(4, dtype=tf.float32) * tf.math.sigmoid(y_init[1])
+    y_init_trans = tf.stack((x_init_trans, z_init_trans), axis=0)
+    # y_init_trans = tf.constant([-3.0, 4.8], dtype=tf.float32)
     # y_init = theta[nn+1:3*nn+1]
     # x_init = y_init[0:nn]
     # z_init = y_init[nn:2*nn]
@@ -148,45 +158,46 @@ def epileptor2D_log_prob(theta, x_obs):
     # log_prob = 0.0
     theta_trans = tf.stack([x0_trans, tau_trans], axis=0)
     # Compute Likelihood
-    y_pred = integrator(nsteps, theta_trans, y_init)
+    y_pred = integrator(nsteps, theta_trans, y_init_trans)
     x_mu = y_pred[:, 0]
     likelihood = tf.reduce_sum(tfd.Normal(loc=x_mu, scale=eps).log_prob(x_obs))
     # Compute Prior probability
     prior_x0 = tfd.Normal(loc=0.0, scale=5.0).log_prob(x0)
     prior_tau = tfd.Normal(loc=0, scale=5.0).log_prob(tau)
     # y_init_mu=tf.concat((-3.0*tf.ones(nn), 4.0*tf.ones(nn)), axis = 0)
-    # prior_y_init = tfd.MultivariateNormalDiag(
-    #     loc=tf.zeros(2*nn), scale_diag=10*tf.ones(2*nn)).log_prob(y_init)
+    prior_y_init = tfd.MultivariateNormalDiag(
+        loc=tf.zeros(2), scale_diag=10*tf.ones(2)).log_prob(y_init)
     # prior_K = tfd.Normal(loc=0.0, scale=10.0).log_prob(K)
-    return likelihood + prior_x0 + prior_tau #+ prior_y_init + prior_K
+    return likelihood + prior_x0 + prior_tau + prior_y_init  # + prior_K
 
 # %%
 # @tf.function
 # def find_log_prob(theta):
 #     return gm.log_prob(theta)
 import time
-theta = tf.constant([-1.8, 50.0], dtype=tf.float32)
+# theta = tf.constant([-1.8, 50.0], dtype=tf.float32)
 start_time = time.time()
-print(epileptor2D_log_prob(theta, obs_data['x']))
+print(epileptor2D_log_prob(tf.zeros(shape=(4,), dtype=tf.float32), \
+    obs_data['x']))
 print("Elapsed: %s seconds" % (time.time()-start_time))
 
 #%%
-x0_range = np.linspace(-3.0,0.0,10)
-tau_range = np.linspace(10,30.0,10)
-gm_log_prob = np.zeros((x0_range.size, tau_range.size))
-for i, x0_val in enumerate(x0_range):
-    for j, tau_val in enumerate(tau_range):
-        gm_log_prob[j,i] = epileptor2D_log_prob([tf.constant(x0_val, dtype=tf.float32), tf.constant(np.log(tau_val), dtype=tf.float32)], obs_data['x'])
+# x0_range = np.linspace(-3.0,0.0,10)
+# tau_range = np.linspace(10,30.0,10)
+# gm_log_prob = np.zeros((x0_range.size, tau_range.size))
+# for i, x0_val in enumerate(x0_range):
+#     for j, tau_val in enumerate(tau_range):
+#         gm_log_prob[j,i] = epileptor2D_log_prob([tf.constant(x0_val, dtype=tf.float32), tf.constant(np.log(tau_val), dtype=tf.float32)], obs_data['x'])
 
 #%%
-x0_mesh, tau_mesh = np.meshgrid(x0_range, tau_range)
-tau_mesh = tau_mesh + 10.0
-plt.contour(x0_mesh, tau_mesh, gm_log_prob, levels=1000)
-plt.xlabel('x0', fontsize=15)
-plt.ylabel('tau', fontsize=15)
-plt.colorbar()
-plt.title('True unnormalized Posterior')
-# find_log_prob([-3.0, tf.math.log(20.0)])
+# x0_mesh, tau_mesh = np.meshgrid(x0_range, tau_range)
+# tau_mesh = tau_mesh + 10.0
+# plt.contour(x0_mesh, tau_mesh, gm_log_prob, levels=1000)
+# plt.xlabel('x0', fontsize=15)
+# plt.ylabel('tau', fontsize=15)
+# plt.colorbar()
+# plt.title('True unnormalized Posterior')
+# # find_log_prob([-3.0, tf.math.log(20.0)])
 
 # %% [markdown]
 #### Define the variational posterior using Normalizing flows
@@ -210,8 +221,8 @@ made = tfb.AutoregressiveNetwork(
 maf = tfb.MaskedAutoregressiveFlow(shift_and_log_scale_fn=made)
 bijectors.append(maf)
 chained_maf = tfb.Chain(list(reversed(bijectors)))
-base_dist = tfd.Independent(tfd.Normal(loc=tf.zeros(2, dtype=tf.float32),
-                                    scale=tf.ones(2, dtype=tf.float32),
+base_dist = tfd.Independent(tfd.Normal(loc=tf.zeros(4, dtype=tf.float32),
+                                    scale=tf.ones(4, dtype=tf.float32),
                                     name='Base Distribution'),
                             reinterpreted_batch_ndims=1)
 flow_dist = tfd.TransformedDistribution(distribution=base_dist,
@@ -219,27 +230,27 @@ flow_dist = tfd.TransformedDistribution(distribution=base_dist,
                                         name='Variational Posterior')
 
 # %%
-made = tfb.AutoregressiveNetwork(
-    params=2, hidden_units=[64, 64], activation='relu')
-maf = tfb.MaskedAutoregressiveFlow(shift_and_log_scale_fn=made)
-base_dist = tfd.Independent(tfd.Normal(loc=tf.zeros(1, dtype=tf.float32),
-                                    scale=tf.ones(1, dtype=tf.float32),
-                                    name='Base Distribution'),
-                            reinterpreted_batch_ndims=1)
-trnsfrm_dist = tfd.TransformedDistribution(distribution=base_dist,
-                                           bijector=maf,
-                                           name="test transfromed distribution")
+# made = tfb.AutoregressiveNetwork(
+#     params=2, hidden_units=[64, 64], activation='relu')
+# maf = tfb.MaskedAutoregressiveFlow(shift_and_log_scale_fn=made)
+# base_dist = tfd.Independent(tfd.Normal(loc=tf.zeros(1, dtype=tf.float32),
+#                                     scale=tf.ones(1, dtype=tf.float32),
+#                                     name='Base Distribution'),
+#                             reinterpreted_batch_ndims=1)
+# trnsfrm_dist = tfd.TransformedDistribution(distribution=base_dist,
+#                                            bijector=maf,
+#                                            name="test transfromed distribution")
 #%%
-flow_log_prob = np.zeros((x0_range.size, tau_range.size))
-for i, x0_val in enumerate(x0_range):
-    for j, tau_val in enumerate(tau_range):
-        flow_log_prob[j,i] = flow_dist.log_prob([x0_val, tau_val])
+# flow_log_prob = np.zeros((x0_range.size, tau_range.size))
+# for i, x0_val in enumerate(x0_range):
+#     for j, tau_val in enumerate(tau_range):
+#         flow_log_prob[j,i] = flow_dist.log_prob([x0_val, tau_val])
 
 #%%
 # plt.contour(x0_mesh, tau_mesh, flow_log_prob, levels=1000)
 # plt.colorbar()
 # plt.title('Variational Posterior before training')
-flow_dist.log_prob(tf.constant([-1.5], dtype=tf.float32), shape=(1,))
+# flow_dist.log_prob(tf.constant([-1.5], dtype=tf.float32), shape=(1,))
 # %% [markdown]
 #### Define functions to compute loss and gradients
 
@@ -275,17 +286,17 @@ def get_loss_and_gradients(posterior_approx, base_dist_samples, x_obs):
 # %%
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 # %%
-# @tf.function
-# def find_loss():
-#     loss_val = loss(flow_dist, tf.constant([[-0.29448965, -0.95975673],[ 0.17711619,  0.222046]], dtype=tf.float32))
-#     return loss_val
-base_dist_samples = base_dist.sample((100))
-for i in range(10):
-    loss_val, grads = get_loss_and_gradients(flow_dist, base_dist_samples)
-    tf.print("gradient norm = ", tf.norm(grads))
-    tf.print('Final loss_val = ', loss_val)
-    # tf.print(grads)
-    optimizer.apply_gradients(zip(grads, flow_dist.trainable_variables))
+# # @tf.function
+# # def find_loss():
+# #     loss_val = loss(flow_dist, tf.constant([[-0.29448965, -0.95975673],[ 0.17711619,  0.222046]], dtype=tf.float32))
+# #     return loss_val
+# base_dist_samples = base_dist.sample((100))
+# for i in range(10):
+#     # loss_val, grads = get_loss_and_gradients(flow_dist, base_dist_samples)
+#     tf.print("gradient norm = ", tf.norm(grads))
+#     tf.print('Final loss_val = ', loss_val)
+#     # tf.print(grads)
+#     optimizer.apply_gradients(zip(grads, flow_dist.trainable_variables))
 
 # %%
 # base_dist_samples = tf.constant([[-0.29448965, -0.95975673],[ 0.17711619,  0.222046]], dtype=tf.float32)
@@ -303,7 +314,7 @@ base_dist_samples = tf.data.Dataset.from_tensor_slices(
     base_dist.sample((1000))).batch(batch_size)
 
 # %%
-num_epochs = 80
+num_epochs = 50
 
 training_loss = []
 start_time = time.time()
@@ -367,11 +378,12 @@ x0 = samples[:, 0]
 x0_trans = tf.constant(-5.0, dtype=tf.float32) + tf.constant(5.0, dtype=tf.float32)*tf.math.sigmoid(x0)
 tau = samples[:, 1]
 tau_trans = tf.constant(10.0, dtype=tf.float32) + tf.constant(90.0, dtype=tf.float32)*tf.math.sigmoid(tau)
-# y_init = samples[:, nn+1:3*nn+1]
-# x_init = y_init[:, 0:nn]
-# z_init = y_init[:, nn:2*nn]
-# x_init_trans = tf.constant(-10.0, dtype=tf.float32) + tf.constant(9.0, dtype=tf.float32) * tf.math.sigmoid(x_init)
-# z_init_trans = tf.constant(2, dtype=tf.float32) + tf.constant(8, dtype=tf.float32) * tf.math.sigmoid(z_init)
+y_init = samples[:, 2:4]
+x_init = y_init[:, 0]
+z_init = y_init[:, 1]
+x_init_trans = tf.constant(-5.0, dtype=tf.float32) + tf.constant(3.5, dtype=tf.float32) * tf.math.sigmoid(x_init)
+z_init_trans = tf.constant(2, dtype=tf.float32) + tf.constant(4, dtype=tf.float32) * tf.math.sigmoid(z_init)
+y_init_trans = tf.stack((x_init_trans, z_init_trans), axis=1)
 # y_init_trans = tf.concat((x_init_trans, z_init_trans), axis=1)
 # K = samples[:, 3*nn+1]
 # K_trans = 10*tf.math.sigmoid(K)
@@ -387,38 +399,48 @@ y_init_true = tf.constant([-2.0, 4.8], dtype=tf.float32)
 # time_step = tf.constant(0.1, dtype=tf.float32)
 for i in range(100):
     y_pred = integrator(nsteps, tf.stack([x0_trans[i], \
-        tau_trans[i]], axis=0), y_init_true)
+        tau_trans[i]], axis=0), y_init_trans[i])
     x_pred[i] = y_pred.numpy()[:, 0]
     z_pred[i] = y_pred.numpy()[:, 1]
 # %%
-plt.figure(figsize=(15,5))
+plt.figure(figsize=(15,8))
 plt.title("Distribution of samples from variational posterior")
 # plt.violinplot(x0_trans.numpy());
-plt.subplot(121)
+plt.subplot(221)
 plt.hist(x0_trans, density=True);
 plt.xlabel(r"$x_0$", fontsize=20);
 plt.axvline(theta_true[0], color='red')
-plt.subplot(122)
+plt.subplot(222)
 plt.hist(tau_trans, density=True);
 plt.axvline(theta_true[1], color='red')
 plt.xlabel(r"$\tau$", fontsize=20);
-# %%
-plt.figure(figsize=(15,7))
-plt.subplot(2,1,1)
-plt.plot(x_pred.mean(axis=0), label='Prediction at Posterior Mean', lw=1.0, color='black')
-plt.plot(obs_data['x'], color='red', label='Ground truth', alpha=0.8)
-plt.xlabel('Time', fontsize=15)
-plt.ylabel('x', fontsize=15)
-# plt.legend()
-
-plt.subplot(2,1,2)
-plt.plot(z_pred.mean(axis=0), label='Prediction at Posterior Mean', lw=1.0, color='black')
-plt.plot(obs_data['z'], color='red', label='Ground truth', alpha=0.8)
-plt.xlabel('Time', fontsize=15)
-plt.ylabel('z', fontsize=15)
+plt.subplot(223)
+plt.hist(y_init_trans[:,0], density=True);
+plt.axvline(y_init_true[0], color='red')
+plt.xlabel(r"$x(-1)$", fontsize=20);
+plt.subplot(224)
+plt.hist(y_init_trans[:,1], density=True);
+plt.axvline(y_init_true[1], color='red')
+plt.xlabel(r"$z(-1)$", fontsize=20);
 plt.tight_layout()
-# plt.legend()
 
+# %%
+fig = plt.figure(figsize=(15,7))
+
+ax = fig.add_subplot(2,1,1)
+ax.plot(x_pred.mean(axis=0), label='Posterior predicted mean', lw=1.0, color='black')
+ax.plot(obs_data['x'], color='red', label='Ground truth', alpha=0.8)
+ax.set_xlabel('Time', fontsize=15)
+ax.set_ylabel('x', fontsize=15)
+ax.legend(fontsize=15)
+
+ax = fig.add_subplot(2,1,2)
+ax.plot(z_pred.mean(axis=0), label='Prediction at Posterior Mean', lw=1.0, color='black')
+ax.plot(obs_data['z'], color='red', label='Ground truth', alpha=0.8)
+ax.set_xlabel('Time', fontsize=15)
+ax.set_ylabel('z', fontsize=15)
+# fig.suptitle("Posterior predicted mean vs Ground truth", fontsize=20)
+fig.tight_layout()
 # plt.figure()
 # plt.title("Phase space plot", fontsize=15)
 # plt.plot(y[:,0], y[:,1], color='black', lw=5.0)
