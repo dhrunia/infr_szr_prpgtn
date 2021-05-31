@@ -35,13 +35,13 @@ public:
     // Define temporary variables and any constants in the 2D Epileptor model
     const float I1 = 4.1;
     const float dt = 0.1;
-    const float tau = 50.0;
+    // const float tau = 50.0;
     float dx;
     float dz;
 
     // Compute derivatives
     dx = 1.0 - std::pow(current_state(0), 3) - 2 * std::pow(current_state(0), 2) - current_state(1) + I1;
-    dz = (1.0 / tau) * (4 * (current_state(0) - theta(0)) - current_state(1));
+    dz = (1.0 / theta(1)) * (4 * (current_state(0) - theta(0)) - current_state(1));
 
     // Compute next state using Euler method
     next_state(0) = current_state(0) + dt * dx;

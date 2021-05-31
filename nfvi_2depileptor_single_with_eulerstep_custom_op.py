@@ -18,6 +18,8 @@ step_module = tf.load_op_library('./eulerstep_2d_epileptor_single.so')
 #### Define dynamical model
 
 # %% 
+
+
 @ops.RegisterGradient("EulerStep2DEpileptorSingle")
 def _euler_step2d_epileptor_single_grad(op, grad):
     """Gradients for Euler stepping custom op of single 2D Epileptor
@@ -30,18 +32,21 @@ def _euler_step2d_epileptor_single_grad(op, grad):
       Gradient of loss w.r.t. inputs for custom op
     """
     dt = tf.constant(0.1, dtype=tf.float32)
-    tau = tf.constant(50.0, dtype=tf.float32)
-    # TODO: make constants of Epileptor model an attribute/input of the OP so 
+    # tau = tf.constant(50.0, dtype=tf.float32)
+    # TODO: make constants of Epileptor model an attribute/input of the OP so
     # for better flexibility
     theta = op.inputs[0]
     current_state = op.inputs[1]
     grad_next_state = grad
-    grad_theta = grad_next_state[1] * dt * (-4.0/tau)
+    grad_x0 = grad_next_state[1] * dt * (-4.0/theta[1])
+    grad_tau = grad_next_state[1] * dt * (-1.0/theta[1]**2) * \
+        (4.0 * (current_state[0] - theta[0]) - current_state[1])
+    grad_theta = tf.stack([grad_x0, grad_tau], axis=0)
     grad_x = grad_next_state[0] * \
-             (1.0 + dt * (-3.0 * current_state[0]**2 - 4 * current_state[0])) \
-             + grad_next_state[1] * (dt * (4.0/tau))
+        (1.0 + dt * (-3.0 * current_state[0]**2 - 4 * current_state[0])) \
+        + grad_next_state[1] * (dt * (4.0/theta[1]))
     grad_z = grad_next_state[0] * (-1.0 * dt) \
-             + grad_next_state[1] * (1 + dt * (-1.0/tau))
+        + grad_next_state[1] * (1 + dt * (-1.0/theta[1]))
     grad_current_state = tf.stack([grad_x, grad_z], axis=0)
     return [grad_theta, grad_current_state]
 
@@ -59,7 +64,7 @@ def integrator(nsteps, theta, y_init):
 # %% [markdown]
 #### Test Gradients
 # %%
-theta = tf.constant(-1.5, dtype=tf.float32, shape=(1,))
+theta = tf.constant([-1.5, 50.0], dtype=tf.float32, shape=(2,))
 y_init = tf.constant([-2.0, 4.8], dtype=tf.float32)
 nsteps = 1
 grad_thrtcl, grad_numrcl = gradient_checker_v2.compute_gradient(step_module.euler_step2d_epileptor_single, [theta, y_init])
@@ -85,7 +90,7 @@ assert err < 1e-4, "Theoretical and numerical gradients did not match"
 #### Generate synthetic observations
 # %%
 start_time = time.time()
-theta = tf.constant(-1.8, dtype=tf.float32, shape=(1,))
+theta = tf.constant([-1.8, 50.0], dtype=tf.float32)
 y_init = tf.constant([-2.0, 4.8], dtype=tf.float32)
 nsteps = 500
 y_true = integrator(nsteps, theta, y_init)
@@ -129,8 +134,8 @@ def epileptor2D_log_prob(theta, x_obs):
     x0_trans = tf.constant(-5.0, dtype=tf.float32) + \
         tf.constant(5.0, dtype=tf.float32)*tf.math.sigmoid(x0)
     # tf.print(x0_trans)
-    # tau = theta[nn]
-    # tau_trans = tf.constant(10.0, dtype=tf.float32) + tf.constant(90.0, dtype=tf.float32)*tf.math.sigmoid(tau)
+    tau = theta[1]
+    tau_trans = tf.constant(10.0, dtype=tf.float32) + tf.constant(90.0, dtype=tf.float32)*tf.math.sigmoid(tau)
     # y_init = theta[nn+1:3*nn+1]
     # x_init = y_init[0:nn]
     # z_init = y_init[nn:2*nn]
@@ -141,25 +146,26 @@ def epileptor2D_log_prob(theta, x_obs):
     # K_trans = 10*tf.math.sigmoid(K)
     # tf.print('x0 =', x0_trans, '\ntau =', tau_trans, '\n x_init =', x_init_trans, '\nz_init =', z_init_trans, '\nK =', K_trans, summarize=-1)
     # log_prob = 0.0
+    theta_trans = tf.stack([x0_trans, tau_trans], axis=0)
     # Compute Likelihood
-    y_pred = integrator(nsteps, x0_trans, y_init)
+    y_pred = integrator(nsteps, theta_trans, y_init)
     x_mu = y_pred[:, 0]
     likelihood = tf.reduce_sum(tfd.Normal(loc=x_mu, scale=eps).log_prob(x_obs))
     # Compute Prior probability
     prior_x0 = tfd.Normal(loc=0.0, scale=5.0).log_prob(x0)
-    # prior_tau = tfd.Normal(loc=0, scale=5.0).log_prob(tau)
+    prior_tau = tfd.Normal(loc=0, scale=5.0).log_prob(tau)
     # y_init_mu=tf.concat((-3.0*tf.ones(nn), 4.0*tf.ones(nn)), axis = 0)
     # prior_y_init = tfd.MultivariateNormalDiag(
     #     loc=tf.zeros(2*nn), scale_diag=10*tf.ones(2*nn)).log_prob(y_init)
     # prior_K = tfd.Normal(loc=0.0, scale=10.0).log_prob(K)
-    return likelihood + prior_x0 #+ prior_tau + prior_y_init + prior_K
+    return likelihood + prior_x0 + prior_tau #+ prior_y_init + prior_K
 
 # %%
 # @tf.function
 # def find_log_prob(theta):
 #     return gm.log_prob(theta)
 import time
-theta = tf.zeros((1,), dtype=tf.float32)
+theta = tf.constant([-1.8, 50.0], dtype=tf.float32)
 start_time = time.time()
 print(epileptor2D_log_prob(theta, obs_data['x']))
 print("Elapsed: %s seconds" % (time.time()-start_time))
@@ -204,8 +210,8 @@ made = tfb.AutoregressiveNetwork(
 maf = tfb.MaskedAutoregressiveFlow(shift_and_log_scale_fn=made)
 bijectors.append(maf)
 chained_maf = tfb.Chain(list(reversed(bijectors)))
-base_dist = tfd.Independent(tfd.Normal(loc=tf.zeros(1, dtype=tf.float32),
-                                    scale=tf.ones(1, dtype=tf.float32),
+base_dist = tfd.Independent(tfd.Normal(loc=tf.zeros(2, dtype=tf.float32),
+                                    scale=tf.ones(2, dtype=tf.float32),
                                     name='Base Distribution'),
                             reinterpreted_batch_ndims=1)
 flow_dist = tfd.TransformedDistribution(distribution=base_dist,
@@ -331,61 +337,71 @@ samples = flow_dist.sample((100))
 # samples_mean = tf.reduce_mean(samples, axis=0)
 # %%
 
-plt.figure(figsize=(25,5))
-plt.subplot(1,4,1)
-plt.hist(samples[:,0], density=True, color='black')
-plt.axvline(x0_true, color='red', label='Ground truth')
-plt.legend()
-plt.xlabel('x0')
+# plt.figure(figsize=(25,5))
+# plt.subplot(1,4,1)
+# plt.hist(samples[:,0], density=True, color='black')
+# plt.axvline(x0_true, color='red', label='Ground truth')
+# plt.legend()
+# plt.xlabel('x0')
 
-plt.subplot(1,4,2)
-plt.hist(10 + np.exp(samples[:,1]), density=True, color='black')
-plt.axvline(tau_true, color='red', label='Ground truth')
-plt.legend()
-plt.xlabel('tau')
+# plt.subplot(1,4,2)
+# plt.hist(10 + np.exp(samples[:,1]), density=True, color='black')
+# plt.axvline(tau_true, color='red', label='Ground truth')
+# plt.legend()
+# plt.xlabel('tau')
 
-plt.subplot(1,4,3)
-plt.hist(samples[:,2], density=True, color='black')
-plt.axvline(x_init_true, color='red', label='Ground truth')
-plt.legend()
+# plt.subplot(1,4,3)
+# plt.hist(samples[:,2], density=True, color='black')
+# plt.axvline(x_init_true, color='red', label='Ground truth')
+# plt.legend()
 
-plt.xlabel('x_init')
-plt.subplot(1,4,4)
-plt.hist(samples[:,3], density=True, color='black')
-plt.axvline(z_init_true, color='red', label='Ground truth')
-plt.legend()
-plt.xlabel('z_init')
+# plt.xlabel('x_init')
+# plt.subplot(1,4,4)
+# plt.hist(samples[:,3], density=True, color='black')
+# plt.axvline(z_init_true, color='red', label='Ground truth')
+# plt.legend()
+# plt.xlabel('z_init')
 
 # %%
-x0 = samples[:, 0:nn]
+x0 = samples[:, 0]
 x0_trans = tf.constant(-5.0, dtype=tf.float32) + tf.constant(5.0, dtype=tf.float32)*tf.math.sigmoid(x0)
-tau = samples[:, nn]
+tau = samples[:, 1]
 tau_trans = tf.constant(10.0, dtype=tf.float32) + tf.constant(90.0, dtype=tf.float32)*tf.math.sigmoid(tau)
-y_init = samples[:, nn+1:3*nn+1]
-x_init = y_init[:, 0:nn]
-z_init = y_init[:, nn:2*nn]
-x_init_trans = tf.constant(-10.0, dtype=tf.float32) + tf.constant(9.0, dtype=tf.float32) * tf.math.sigmoid(x_init)
-z_init_trans = tf.constant(2, dtype=tf.float32) + tf.constant(8, dtype=tf.float32) * tf.math.sigmoid(z_init)
-y_init_trans = tf.concat((x_init_trans, z_init_trans), axis=1)
-K = samples[:, 3*nn+1]
-K_trans = 10*tf.math.sigmoid(K)
+# y_init = samples[:, nn+1:3*nn+1]
+# x_init = y_init[:, 0:nn]
+# z_init = y_init[:, nn:2*nn]
+# x_init_trans = tf.constant(-10.0, dtype=tf.float32) + tf.constant(9.0, dtype=tf.float32) * tf.math.sigmoid(x_init)
+# z_init_trans = tf.constant(2, dtype=tf.float32) + tf.constant(8, dtype=tf.float32) * tf.math.sigmoid(z_init)
+# y_init_trans = tf.concat((x_init_trans, z_init_trans), axis=1)
+# K = samples[:, 3*nn+1]
+# K_trans = 10*tf.math.sigmoid(K)
 
 
 # %%
-x_pred = np.zeros((100, nsteps, nn))
-z_pred = np.zeros((100, nsteps, nn))
-t_init = tf.constant(0.0, dtype=tf.float32)
-time_step = tf.constant(0.1, dtype=tf.float32)
-nsteps = 300
+nsteps = 500
+x_pred = np.zeros((100, nsteps))
+z_pred = np.zeros((100, nsteps))
+theta_true = tf.constant([-1.8, 50.0], dtype=tf.float32)
+y_init_true = tf.constant([-2.0, 4.8], dtype=tf.float32)
+# t_init = tf.constant(0.0, dtype=tf.float32)
+# time_step = tf.constant(0.1, dtype=tf.float32)
 for i in range(100):
-    y_pred=integrator(epileptor2D_ode_fn, nsteps,
-                            time_step, y_init_trans[i], x0_trans[i], tau_trans[i], K_trans[i], SC)
-    x_pred[i]=y_pred.numpy()[:, 0:nn]
-    z_pred[i]=y_pred.numpy()[:, nn:2*nn]
+    y_pred = integrator(nsteps, tf.stack([x0_trans[i], \
+        tau_trans[i]], axis=0), y_init_true)
+    x_pred[i] = y_pred.numpy()[:, 0]
+    z_pred[i] = y_pred.numpy()[:, 1]
 # %%
-plt.figure(figsize=(15,7))
-plt.violinplot(x0_trans.numpy());
-
+plt.figure(figsize=(15,5))
+plt.title("Distribution of samples from variational posterior")
+# plt.violinplot(x0_trans.numpy());
+plt.subplot(121)
+plt.hist(x0_trans, density=True);
+plt.xlabel(r"$x_0$", fontsize=20);
+plt.axvline(theta_true[0], color='red')
+plt.subplot(122)
+plt.hist(tau_trans, density=True);
+plt.axvline(theta_true[1], color='red')
+plt.xlabel(r"$\tau$", fontsize=20);
 # %%
 plt.figure(figsize=(15,7))
 plt.subplot(2,1,1)
@@ -411,20 +427,20 @@ plt.tight_layout()
 # plt.ylabel('z', fontsize=15)
 
 # %%
-for i, theta in enumerate(samples):
-    print(f"sample {i} ", flow_dist.log_prob(theta) - epileptor2D_log_prob(theta, obs_data['x'], SC))
+# for i, theta in enumerate(samples):
+#     print(f"sample {i} ", flow_dist.log_prob(theta) - epileptor2D_log_prob(theta, obs_data['x'], SC))
 
 # %%
 
-def logit(x):
-    return tf.math.log(x) - tf.math.log(1.0 - x)
-theta = np.zeros(3*nn+2)
-theta[0:nn] = logit((x0_true + 5.0)/ 5.0)
-theta[nn] = logit((tau_true - 10.0)/90.0)
-theta[nn+1:2*nn+1] = logit((x_init_true + 10.0)/9.0)
-theta[2*nn+1:3*nn+1] = logit((z_init_true - 2.0)/8.0)
-theta[3*nn+1] = logit((K_true)/10.0)
+# def logit(x):
+#     return tf.math.log(x) - tf.math.log(1.0 - x)
+# theta = np.zeros(3*nn+2)
+# theta[0:nn] = logit((x0_true + 5.0)/ 5.0)
+# theta[nn] = logit((tau_true - 10.0)/90.0)
+# theta[nn+1:2*nn+1] = logit((x_init_true + 10.0)/9.0)
+# theta[2*nn+1:3*nn+1] = logit((z_init_true - 2.0)/8.0)
+# theta[3*nn+1] = logit((K_true)/10.0)
 
-theta = tf.constant(theta, dtype=tf.float32)
+# theta = tf.constant(theta, dtype=tf.float32)
 # %%
-flow_dist.log_prob(theta) - epileptor2D_log_prob(theta, obs_data['x'], SC)
+# flow_dist.log_prob(theta) - epileptor2D_log_prob(theta, obs_data['x'], SC)
