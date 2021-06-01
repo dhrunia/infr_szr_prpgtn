@@ -37,3 +37,4 @@ exp*
 *.blg
 docs/*.log
 *.d
+*.so
