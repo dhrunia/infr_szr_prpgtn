@@ -14,7 +14,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 tfpl = tfp.layers
 step_module = tf.load_op_library('./eulerstep_2d_epileptor.so')
-tf.config.set_visible_devices(tf.config.list_physical_devices('CPU'))
+# tf.config.set_visible_devices(tf.config.list_physical_devices('CPU'))
 
 # %%
 # tvb_syn_data = np.load("datasets/syn_data/id001_bt/syn_tvb_ez=48-79_pz=11-17-22-75.npz")
@@ -45,18 +45,18 @@ tf.config.set_visible_devices(tf.config.list_physical_devices('CPU'))
 
 # %% 
 @tf.function
-def integrator(nsteps, theta, y_init):
+def integrator(nsteps, theta, y_init, SC):
     y = tf.TensorArray(dtype=tf.float32, size=nsteps, clear_after_read=False)
     y_next = y_init
     for i in tf.range(nsteps, dtype=tf.int32):
-        y_next = step_module.euler_step2d_epileptor(theta, y_next)
+        y_next = step_module.euler_step2d_epileptor(theta, y_next, SC)
         y = y.write(i, y_next)
     return y.stack()
 
 # %%
 tvb_syn_data = np.load("datasets/syn_data/id001_bt/syn_tvb_ez=48-79_pz=11-17-22-75.npz")
 SC = np.load(f'datasets/syn_data/id001_bt/network.npz')['SC']
-K_true = tf.constant(np.max(SC), dtype=tf.float32)
+K_true = tf.constant(np.max(SC), dtype=tf.float32, shape=(1,))
 SC = SC / K_true.numpy()
 SC[np.diag_indices(SC.shape[0])] = 0
 SC = tf.constant(SC, dtype=tf.float32)
@@ -66,13 +66,13 @@ z_init_true = tf.constant(5.0, dtype=tf.float32) * tf.ones(nn, dtype=tf.float32)
 y_init_true = tf.concat((x_init_true, z_init_true), axis=0)
 tau_true = tf.constant(25, dtype=tf.float32, shape=(1,))
 x0_true = tf.constant(tvb_syn_data['x0'], dtype=tf.float32)
-theta_true = tf.concat((x0_true, tau_true), axis=0)
+theta_true = tf.concat((x0_true, tau_true, K_true), axis=0)
 # time_step = tf.constant(0.1, dtype=tf.float32)
-nsteps = tf.constant(500, dtype=tf.int32)
+nsteps = tf.constant(300, dtype=tf.int32)
 
 # %%
 start_time = time.time()
-y_true = integrator(nsteps, theta_true, y_init_true)
+y_true = integrator(nsteps, theta_true, y_init_true, SC)
 print(f"Simulation took {time.time() - start_time} seconds")
 obs_data = dict()
 obs_data['x'] = y_true[:, 0:nn].numpy() + tfd.Normal(loc=0, scale=0.1,

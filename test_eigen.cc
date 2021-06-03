@@ -19,6 +19,10 @@ int main(){
     Eigen::Tensor<int, 1> a(4);
     a.setValues({0,1,2,3});
     // Eigen::TensorMap<Eigen::Tensor<int,2>> a_2d = a.reshape()
-    auto b = a.reshape(Eigen::array<int, 2>({1,4})).broadcast(Eigen::array<int, 2>({5,1}));
+    auto b = a.reshape(Eigen::array<int, 2>({1,4})).broadcast(Eigen::array<int, 2>({4,1})) - \
+            a.reshape(Eigen::array<int, 2>({4,1})).broadcast(Eigen::array<int, 2>({1,4}));
     std::cout << a << std::endl << b << std::endl;
+    std::cout << "sum = " << std::endl << b.sum(Eigen::array<int, 1>({1})) << std::endl;
+    std::cout << "sum scaled = " << std::endl << 10.0f * b.sum(Eigen::array<int, 1>({1})) << std::endl;
+    // std::cout << b - b.shuffle(Eigen::array<int, 2>({1,0})) << std::endl;
 }
