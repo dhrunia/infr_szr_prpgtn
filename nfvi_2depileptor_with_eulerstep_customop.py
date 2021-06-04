@@ -41,6 +41,52 @@ step_module = tf.load_op_library('./eulerstep_2d_epileptor.so')
 # plt.plot(y_true[:,nn:2*nn]);
 # plt.show()
 # %% [markdown]
+#### Register gradient for the Euler step custom op
+# %%
+@ops.RegisterGradient("EulerStep2DEpileptor")
+def _euler_step2d_epileptor_grad(op, grad):
+    """Gradients for Euler stepping custom op of 2D Epileptor
+    
+    Args:
+      op: The custom op we are differentiating
+      grad: Gradient of loss w.r.t. output of the custom op
+
+    Returns:
+      Gradient of loss w.r.t. inputs of custom op
+    """
+    dt = tf.constant(0.1, dtype=tf.float32)
+    # tau = tf.constant(50.0, dtype=tf.float32)
+    # TODO: make constants of Epileptor model an attribute/input of the OP for 
+    # better flexibility
+    theta = op.inputs[0]
+    current_state = op.inputs[1]
+    SC = op.inputs[2]
+    nn = SC.shape[0]
+    x0 = theta[0:nn]
+    tau = theta[nn]
+    K = theta[nn+1]
+    x_t_minus_1 = current_state[0:nn]
+    z_t_minus_1 = current_state[nn:2*nn]
+    grad_x_t = grad[0:nn]
+    grad_z_t = grad[nn:2*nn]
+    # gradient w.r.t x0
+    grad_x0 = grad_z_t * dt * (-4.0 / tau)
+    # gradient w.r.t tau
+    x_diff = x_t_minus_1[tf.newaxis, :] - x_t_minus_1[:, tf.newaxis]
+    diff_cplng = tf.reduce_sum(SC * x_diff, axis=1)
+    dz = (1.0 / tau) * (4 * (x_t_minus_1 - x0) - z_t_minus_1 - K * diff_cplng)
+    grad_tau = tf.reduce_sum(grad_z_t * dt * (-1/tau) * dz, axis=0)
+    grad_K = tf.reduce_sum(grad_z_t * dt * (-1/tau) * diff_cplng)
+    
+    # grad_theta = tf.stack([grad_x0, grad_tau], axis=0)
+    # grad_x = grad_next_state[0] * \
+    #     (1.0 + dt * (-3.0 * current_state[0]**2 - 4 * current_state[0])) \
+    #     + grad_next_state[1] * (dt * (4.0/theta[1]))
+    # grad_z = grad_next_state[0] * (-1.0 * dt) \
+    #     + grad_next_state[1] * (1 + dt * (-1.0/theta[1]))
+    # grad_current_state = tf.stack([grad_x, grad_z], axis=0)
+    return [grad_theta, grad_current_state]
+# %% [markdown]
 #### Define dynamical model
 
 # %% 
