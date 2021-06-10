@@ -1,5 +1,5 @@
 # %% [markdown] 
-# NFVI - Epileptor with RK4 integrator
+# NFVI - Epileptor using custom op for Euler stepping
 
 #%%
 import numpy as np
@@ -221,16 +221,16 @@ def epileptor2D_log_prob(theta, x_obs, SC):
     y_init_trans = tf.concat((x_init_trans, z_init_trans), axis=0)
     
     
-    tf.print('x0 =', x0, '\nx0_trans =', x0_trans, '\ntau =', tau, \
-            '\ntau_trans =', tau_trans, '\n x_init =', x_init, \
-            '\n x_init_trans =', x_init_trans, '\nz_init =', z_init, \
-            '\nz_init_trans =', z_init_trans, '\nK =', K, \
-            '\nK_trans =', K_trans, summarize=-1, output_stream="file://debug.log")
+    # tf.print('x0 =', x0, '\nx0_trans =', x0_trans, '\ntau =', tau, \
+    #         '\ntau_trans =', tau_trans, '\n x_init =', x_init, \
+    #         '\n x_init_trans =', x_init_trans, '\nz_init =', z_init, \
+    #         '\nz_init_trans =', z_init_trans, '\nK =', K, \
+    #         '\nK_trans =', K_trans, summarize=-1, output_stream="file://debug.log")
     
     # Compute Likelihood
     y_pred = integrator(nsteps, theta_trans, y_init_trans, SC)
     x_mu = y_pred[:, 0:nn]
-    tf.print("NaN in x_mu = ", tf.reduce_any(tf.math.is_nan(x_mu)))
+    # tf.print("NaN in x_mu = ", tf.reduce_any(tf.math.is_nan(x_mu)))
     likelihood = tf.reduce_sum(tfd.Normal(loc=x_mu, scale=eps).log_prob(x_obs))
     
     # Compute Prior probability
@@ -283,18 +283,18 @@ tf.random.set_seed(1234567)
 bijectors = []
 for i in range(num_bijectors-1):
     made = tfb.AutoregressiveNetwork(
-        params=2, hidden_units=[2048, 2048], activation='selu', 
-        kernel_initializer='lecun_normal')
+        params=2, hidden_units=[2048, 2048], activation='tanh')
     maf = tfb.MaskedAutoregressiveFlow(shift_and_log_scale_fn=made)
     bijectors.append(maf)
     bijectors.append(tfb.Permute(
         permutation=tf.random.shuffle(tf.range(3*nn+2))))
+    bijectors.append(tfb.BatchNormalization())
 
 made = tfb.AutoregressiveNetwork(
-    params=2, hidden_units=[2048, 2048], activation='selu',
-    kernel_initializer='lecun_normal')
+    params=2, hidden_units=[2048, 2048], activation='tanh')
 maf = tfb.MaskedAutoregressiveFlow(shift_and_log_scale_fn=made)
 bijectors.append(maf)
+bijectors.append(tfb.BatchNormalization())
 chained_maf = tfb.Chain(list(reversed(bijectors)))
 base_dist = tfd.Independent(
     tfd.Normal(loc=tf.zeros(3*nn+2, dtype=tf.float32),
@@ -349,7 +349,14 @@ def get_loss_and_gradients(posterior_approx, base_dist_samples, x_obs, SC):
         return loss_val, tape.gradient(loss_val, posterior_approx.trainable_variables)
 
 # %%
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
+initial_learning_rate = 1e-3
+lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+    initial_learning_rate,
+    decay_steps=10,
+    decay_rate=0.96,
+    staircase=True)
+
+optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
 # %%
 # # @tf.function
 # # def find_loss():
@@ -379,7 +386,7 @@ base_dist_samples = tf.data.Dataset.from_tensor_slices(
     base_dist.sample((1000))).batch(batch_size)
 
 # %%
-num_epochs = 1
+num_epochs = 5
 
 training_loss = []
 start_time = time.time()
@@ -390,9 +397,9 @@ for epoch in range(num_epochs):
             batch_base_dist_samples, dtype=tf.float32), obs_data['x'], SC)
         grads = [tf.divide(el, batch_size) for el in grads]
         grads = [tf.clip_by_norm(el, 1000) for el in grads]
-        tf.print("gradient norm = ", [tf.norm(el) for el in grads], \
-                output_stream="file://debug.log")
-        tf.print("loss: ", loss_value, output_stream="file://debug.log")
+        # tf.print("gradient norm = ", [tf.norm(el) for el in grads], \
+                # output_stream="file://debug.log")
+        tf.print("loss: ", loss_value)
         training_loss.append(loss_value)
         optimizer.apply_gradients(
             zip(grads, flow_dist.trainable_variables))
@@ -447,42 +454,54 @@ tau_trans = tf.constant(10.0, dtype=tf.float32) + tf.constant(90.0, dtype=tf.flo
 y_init = samples[:, nn+1:3*nn+1]
 x_init = y_init[:, 0:nn]
 z_init = y_init[:, nn:2*nn]
-x_init_trans = tf.constant(-10.0, dtype=tf.float32) + tf.constant(9.0, dtype=tf.float32) * tf.math.sigmoid(x_init)
-z_init_trans = tf.constant(2, dtype=tf.float32) + tf.constant(8, dtype=tf.float32) * tf.math.sigmoid(z_init)
+x_init_trans = tf.constant(-5.0, dtype=tf.float32) + tf.constant(3.5, dtype=tf.float32) * tf.math.sigmoid(x_init)
+z_init_trans = tf.constant(2, dtype=tf.float32) + tf.constant(4, dtype=tf.float32) * tf.math.sigmoid(z_init)
 y_init_trans = tf.concat((x_init_trans, z_init_trans), axis=1)
 K = samples[:, 3*nn+1]
 K_trans = 10*tf.math.sigmoid(K)
 
 
 # %%
-x_pred = np.zeros((100, nsteps, nn))
-z_pred = np.zeros((100, nsteps, nn))
+x_pred = np.zeros((10, nsteps, nn))
+z_pred = np.zeros((10, nsteps, nn))
 t_init = tf.constant(0.0, dtype=tf.float32)
 time_step = tf.constant(0.1, dtype=tf.float32)
 nsteps = 300
-for i in range(100):
-    y_pred=integrator(epileptor2D_ode_fn, nsteps,
-                            time_step, y_init_trans[i], x0_trans[i], tau_trans[i], K_trans[i], SC)
+for i in range(10):
+    theta_trans_i = tf.concat((x0_trans[i], \
+                             tf.reshape(tau_trans[i], shape=(1,)), \
+                             tf.reshape(K_trans[i], shape=(1,))), axis=0)
+    y_pred = integrator(nsteps, theta_trans_i, y_init_trans[i], SC)
     x_pred[i]=y_pred.numpy()[:, 0:nn]
     z_pred[i]=y_pred.numpy()[:, nn:2*nn]
 # %%
-plt.figure(figsize=(15,7))
+plt.figure(figsize=(15,5))
 plt.violinplot(x0_trans.numpy());
+plt.scatter(np.arange(0, x0_true.shape[0]), x0_true, color='red', marker='.', s=20)
+plt.xlabel(r'$x_0$', fontsize=20)
+plt.figure(figsize=(10,5))
+plt.violinplot(tau_trans.numpy());
+plt.xlabel(r'$\tau$', fontsize=20)
+plt.plot(1,tau_true, color='red', marker='.', markersize=20);
+plt.figure(figsize=(10,5))
+plt.violinplot(K_trans.numpy());
+plt.plot(1,K_true, color='red', marker='.', markersize=20);
+plt.xlabel('K', fontsize=20);
 
 # %%
 plt.figure(figsize=(15,7))
 plt.subplot(2,1,1)
 plt.plot(x_pred.mean(axis=0), label='Prediction at Posterior Mean', lw=1.0, color='black')
 plt.plot(obs_data['x'], color='red', label='Ground truth', alpha=0.8)
-plt.xlabel('Time', fontsize=15)
-plt.ylabel('x', fontsize=15)
+plt.xlabel('Time', fontsize=20)
+plt.ylabel('x', fontsize=20)
 # plt.legend()
 
 plt.subplot(2,1,2)
 plt.plot(z_pred.mean(axis=0), label='Prediction at Posterior Mean', lw=1.0, color='black')
 plt.plot(obs_data['z'], color='red', label='Ground truth', alpha=0.8)
-plt.xlabel('Time', fontsize=15)
-plt.ylabel('z', fontsize=15)
+plt.xlabel('Time', fontsize=20)
+plt.ylabel('z', fontsize=20)
 plt.tight_layout()
 # plt.legend()
 
