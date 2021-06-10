@@ -1,5 +1,6 @@
 # %% [markdown] 
-# NFVI - Epileptor with RK4 integrator
+# Variational inference using FFJORD on network 2D Epileptor with custom op for
+# Euler stepping
 
 #%%
 import numpy as np
@@ -10,6 +11,7 @@ from tensorflow.python.framework import ops
 from tensorflow.python.ops import gradient_checker_v2
 import sonnet as snt
 import tensorflow_probability as tfp
+import tensorflow_addons as tfa
 import time
 tfd = tfp.distributions
 tfb = tfp.bijectors
@@ -196,7 +198,7 @@ plt.show()
 @tf.function
 def epileptor2D_log_prob(theta, x_obs, SC):
     # time_step = tf.constant(0.1)
-    nsteps = tf.constant(300, dtype=tf.int32)
+    nsteps = x_obs.shape[0]
     eps = tf.constant(0.1)
     # y_init = tf.constant([-2.0, 5.0], dtype=tf.float32)
     nn = x_obs.shape[1]
@@ -221,16 +223,16 @@ def epileptor2D_log_prob(theta, x_obs, SC):
     y_init_trans = tf.concat((x_init_trans, z_init_trans), axis=0)
     
     
-    tf.print('x0 =', x0, '\nx0_trans =', x0_trans, '\ntau =', tau, \
-            '\ntau_trans =', tau_trans, '\n x_init =', x_init, \
-            '\n x_init_trans =', x_init_trans, '\nz_init =', z_init, \
-            '\nz_init_trans =', z_init_trans, '\nK =', K, \
-            '\nK_trans =', K_trans, summarize=-1, output_stream="file://debug.log")
+    # tf.print('x0 =', x0, '\nx0_trans =', x0_trans, '\ntau =', tau, \
+    #         '\ntau_trans =', tau_trans, '\n x_init =', x_init, \
+    #         '\n x_init_trans =', x_init_trans, '\nz_init =', z_init, \
+    #         '\nz_init_trans =', z_init_trans, '\nK =', K, \
+    #         '\nK_trans =', K_trans, summarize=-1, output_stream="file://debug.log")
     
     # Compute Likelihood
     y_pred = integrator(nsteps, theta_trans, y_init_trans, SC)
     x_mu = y_pred[:, 0:nn]
-    tf.print("NaN in x_mu = ", tf.reduce_any(tf.math.is_nan(x_mu)))
+    # tf.print("NaN in x_mu = ", tf.reduce_any(tf.math.is_nan(x_mu)))
     likelihood = tf.reduce_sum(tfd.Normal(loc=x_mu, scale=eps).log_prob(x_obs))
     
     # Compute Prior probability
@@ -244,9 +246,19 @@ def epileptor2D_log_prob(theta, x_obs, SC):
     return likelihood + prior_x0 + prior_tau  + prior_K + prior_y_init
 
 # %%
-# @tf.function
-# def find_log_prob(theta):
-#     return gm.log_prob(theta)
+def logit(x):
+    return tf.math.log(x) - tf.math.log(1.0 - x)
+
+theta = np.zeros(3*nn+2)
+theta[0:nn] = logit((x0_true + 5.0)/ 5.0)
+theta[nn] = logit((tau_true - 10.0)/90.0)
+theta[nn+1] = logit((K_true)/10.0)
+theta[nn+2:2*nn+2] = logit((x_init_true + 5.0)/3.5)
+theta[2*nn+2:3*nn+2] = logit((z_init_true - 2.0)/4.0)
+
+theta = tf.constant(theta, dtype=tf.float32)
+
+print(epileptor2D_log_prob(theta, obs_data['x'], SC))
 import time
 start_time = time.time()
 # theta = tf.concat((x0, ))
@@ -285,20 +297,20 @@ class MLP_ODE(snt.Module):
     self._modules = []
     for _ in range(self._num_layers - 1):
       self._modules.append(snt.Linear(self._num_hidden))
-      self._modules.append(tf.nn.relu)
+      self._modules.append(tf.nn.softplus)
     self._modules.append(snt.Linear(self._num_output))
     self._model = snt.Sequential(self._modules)
 
   def __call__(self, t, inputs):
-        inputs = tf.concat([tf.broadcast_to(t, inputs.shape), inputs], -1)
+        inputs = tf.concat([tf.broadcast_to(t, [inputs.shape[0], 1]), inputs], -1)
         return self._model(inputs)
 
-STACKED_FFJORDS = 4 
-NUM_HIDDEN = 2048 
-NUM_LAYERS = 2 
+STACKED_FFJORDS = 4
+NUM_HIDDEN = 4096
+NUM_LAYERS = 5
 NUM_OUTPUT = 3*nn + 2
 
-solver = tfp.math.ode.DormandPrince(atol=1e-3)
+solver = tfp.math.ode.DormandPrince(atol=1e-5)
 ode_solve_fn = solver.solve
 trace_augmentation_fn = tfb.ffjord.trace_jacobian_hutchinson
 
@@ -366,7 +378,7 @@ def get_loss_and_gradients(posterior_approx, base_dist_samples, x_obs, SC):
         return loss_val, tape.gradient(loss_val, posterior_approx.trainable_variables)
 
 # %%
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
+optimizer = tfa.optimizers.AdamW(learning_rate=1e-3, weight_decay=0.001)
 # %%
 # # @tf.function
 # # def find_loss():
@@ -407,9 +419,9 @@ for epoch in range(num_epochs):
             batch_base_dist_samples, dtype=tf.float32), obs_data['x'], SC)
         grads = [tf.divide(el, batch_size) for el in grads]
         grads = [tf.clip_by_norm(el, 1000) for el in grads]
-        tf.print("gradient norm = ", [tf.norm(el) for el in grads], \
-                output_stream="file://debug.log")
-        tf.print("loss: ", loss_value, output_stream="file://debug.log")
+        # tf.print("gradient norm = ", [tf.norm(el) for el in grads], \
+        #         output_stream="file://debug.log")
+        tf.print("loss: ", loss_value)
         training_loss.append(loss_value)
         optimizer.apply_gradients(
             zip(grads, flow_dist.trainable_variables))
@@ -421,7 +433,7 @@ for epoch in range(num_epochs):
 #### Results
 
 # %%
-samples = flow_dist.sample((100))
+samples = flow_dist.sample((10))
 # samples = np.zeros([1000, 494], dtype=np.float)
 # i = 0
 # for batch_base_dist_samples in base_dist_samples.as_numpy_iterator():
@@ -464,22 +476,24 @@ tau_trans = tf.constant(10.0, dtype=tf.float32) + tf.constant(90.0, dtype=tf.flo
 y_init = samples[:, nn+1:3*nn+1]
 x_init = y_init[:, 0:nn]
 z_init = y_init[:, nn:2*nn]
-x_init_trans = tf.constant(-10.0, dtype=tf.float32) + tf.constant(9.0, dtype=tf.float32) * tf.math.sigmoid(x_init)
-z_init_trans = tf.constant(2, dtype=tf.float32) + tf.constant(8, dtype=tf.float32) * tf.math.sigmoid(z_init)
+x_init_trans = tf.constant(-5.0, dtype=tf.float32) + tf.constant(3.5, dtype=tf.float32) * tf.math.sigmoid(x_init)
+z_init_trans = tf.constant(2, dtype=tf.float32) + tf.constant(4, dtype=tf.float32) * tf.math.sigmoid(z_init)
 y_init_trans = tf.concat((x_init_trans, z_init_trans), axis=1)
 K = samples[:, 3*nn+1]
 K_trans = 10*tf.math.sigmoid(K)
 
 
 # %%
-x_pred = np.zeros((100, nsteps, nn))
-z_pred = np.zeros((100, nsteps, nn))
+x_pred = np.zeros((10, nsteps, nn))
+z_pred = np.zeros((10, nsteps, nn))
 t_init = tf.constant(0.0, dtype=tf.float32)
 time_step = tf.constant(0.1, dtype=tf.float32)
 nsteps = 300
-for i in range(100):
-    y_pred=integrator(epileptor2D_ode_fn, nsteps,
-                            time_step, y_init_trans[i], x0_trans[i], tau_trans[i], K_trans[i], SC)
+for i in range(10):
+    theta_trans_i = tf.concat((x0_trans[i], \
+                             tf.reshape(tau_trans[i], shape=(1,)), \
+                             tf.reshape(K_trans[i], shape=(1,))), axis=0)
+    y_pred = integrator(nsteps, theta_trans_i, y_init_trans[i], SC)
     x_pred[i]=y_pred.numpy()[:, 0:nn]
     z_pred[i]=y_pred.numpy()[:, nn:2*nn]
 # %%
@@ -512,7 +526,8 @@ plt.tight_layout()
 
 # %%
 for i, theta in enumerate(samples):
-    print(f"sample {i} ", flow_dist.log_prob(theta) - epileptor2D_log_prob(theta, obs_data['x'], SC))
+    theta_trans = flow_dist.bijector.forward(tf.reshape(theta, [1, theta.shape[0]]))
+    print(f"sample {i} ", flow_dist.log_prob(theta_trans), epileptor2D_log_prob(theta, obs_data['x'], SC))
 
 # %%
 
