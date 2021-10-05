@@ -2,11 +2,13 @@
 # NFVI - Epileptor using custom op for Euler stepping
 
 #%%
+import matplotlib as mpl
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow.python.framework import ops
+from tensorflow.python.ops.gen_array_ops import BroadcastTo
 # from tensorflow.python.ops import gradient_checker_v2
 # import sonnet as snt
 import tensorflow_probability as tfp
@@ -170,7 +172,7 @@ obs_data = dict()
 obs_data['x'] = y_true[:, 0:nn].numpy() #+ tfd.Normal(loc=0, scale=0.1,
                                         #             ).sample((y_true.shape[0], nn))
 obs_data['z'] = y_true[:, nn:2*nn]
-obs_data['slp'] = tf.math.log(tf.matmul(tf.math.exp(obs_data['x']), gain, transpose_b=True))
+obs_data['slp'] = tf.math.log(tf.matmul(tf.math.exp(obs_data['x']), gain, transpose_b=True)) + tfd.Normal(loc=0, scale=0.1).sample((nsteps, gain.shape[0]))
 
 #%%
 plt.figure(figsize=(15,10))
@@ -208,7 +210,6 @@ def epileptor2D_log_prob(theta, obs_slp, SC, gain):
     # nsteps = tf.constant(300, dtype=tf.int32)
     nsteps = tf.constant(obs_slp.shape[0], dtype=tf.int32)
     eps_slp = tf.constant(0.1)
-    # y_init = tf.constant([-2.0, 5.0], dtype=tf.float32)
     nn = SC.shape[0]
     x0 = theta[0:nn]
     x0_trans = lib.utils.tnsrflw.sigmoid_transform(x0, 
@@ -252,7 +253,6 @@ def epileptor2D_log_prob(theta, obs_slp, SC, gain):
     # Compute Prior probability
     prior_x0 = tf.reduce_sum(tfd.Normal(loc=0.0, scale=0.1).log_prob(x0))
     prior_tau = tfd.Normal(loc = 0, scale = 5.0).log_prob(tau)
-    # y_init_mu=tf.concat((-3.0*tf.ones(nn), 4.0*tf.ones(nn)), axis = 0)
     prior_K = tfd.Normal(loc=0.0, scale=10.0).log_prob(K)
     prior_y_init = tfd.MultivariateNormalDiag(
         loc=tf.zeros(2*nn), scale_diag=0.2*tf.ones(2*nn)).log_prob(y_init)
@@ -266,8 +266,8 @@ def epileptor2D_log_prob(theta, obs_slp, SC, gain):
 import time
 start_time = time.time()
 # theta = tf.concat((x0, ))
-theta = tf.zeros(3*nn+2, dtype=tf.float32)
-print(epileptor2D_log_prob(theta, obs_data['x'], SC))
+theta = tf.zeros(nn+2, dtype=tf.float32)
+print(epileptor2D_log_prob(theta, obs_data['slp'], SC, gain))
 print("Elapsed: %s seconds" % (time.time()-start_time))
 
 #%%
@@ -294,6 +294,7 @@ print("Elapsed: %s seconds" % (time.time()-start_time))
 #%% 
 num_bijectors = 5
 num_hidden = 512
+nparams = 3*nn+2
 # tf.random.set_seed(1234567)
 # permutation = tf.random.shuffle(tf.range(3*nn+2))
 
@@ -304,7 +305,7 @@ for i in range(num_bijectors-1):
     maf = tfb.MaskedAutoregressiveFlow(shift_and_log_scale_fn=made)
     bijectors.append(maf)
     bijectors.append(tfb.Permute(
-        permutation=tf.random.shuffle(tf.range(3*nn+4))))
+        permutation=tf.random.shuffle(tf.range(nparams))))
     bijectors.append(tfb.BatchNormalization())
 
 made = tfb.AutoregressiveNetwork(
@@ -314,8 +315,8 @@ bijectors.append(maf)
 bijectors.append(tfb.BatchNormalization())
 chained_maf = tfb.Chain(list(reversed(bijectors)))
 base_dist = tfd.Independent(
-    tfd.Normal(loc=tf.zeros(3*nn+4, dtype=tf.float32),
-               scale=0.1 * tf.ones(3*nn+4, dtype=tf.float32),
+    tfd.Normal(loc=tf.zeros(nparams, dtype=tf.float32),
+               scale=0.1 * tf.ones(nparams, dtype=tf.float32),
                name='Base Distribution'),
                reinterpreted_batch_ndims=1)
 flow_dist = tfd.TransformedDistribution(distribution=base_dist,
@@ -365,14 +366,15 @@ def get_loss_and_gradients(posterior_approx, base_dist_samples, obs_slp, SC, gai
         return loss_val, tape.gradient(loss_val, posterior_approx.trainable_variables)
 
 # %%
-initial_learning_rate = 1e-3
-lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-    initial_learning_rate,
-    decay_steps=10,
-    decay_rate=0.96,
-    staircase=True)
+# initial_learning_rate = 1e-3
+# lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+#     initial_learning_rate,
+#     decay_steps=10,
+#     decay_rate=0.96,
+#     staircase=True)
 
-optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+# optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
 # %%
 # # @tf.function
 # # def find_loss():
@@ -402,7 +404,7 @@ base_dist_samples = tf.data.Dataset.from_tensor_slices(
     base_dist.sample((1000))).batch(batch_size)
 
 # %%
-num_epochs = 2
+num_epochs = 20
 
 training_loss = []
 start_time = time.time()
@@ -436,33 +438,6 @@ samples = flow_dist.sample((10))
 #     i += 1
 # samples = tf.constant(samples, dtype=tf.float32)
 # samples_mean = tf.reduce_mean(samples, axis=0)
-# %%
-
-# plt.figure(figsize=(25,5))
-# plt.subplot(1,4,1)
-# plt.hist(samples[:,0], density=True, color='black')
-# plt.axvline(x0_true, color='red', label='Ground truth')
-# plt.legend()
-# plt.xlabel('x0')
-
-# plt.subplot(1,4,2)
-# plt.hist(10 + np.exp(samples[:,1]), density=True, color='black')
-# plt.axvline(tau_true, color='red', label='Ground truth')
-# plt.legend()
-# plt.xlabel('tau')
-
-# plt.subplot(1,4,3)
-# plt.hist(samples[:,2], density=True, color='black')
-# plt.axvline(x_init_true, color='red', label='Ground truth')
-# plt.legend()
-
-# plt.xlabel('x_init')
-# plt.subplot(1,4,4)
-# plt.hist(samples[:,3], density=True, color='black')
-# plt.axvline(z_init_true, color='red', label='Ground truth')
-# plt.legend()
-# plt.xlabel('z_init')
-
 # %%
 nsteps = obs_data['slp'].shape[0]
 nn = SC.shape[0]
@@ -511,47 +486,119 @@ for i in range(10):
     z_pred[i]=y_pred.numpy()[:, nn:2*nn]
     slp_pred[i] = tf.math.log(
         tf.matmul(tf.math.exp(tf.constant(x_pred[i], dtype=tf.float32)), 
-        gain, transpose_b=True))
+        gain, transpose_b=True)).numpy()
 
 # %%
-plt.figure(figsize=(15,5))
-plt.violinplot(x0_trans.numpy());
-plt.scatter(np.arange(0, x0_true.shape[0]), x0_true, color='red', marker='.', s=20)
-plt.xlabel(r'$x_0$', fontsize=20)
-plt.figure(figsize=(10,5))
-plt.violinplot(tau_trans.numpy());
-plt.xlabel(r'$\tau$', fontsize=20)
-plt.plot(1,tau_true, color='red', marker='.', markersize=20);
-plt.figure(figsize=(10,5))
-plt.violinplot(K_trans.numpy());
-plt.plot(1,K_true, color='red', marker='.', markersize=20);
-plt.xlabel('K', fontsize=20);
+SMALL_SIZE = 8
+MEDIUM_SIZE = 10
+BIGGER_SIZE = 12
+
+plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
+plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+plt.rc('font', **{'family': 'sans-serif', 'sans-serif': ['Arial']})
+
+fig = plt.figure(figsize=(8, 8), dpi=300, constrained_layout=True)
+gs1 = fig.add_gridspec(nrows=5, ncols=3)
+x0_ax = fig.add_subplot(gs1[0:4, 0])
+x_init_ax = fig.add_subplot(gs1[0:4, 1])
+z_init_ax = fig.add_subplot(gs1[0:4, 2])
+
+tau_ax = fig.add_subplot(gs1[4, 0])
+K_ax = fig.add_subplot(gs1[4, 1])
+
+x0_ax.violinplot(x0_trans.numpy(), vert=False,
+                 positions=np.arange(0, x0_true.shape[0]))
+x0_ax.scatter(x0_true, np.arange(0, x0_true.shape[0]),
+              color='red', marker='*', s=5)
+x0_ax.set_ylabel('Region')
+x0_ax.set_xlabel(r'$x_0$')
+x0_ax.set_yticks(np.arange(0, x0_true.shape[0], 3))
+x0_ax.grid(axis="y", alpha=0.2)
+
+x_init_ax.violinplot(x_init_trans.numpy(), vert=False,
+                 positions=np.arange(0, x0_true.shape[0]))
+x_init_ax.scatter(x_init_true, np.arange(0, x0_true.shape[0]),
+              color='red', marker='*', s=5)
+x_init_ax.set_ylabel('Region')
+x_init_ax.set_xlabel(r'$x_{t_0}$')
+x_init_ax.set_yticks(np.arange(0, x0_true.shape[0], 3))
+x_init_ax.grid(axis="y", alpha=0.2)
+
+z_init_ax.violinplot(z_init_trans.numpy(), vert=False,
+                 positions=np.arange(0, x0_true.shape[0]))
+z_init_ax.scatter(z_init_true, np.arange(0, x0_true.shape[0]),
+              color='red', marker='*', s=5)
+z_init_ax.set_ylabel('Region')
+z_init_ax.set_xlabel(r'$z_{t_0}$')
+z_init_ax.set_yticks(np.arange(0, x0_true.shape[0], 3))
+z_init_ax.grid(axis="y", alpha=0.2)
+
+tau_ax.violinplot(tau_trans.numpy())
+tau_ax.plot(1, tau_true, color='red', marker='*', markersize=5)
+tau_ax.set_ylabel(r"$\tau$")
+tau_ax.set_xticks([])
+
+K_ax.violinplot(K_trans.numpy())
+K_ax.plot(1, K_true, color='red', marker='.', markersize=5)
+K_ax.set_ylabel("K")
+K_ax.set_xticks([])
+plt.savefig('results/exp22/inferred_params.svg')
 
 # %%
 sample_idx = 0
-plt.figure(figsize=(15,10))
-plt.subplot(3,1,1)
-plt.plot(x_pred[sample_idx], label='Prediction at Posterior Mean', lw=1.0, color='black')
-# plt.plot(obs_data['x'], color='red', label='Ground truth', alpha=0.8)
-plt.xlabel('Time', fontsize=20)
-plt.ylabel('x', fontsize=20)
-# plt.legend()
 
-plt.subplot(3,1,2)
-plt.plot(z_pred[sample_idx], label='Prediction at Posterior Mean', lw=1.0, color='black')
-# plt.plot(obs_data['z'], color='red', label='Ground truth', alpha=0.8)
-plt.xlabel('Time', fontsize=20)
-plt.ylabel('z', fontsize=20)
-plt.tight_layout()
-# plt.legend()
+fig = plt.figure(figsize=(7, 7), dpi=300, constrained_layout=True)
+gs = fig.add_gridspec(nrows=1, ncols=4, width_ratios=[45, 5, 45, 5])
+gt_ax = fig.add_subplot(gs[0, 0])
+norm = mpl.colors.Normalize(vmin=-1.5, vmax=1.0)
+gt_im = gt_ax.imshow(obs_data['x'].T, aspect='auto', norm=norm, zorder=1, interpolation='none')
+gt_ax.hlines(tvb_syn_data['ez'], 0, 299, color='red', alpha=0.3, zorder=2,
+             linestyles='dashed')
+gt_ax.hlines(tvb_syn_data['pz'], 0, 299, color='white', alpha=0.3, zorder=2,
+             linestyles='dashed')
+gt_ax.set_xlabel('Time')
+gt_ax.set_ylabel('Region')
+gt_ax.set_title('Ground Truth')
+ax = fig.add_subplot(gs[0, 1])
+plt.colorbar(mpl.cm.ScalarMappable(norm), ax, use_gridspec=True)
 
-plt.subplot(3,1,3)
-plt.plot(slp_pred[sample_idx], label='Prediction at Posterior Mean', lw=1.0, color='black')
-plt.plot(obs_data['slp'], color='red', label='Ground truth', alpha=0.5)
-plt.xlabel('Time', fontsize=20)
-plt.ylabel('SEEG log power', fontsize=20)
-plt.tight_layout()
+pred_ax = fig.add_subplot(gs[0, 2])
+pred_im = pred_ax.imshow(x_pred[sample_idx, :, :].T, aspect='auto', norm=norm,
+                         zorder=1, interpolation='none')
+pred_ax.hlines(tvb_syn_data['ez'], 0, 299, color='red', alpha=0.3, zorder=2,
+               linestyles='dashed')
+pred_ax.hlines(tvb_syn_data['pz'], 0, 299, color='white', alpha=0.3, zorder=2,
+               linestyles='dashed')
+pred_ax.set_title('Prediction')
+ax = fig.add_subplot(gs[0, 3])
+plt.colorbar(mpl.cm.ScalarMappable(norm), ax, use_gridspec=True)
+fig.suptitle('Source Dynamics')
+plt.savefig('results/exp22/source_dynamics.svg')
 
+# %%
+fig = plt.figure(figsize=(7, 7), dpi=150, constrained_layout=True)
+gs = fig.add_gridspec(nrows=1, ncols=4, width_ratios=[45, 5, 45, 5])
+gt_ax = fig.add_subplot(gs[0, 0])
+# norm = mpl.colors.Normalize(vmin=1.7, vmax=1.0)
+gt_im = gt_ax.imshow(tf.transpose(obs_data['slp']), aspect='auto', zorder=1, interpolation='none')
+gt_ax.set_xlabel('Time')
+gt_ax.set_ylabel('Sensor')
+gt_ax.set_title('Ground Truth')
+ax = fig.add_subplot(gs[0, 1])
+plt.colorbar(gt_im, ax, use_gridspec=True)
+
+pred_ax = fig.add_subplot(gs[0, 2])
+pred_im = pred_ax.imshow(slp_pred[sample_idx, :, :].T, aspect='auto',
+                         zorder=1, interpolation='none')
+pred_ax.set_title('Prediction')
+ax = fig.add_subplot(gs[0, 3])
+plt.colorbar(pred_im, ax, use_gridspec=True)
+fig.suptitle('SEEG log power')
 # %%
 for i, theta in enumerate(samples):
     print(f"sample {i} ", flow_dist.log_prob(theta) - epileptor2D_log_prob(theta, obs_data['x'], SC))
