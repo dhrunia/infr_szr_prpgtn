@@ -2,47 +2,24 @@
 # NFVI - Epileptor using custom op for Euler stepping
 
 #%%
+import matplotlib as mpl
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import tensorflow as tf
 from tensorflow.python.framework import ops
-from tensorflow.python.ops import gradient_checker_v2
-import sonnet as snt
 import tensorflow_probability as tfp
 import time
 import lib.preprocess.envelope
 import lib.utils.tnsrflw
+import os
 tfd = tfp.distributions
 tfb = tfp.bijectors
 # tfpl = tfp.layers
 step_module = tf.load_op_library('./eulerstep_2d_epileptor.so')
 # tf.config.set_visible_devices(tf.config.list_physical_devices('CPU'))
 
-# %%
-# tvb_syn_data = np.load("datasets/syn_data/id001_bt/syn_tvb_ez=48-79_pz=11-17-22-75.npz")
-# nn = 2
-# x_init_true = tf.constant(-2.0, dtype=tf.float32) * tf.ones(nn, dtype=tf.float32)
-# z_init_true = tf.constant(5.0, dtype=tf.float32) * tf.ones(nn, dtype=tf.float32)
-# y_init_true = tf.concat((x_init_true, z_init_true), axis=0)
-# tau_true = tf.constant(25, dtype=tf.float32, shape=(1,))
-# x0_true = tf.constant([-1.8, -2.5], dtype=tf.float32)
-# theta_true = tf.concat((x0_true, tau_true), axis=0)
-# nsteps = 300
-# y = tf.TensorArray(dtype=tf.float32, size=nsteps, clear_after_read=False)
-# y_next = y_init_true
-# for i in tf.range(nsteps, dtype=tf.int32):
-#     y_next = step_module.euler_step2d_epileptor(theta_true, y_next)
-#     y = y.write(i, y_next)
-# y_true = y.stack()
-# # y_next = step_module.euler_step2d_epileptor(theta_true, y_init_true)
-# %%
-# plt.figure(figsize=(25,10));
-# plt.subplot(211)
-# plt.plot(y_true[:,0:nn]);
-# plt.subplot(212)
-# plt.plot(y_true[:,nn:2*nn]);
-# plt.show()
 # %% [markdown]
 #### Register gradient for the Euler step custom op
 # %%
@@ -140,17 +117,19 @@ def integrator(nsteps, theta, y_init, SC):
         y = y.write(i, y_next)
     return y.stack()
 
+
 # %% [markdown]
 #### Generate synthetic observations
 # %%
-tvb_syn_data = np.load("datasets/syn_data/id001_bt/syn_tvb_ez=48-79_pz=11-17-22-75.npz")
+tvb_syn_data = np.load(
+    "datasets/syn_data/id001_bt/syn_tvb_ez=48-79_pz=11-17-22-75.npz")
 SC = np.load(f'datasets/syn_data/id001_bt/network.npz')['SC']
 K_true = tf.constant(np.max(SC), dtype=tf.float32, shape=(1,))
 SC = SC / K_true.numpy()
 SC[np.diag_indices(SC.shape[0])] = 0
 SC = tf.constant(SC, dtype=tf.float32)
 gain = tf.constant(
-    np.loadtxt('datasets/syn_data/id001_bt/gain_inv-square.destrieux.txt'), 
+    np.loadtxt('datasets/syn_data/id001_bt/gain_inv-square.destrieux.txt'),
     dtype=tf.float32)
 nn = SC.shape[0]
 # x_init_true = tf.constant(-2.0, dtype=tf.float32) * tf.ones(nn, dtype=tf.float32)
@@ -165,10 +144,11 @@ seeg = tvb_syn_data['seeg']
 start_idx = 800
 end_idx = 2200
 obs_data = dict()
-slp = lib.preprocess.envelope.compute_slp_syn(seeg[:, start_idx:end_idx].T, samp_rate=256, win_len=50, hpf=10.0, lpf=2.0, logtransform=True)
+slp = lib.preprocess.envelope.compute_slp_syn(
+    seeg[:, start_idx:end_idx].T, samp_rate=256, win_len=50, hpf=10.0, lpf=2.0, logtransform=True)
 slp_ds = slp[::5, :]
-obs_data['slp'] = tf.constant(slp_ds, dtype=tf.float32) #+ \
-    #tfd.Normal(loc=0.0, scale=0.1).sample(slp_ds.shape)
+obs_data['slp'] = tf.constant(
+    slp_ds, dtype=tf.float32) + tfd.Normal(loc=0.0, scale=0.1).sample(slp_ds.shape)
 
 # %%
 plt.figure(figsize=(25,5))
@@ -215,7 +195,6 @@ plt.plot(obs_data['slp'], 'k');
 def epileptor2D_log_prob(theta, obs_slp, SC, gain):
     # time_step = tf.constant(0.1)
     nsteps = tf.constant(obs_slp.shape[0], dtype=tf.int32)
-    # eps = tf.constant(0.1)
     # y_init = tf.constant([-2.0, 5.0], dtype=tf.float32)
     nn = SC.shape[0]
     x0 = theta[0:nn]
@@ -247,7 +226,7 @@ def epileptor2D_log_prob(theta, obs_slp, SC, gain):
     # tf.constant(-5.0, dtype=tf.float32) + \
     #     tf.constant(3.5, dtype=tf.float32) * tf.math.sigmoid(x_init)
     z_init_trans = lib.utils.tnsrflw.sigmoid_transform(z_init, 
-        lb = tf.constant(2.0, dtype=tf.float32), 
+        lb = tf.constant(4.0, dtype=tf.float32), 
         ub = tf.constant(6.0, dtype=tf.float32))
     # tf.constant(2, dtype=tf.float32) + \
     #     tf.constant(4, dtype=tf.float32) * tf.math.sigmoid(z_init)
@@ -272,8 +251,8 @@ def epileptor2D_log_prob(theta, obs_slp, SC, gain):
     # eps_snsr_pwr_trans = lib.utils.tnsrflw.sigmoid_transform(eps_snsr_pwr, 
     #     lb = tf.constant(0.0, dtype=tf.float32), 
     #     ub = tf.constant(1.0, dtype=tf.float32))
-    eps_slp_trans = tf.constant(0.001, dtype=tf.float32)
-    eps_snsr_pwr_trans = tf.constant(0.1, dtype=tf.float32)
+    eps_slp_trans = tf.constant(0.1, dtype=tf.float32)
+    # eps_snsr_pwr_trans = tf.constant(0.1, dtype=tf.float32)
     # tf.constant(0.5, dtype=tf.float32) * \
     #     tf.math.sigmoid(eps_snsr_pwr)
 
@@ -290,20 +269,20 @@ def epileptor2D_log_prob(theta, obs_slp, SC, gain):
         tf.math.log(tf.matmul(tf.math.exp(x_mu), gain, transpose_b=True)) + \
         beta_trans
     # tf.print("NaN in x_mu = ", tf.reduce_any(tf.math.is_nan(x_mu)))
-    snsr_pwr_mu = tf.reduce_mean(slp_mu**2, axis=0)
+    # snsr_pwr_mu = tf.reduce_mean(slp_mu**2, axis=0)
     # Compute likelihood
     likelihood = tf.reduce_sum(tfd.Normal(
         loc=slp_mu, scale=eps_slp_trans).log_prob(obs_slp))
-    likelihood += tf.reduce_sum(
-        tfd.Normal(loc=snsr_pwr_mu, scale=eps_snsr_pwr_trans).log_prob(
-            tf.reduce_mean(obs_slp**2, axis=0)))
+    # likelihood += tf.reduce_sum(
+    #     tfd.Normal(loc=snsr_pwr_mu, scale=eps_snsr_pwr_trans).log_prob(
+    #         tf.reduce_mean(obs_slp**2, axis=0)))
     # Compute Prior probability
-    prior_x0 = tf.reduce_sum(tfd.Normal(loc=0.0, scale=5.0).log_prob(x0))
+    prior_x0 = tf.reduce_sum(tfd.Normal(loc=0.0, scale=0.1).log_prob(x0))
     prior_tau = tfd.Normal(loc=0, scale=5.0).log_prob(tau)
     # y_init_mu=tf.concat((-3.0*tf.ones(nn), 4.0*tf.ones(nn)), axis = 0)
     prior_K = tfd.Normal(loc=0.0, scale=10.0).log_prob(K)
     prior_y_init = tfd.MultivariateNormalDiag(
-        loc=tf.zeros(2*nn), scale_diag=10*tf.ones(2*nn)).log_prob(y_init)
+        loc=tf.zeros(2*nn), scale_diag=0.2*tf.ones(2*nn)).log_prob(y_init)
     prior_alpha = tfd.Normal(loc=0, scale=10.0).log_prob(alpha)
     prior_beta = tfd.Normal(loc=0, scale=10.0).log_prob(beta)
     # prior_eps_slp = tfd.Normal(loc=0, scale=10.0).log_prob(beta)
@@ -346,6 +325,7 @@ def epileptor2D_log_prob(theta, obs_slp, SC, gain):
 #%% 
 num_bijectors = 5
 num_hidden = 512
+nparams = 3*nn+4
 # tf.random.set_seed(1234567)
 # permutation = tf.random.shuffle(tf.range(3*nn+2))
 
@@ -356,7 +336,7 @@ for i in range(num_bijectors-1):
     maf = tfb.MaskedAutoregressiveFlow(shift_and_log_scale_fn=made)
     bijectors.append(maf)
     bijectors.append(tfb.Permute(
-        permutation=tf.random.shuffle(tf.range(3*nn+4))))
+        permutation=tf.random.shuffle(tf.range(nparams))))
     bijectors.append(tfb.BatchNormalization())
 
 made = tfb.AutoregressiveNetwork(
@@ -366,8 +346,8 @@ bijectors.append(maf)
 bijectors.append(tfb.BatchNormalization())
 chained_maf = tfb.Chain(list(reversed(bijectors)))
 base_dist = tfd.Independent(
-    tfd.Normal(loc=tf.zeros(3*nn+4, dtype=tf.float32),
-               scale=0.1 * tf.ones(3*nn+4, dtype=tf.float32),
+    tfd.Normal(loc=tf.zeros(nparams, dtype=tf.float32),
+               scale=0.1 * tf.ones(nparams, dtype=tf.float32),
                name='Base Distribution'),
                reinterpreted_batch_ndims=1)
 flow_dist = tfd.TransformedDistribution(distribution=base_dist,
@@ -388,32 +368,31 @@ flow_dist = tfd.TransformedDistribution(distribution=base_dist,
 # %% [markdown]
 #### Define functions to compute loss and gradients
 #%%
+
+
 @tf.function
-def loss(posterior_approx, base_dist_samples, slp_obs, SC, gain):
+def loss(posterior_approx, base_dist_samples, obs_slp, SC, gain):
     posterior_samples = posterior_approx.bijector.forward(base_dist_samples)
     # tf.print(posterior_samples)
     # tf.print(posterior_samples)
     nsamples = base_dist_samples.shape[0]
-    loss_val = tf.reduce_sum(posterior_approx.log_prob(posterior_samples)/nsamples)
+    loss_val = tf.reduce_sum(
+        posterior_approx.log_prob(posterior_samples)/nsamples)
     for theta in posterior_samples:
         # tf.print("theta: ", theta, summarize=-1)
-        gm_log_prob = epileptor2D_log_prob(theta, slp_obs, SC, gain)
+        gm_log_prob = epileptor2D_log_prob(theta, obs_slp, SC, gain)
         # posterior_approx_log_prob = posterior_approx.log_prob(theta)
         loss_val -= gm_log_prob/nsamples
         # tf.print("gm_log_prob:",gm_log_prob, "\nposterior_approx_log_prob:", posterior_approx_log_prob)
         # tf.print("loss_val: ", loss_val)
     return loss_val
 
-# y_init = tf.constant([-2.0, 5.0])
-# dt = tf.constant(0.1)
-# solution_times = dt * np.arange(0, 300)
-# eps = tf.constant(0.1)
 
 @tf.function
-def get_loss_and_gradients(posterior_approx, base_dist_samples, slp_obs, SC, gain):
+def get_loss_and_gradients(posterior_approx, base_dist_samples, obs_slp, SC, gain):
     # nsamples = base_dist_samples.shape[0]
     with tf.GradientTape() as tape:
-        loss_val = loss(posterior_approx, base_dist_samples, slp_obs, SC, gain)
+        loss_val = loss(posterior_approx, base_dist_samples, obs_slp, SC, gain)
         return loss_val, tape.gradient(loss_val, posterior_approx.trainable_variables)
 
 # %%
@@ -424,7 +403,7 @@ def get_loss_and_gradients(posterior_approx, base_dist_samples, slp_obs, SC, gai
 #     decay_rate=0.96,
 #     staircase=True)
 
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-6)
+optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
 # optimizer = tf.keras.optimizers.Nadam(learning_rate=1e-6)
 # %%
 # # @tf.function
@@ -451,27 +430,41 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=1e-6)
 #### Training
 # %%
 batch_size = 10
-base_dist_samples = tf.data.Dataset.from_tensor_slices(
-    base_dist.sample((10))).batch(batch_size)
+# base_dist_samples = tf.data.Dataset.from_tensor_slices(
+#     base_dist.sample((1000))).batch(batch_size)
 
 # %%
-num_epochs = 5000
+num_epochs = 30*100
 
 training_loss = []
 start_time = time.time()
 
+# for epoch in range(num_epochs):
+#     for batch_base_dist_samples in base_dist_samples.as_numpy_iterator():
+#         loss_value, grads = get_loss_and_gradients(flow_dist, tf.constant(
+#             batch_base_dist_samples, dtype=tf.float32), obs_data['slp'], SC, gain)
+#         grads = [tf.divide(el, batch_size) for el in grads]
+#         grads = [tf.clip_by_norm(el, 1000) for el in grads]
+#         # tf.print("gradient norm = ", [tf.norm(el) for el in grads], \
+#         # output_stream="file://debug.log")
+#         tf.print("loss: ", loss_value)
+#         training_loss.append(loss_value)
+#         optimizer.apply_gradients(
+#             zip(grads, flow_dist.trainable_variables))
+#     # if ((epoch+1) % 10 == 0):
+#     #     print(f'Epoch {epoch + 1}:\n Training Loss: {loss_value}')
 for epoch in range(num_epochs):
-    for batch_base_dist_samples in base_dist_samples.as_numpy_iterator():
-        loss_value, grads = get_loss_and_gradients(flow_dist, tf.constant(
-            batch_base_dist_samples, dtype=tf.float32), obs_data['slp'], SC, gain)
-        grads = [tf.divide(el, batch_size) for el in grads]
-        grads = [tf.clip_by_norm(el, 1000) for el in grads]
-        # tf.print("gradient norm = ", [tf.norm(el) for el in grads], \
-                # output_stream="file://debug.log")
-        tf.print("loss: ", loss_value)
-        training_loss.append(loss_value)
-        optimizer.apply_gradients(
-            zip(grads, flow_dist.trainable_variables))
+    base_dist_samples = base_dist.sample(batch_size)
+    loss_value, grads = get_loss_and_gradients(flow_dist, tf.constant(
+        base_dist_samples, dtype=tf.float32), obs_data['slp'], SC, gain)
+    # grads = [tf.divide(el, batch_size) for el in grads]
+    grads = [tf.clip_by_norm(el, 1000) for el in grads]
+    # tf.print("gradient norm = ", [tf.norm(el) for el in grads], \
+    # output_stream="file://debug.log")
+    tf.print("loss: ", loss_value)
+    training_loss.append(loss_value)
+    optimizer.apply_gradients(
+        zip(grads, flow_dist.trainable_variables))
     # if ((epoch+1) % 10 == 0):
     #     print(f'Epoch {epoch + 1}:\n Training Loss: {loss_value}')
 print(f"Elapsed {time.time()-start_time} seconds for {epoch+1} Epochs")
@@ -480,7 +473,7 @@ print(f"Elapsed {time.time()-start_time} seconds for {epoch+1} Epochs")
 #### Results
 
 # %%
-# samples = flow_dist.sample((10))
+samples = flow_dist.sample((100))
 # samples = np.zeros([1000, 3*nn+6], dtype=np.float)
 # i = 0
 # for batch_base_dist_samples in base_dist_samples.as_numpy_iterator():
@@ -488,7 +481,7 @@ print(f"Elapsed {time.time()-start_time} seconds for {epoch+1} Epochs")
 #     i += 1
 # samples = tf.constant(samples, dtype=tf.float32)
 # samples_mean = tf.reduce_mean(samples, axis=0)
-samples = flow_dist.bijector.forward(batch_base_dist_samples)
+# samples = flow_dist.bijector.forward(batch_base_dist_samples)
 # %%
 
 # plt.figure(figsize=(25,5))
@@ -518,22 +511,35 @@ samples = flow_dist.bijector.forward(batch_base_dist_samples)
 
 # %%
 x0 = samples[:, 0:nn]
-x0_trans = tf.constant(-5.0, dtype=tf.float32) + tf.constant(5.0, dtype=tf.float32)*tf.math.sigmoid(x0)
+x0_trans = lib.utils.tnsrflw.sigmoid_transform(x0, 
+        lb = tf.constant(-5.0, dtype=tf.float32), 
+        ub = tf.constant(0.0, dtype=tf.float32))
 tau = samples[:, nn]
-tau_trans = tf.constant(10.0, dtype=tf.float32) + tf.constant(90.0, dtype=tf.float32)*tf.math.sigmoid(tau)
+tau_trans = lib.utils.tnsrflw.sigmoid_transform(tau, 
+        lb = tf.constant(10.0, dtype=tf.float32), 
+        ub = tf.constant(100.0, dtype=tf.float32))
 K = samples[:, nn+1]
-K_trans = 10*tf.math.sigmoid(K)
+K_trans = lib.utils.tnsrflw.sigmoid_transform(K, 
+        lb = tf.constant(0.0, dtype=tf.float32), 
+        ub = tf.constant(10.0, dtype=tf.float32))
 y_init = samples[:, nn+2:3*nn+2]
 x_init = y_init[:, 0:nn]
 z_init = y_init[:, nn:2*nn]
-x_init_trans = tf.constant(-5.0, dtype=tf.float32) + tf.constant(3.5, dtype=tf.float32) * tf.math.sigmoid(x_init)
-z_init_trans = tf.constant(2, dtype=tf.float32) + tf.constant(4, dtype=tf.float32) * tf.math.sigmoid(z_init)
+x_init_trans = lib.utils.tnsrflw.sigmoid_transform(x_init, 
+        lb = tf.constant(-5.0, dtype=tf.float32), 
+        ub = tf.constant(-1.5, dtype=tf.float32))
+z_init_trans = lib.utils.tnsrflw.sigmoid_transform(z_init, 
+        lb = tf.constant(4.0, dtype=tf.float32), 
+        ub = tf.constant(6.0, dtype=tf.float32))
 y_init_trans = tf.concat((x_init_trans, z_init_trans), axis=1)
 alpha = samples[:,3*nn+2]
-alpha_trans = tf.constant(100.0, dtype=tf.float32) * tf.math.sigmoid(alpha)
+alpha_trans = lib.utils.tnsrflw.sigmoid_transform(alpha, 
+        lb = tf.constant(0, dtype=tf.float32), 
+        ub = tf.constant(100.0, dtype=tf.float32))
 beta = samples[:, 3*nn+3]
-beta_trans = tf.constant(-100.0, dtype=tf.float32) + \
-    tf.constant(200.0, dtype=tf.float32) * tf.math.sigmoid(beta)
+beta_trans = lib.utils.tnsrflw.sigmoid_transform(beta, 
+        lb = tf.constant(-100.0, dtype=tf.float32), 
+        ub = tf.constant(100.0, dtype=tf.float32))
 # eps_slp = samples[:,3*nn+4]
 # eps_slp_trans = tf.constant(0.3, dtype=tf.float32) * tf.math.sigmoid(eps_slp)
 # eps_snsr_pwr = samples[:,3*nn+5]
@@ -563,77 +569,197 @@ for i in range(10):
                 gain, transpose_b=True)) + \
         beta_trans[i]
 # %%
-plt.figure(figsize=(15,5))
-plt.violinplot(x0_trans.numpy());
-# plt.scatter(np.arange(0, x0_true.shape[0]), x0_true, color='red', marker='.', s=20)
-plt.xlabel(r'$x_0$', fontsize=20)
-plt.figure(figsize=(10,5))
-plt.violinplot(tau_trans.numpy());
-plt.xlabel(r'$\tau$', fontsize=20)
-# plt.plot(1,tau_true, color='red', marker='.', markersize=20);
-plt.figure(figsize=(10,5))
-plt.violinplot(K_trans.numpy());
-# plt.plot(1,K_true, color='red', marker='.', markersize=20);
-plt.xlabel('K', fontsize=20);
-plt.figure(figsize=(10,5))
-plt.violinplot(alpha_trans.numpy());
-# plt.plot(1,K_true, color='red', marker='.', markersize=20);
-plt.xlabel(r'$\alpha$', fontsize=20);
-plt.figure(figsize=(10,5))
-plt.violinplot(beta_trans.numpy());
-# plt.plot(1,K_true, color='red', marker='.', markersize=20);
-plt.xlabel(r'$\beta$', fontsize=20);
-# plt.figure(figsize=(10,5))
-# plt.violinplot(eps_slp_trans.numpy());
-# # plt.plot(1,K_true, color='red', marker='.', markersize=20);
-# plt.xlabel(r'$\epsilon_{slp}$', fontsize=20);
-# plt.figure(figsize=(10,5))
-# plt.violinplot(eps_snsr_pwr_trans.numpy());
-# # plt.plot(1,K_true, color='red', marker='.', markersize=20);
-# plt.xlabel(r'$\epsilon_{snsrpwr}$', fontsize=20);
+save_figs = True
+figs_dir = 'results/exp24/figures'
+os.makedirs(figs_dir, exist_ok=True)
+figname_suffix = '77epochs'
+# %%
+
+SMALL_SIZE = 8
+MEDIUM_SIZE = 10
+BIGGER_SIZE = 12
+
+plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
+plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+plt.rc('font', **{'family': 'sans-serif', 'sans-serif': ['Arial']})
+
+fig = plt.figure(figsize=(8, 8), dpi=300, constrained_layout=True)
+gs1 = fig.add_gridspec(nrows=5, ncols=12)
+x0_ax = fig.add_subplot(gs1[0:4, 0:4])
+x_init_ax = fig.add_subplot(gs1[0:4, 4:8])
+z_init_ax = fig.add_subplot(gs1[0:4, 8:12])
+tau_ax = fig.add_subplot(gs1[4, 0:3])
+K_ax = fig.add_subplot(gs1[4, 3:6])
+alpha_ax = fig.add_subplot(gs1[4, 6:9])
+beta_ax = fig.add_subplot(gs1[4, 9:12])
+
+
+x0_ax.violinplot(x0_trans.numpy(), vert=False,
+                 positions=np.arange(0, nn))
+x0_ax.scatter(tvb_syn_data['x0'], np.arange(0, nn),
+              color='red', marker='*', s=5)
+x0_ax.set_ylabel('Region')
+x0_ax.set_xlabel(r'$x_0$')
+x0_ax.set_yticks(np.arange(0, nn, 3))
+x0_ax.grid(axis="y", alpha=0.2)
+
+x_init_ax.violinplot(x_init_trans.numpy(), vert=False,
+                 positions=np.arange(0, nn))
+# x_init_ax.scatter(x_init_true, np.arange(0, x0_true.shape[0]),
+#               color='red', marker='*', s=5)
+x_init_ax.set_ylabel('Region')
+x_init_ax.set_xlabel(r'$x_{t_0}$')
+x_init_ax.set_yticks(np.arange(0, nn, 3))
+x_init_ax.grid(axis="y", alpha=0.2)
+
+z_init_ax.violinplot(z_init_trans.numpy(), vert=False,
+                 positions=np.arange(0, nn))
+# z_init_ax.scatter(z_init_true, np.arange(0, nn),
+#               color='red', marker='*', s=5)
+z_init_ax.set_ylabel('Region')
+z_init_ax.set_xlabel(r'$z_{t_0}$')
+z_init_ax.set_yticks(np.arange(0, nn, 3))
+z_init_ax.grid(axis="y", alpha=0.2)
+
+tau_ax.violinplot(tau_trans.numpy())
+# tau_ax.plot(1, tau_true, color='red', marker='*', markersize=5)
+tau_ax.set_ylabel(r"$\tau$")
+tau_ax.set_xticks([])
+
+K_ax.violinplot(K_trans.numpy())
+K_ax.plot(1, K_true, color='red', marker='.', markersize=5)
+K_ax.set_ylabel("K")
+K_ax.set_xticks([])
+
+alpha_ax.violinplot(alpha_trans.numpy())
+alpha_ax.set_ylabel(r"$\alpha$")
+alpha_ax.set_xticks([])
+
+beta_ax.violinplot(beta_trans.numpy())
+beta_ax.set_ylabel(r"$\beta$")
+beta_ax.set_xticks([])
+if(save_figs):
+    plt.savefig(os.path.join(figs_dir, f'inferred_params_{figname_suffix}.svg'))
 
 # %%
-sample_idx = 2
-plt.figure(figsize=(15,15))
-plt.subplot(4,1,1)
-plt.plot(x_pred[sample_idx], label='Prediction at Posterior Mean', lw=1.0, color='black')
-# plt.plot(obs_data['x'], color='red', label='Ground truth', alpha=0.8)
-plt.xlabel('Time', fontsize=20)
-plt.ylabel('x', fontsize=20)
-# plt.legend()
+SMALL_SIZE = 8
+MEDIUM_SIZE = 10
+BIGGER_SIZE = 12
 
-plt.subplot(4,1,2)
-plt.plot(z_pred[sample_idx], label='Prediction at Posterior Mean', lw=1.0, color='black')
-# plt.plot(obs_data['z'], color='red', label='Ground truth', alpha=0.8)
-plt.xlabel('Time', fontsize=20)
-plt.ylabel('z', fontsize=20)
-plt.tight_layout()
-# plt.legend()
+plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
+plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+plt.rc('font', **{'family': 'sans-serif', 'sans-serif': ['Arial']})
 
-plt.subplot(4,1,3)
-plt.plot(slp_pred[sample_idx], label='Prediction at Posterior Mean', lw=1.0, color='red')
-plt.plot(obs_data['slp'], color='black', label='Ground truth', alpha=0.8)
-plt.xlabel('Time', fontsize=20)
-plt.ylabel('SEEG log power', fontsize=20)
-plt.tight_layout()
-# plt.legend()
-
-plt.subplot(4,1,4)
-plt.bar(np.arange(1, ns+1), np.mean(slp_pred[sample_idx]**2, axis=0),  lw=1.0, color='red')
-plt.bar(np.arange(1, ns+1), np.mean(obs_data['slp']**2, axis=0), color='black', alpha=0.5)
-plt.xlabel('Time', fontsize=20)
-plt.ylabel('Sensor power', fontsize=20)
-plt.tight_layout()
+fig = plt.figure(figsize=(6, 8), dpi=300, constrained_layout=True)
+gs1 = fig.add_gridspec(nrows=4, ncols=2)
+x0_ax = fig.add_subplot(gs1[0:4, 0])
+tau_ax = fig.add_subplot(gs1[0, 1])
+K_ax = fig.add_subplot(gs1[1, 1])
+alpha_ax = fig.add_subplot(gs1[2, 1])
+beta_ax = fig.add_subplot(gs1[3, 1])
 
 
+x0_ax.violinplot(x0_trans.numpy(), vert=False,
+                 positions=np.arange(0, nn))
+x0_ax.scatter(tvb_syn_data['x0'], np.arange(0, nn),
+              color='red', marker='*', s=5)
+x0_ax.set_ylabel('Region')
+x0_ax.set_xlabel(r'$x_0$')
+x0_ax.set_yticks(np.arange(0, nn, 3))
+x0_ax.grid(axis="y", alpha=0.2)
 
-# plt.figure()
-# plt.title("Phase space plot", fontsize=15)
-# plt.plot(y[:,0], y[:,1], color='black', lw=5.0)
-# plt.plot(obs_data['x'], obs_data['z'], color='red', alpha=0.8)
-# plt.xlabel('x', fontsize=15)
-# plt.ylabel('z', fontsize=15)
+tau_ax.violinplot(tau_trans.numpy())
+# tau_ax.plot(1, tau_true, color='red', marker='*', markersize=5)
+tau_ax.set_ylabel(r"$\tau$")
+tau_ax.set_xticks([])
 
+K_ax.violinplot(K_trans.numpy())
+K_ax.plot(1, K_true, color='red', marker='.', markersize=5)
+K_ax.set_ylabel("K")
+K_ax.set_xticks([])
+
+alpha_ax.violinplot(alpha_trans.numpy())
+alpha_ax.set_ylabel(r"$\alpha$")
+alpha_ax.set_xticks([])
+
+beta_ax.violinplot(beta_trans.numpy())
+beta_ax.set_ylabel(r"$\beta$")
+beta_ax.set_xticks([])
+if(save_figs):
+    plt.savefig(os.path.join(figs_dir, f'inferred_params_woic_{figname_suffix}.svg'))
+
+# %%
+
+sample_idx = 1
+obs_data['x'] = tvb_syn_data['src_sig'][800:2200:5, 0, :, 0] + \
+    tvb_syn_data['src_sig'][800:2200:5, 3, :, 0]
+
+fig = plt.figure(figsize=(7, 7), dpi=300, constrained_layout=True)
+gs = fig.add_gridspec(nrows=1, ncols=4, width_ratios=[45, 5, 45, 5])
+gt_ax = fig.add_subplot(gs[0, 0])
+norm = mpl.colors.Normalize(vmin=tf.reduce_min(
+    obs_data['x']), vmax=tf.reduce_max(obs_data['x']))
+gt_im = gt_ax.imshow(obs_data['x'].T, aspect='auto',
+                     norm=norm, zorder=1, interpolation='none')
+gt_ax.hlines(tvb_syn_data['ez'], 0, 279, color='red', alpha=0.8, zorder=2,
+             linestyles='dashed')
+gt_ax.hlines(tvb_syn_data['pz'], 0, 279, color='white', alpha=0.8, zorder=2,
+             linestyles='dashed')
+gt_ax.set_yticks(np.arange(0, nn, 3))
+gt_ax.set_xlabel('Time')
+gt_ax.set_ylabel('Region')
+gt_ax.set_title('Ground Truth')
+ax = fig.add_subplot(gs[0, 1])
+plt.colorbar(mpl.cm.ScalarMappable(norm), ax, use_gridspec=True)
+
+pred_ax = fig.add_subplot(gs[0, 2])
+norm = mpl.colors.Normalize(vmin=tf.reduce_min(
+    x_pred[sample_idx]), vmax=tf.reduce_max(x_pred[sample_idx]))
+pred_im = pred_ax.imshow(x_pred[sample_idx, :, :].T, aspect='auto', norm=norm,
+                         zorder=1, interpolation='none')
+pred_ax.hlines(tvb_syn_data['ez'], 0, 279, color='red', alpha=0.8, zorder=2,
+               linestyles='dashed')
+pred_ax.hlines(tvb_syn_data['pz'], 0, 279, color='white', alpha=0.8, zorder=2,
+               linestyles='dashed')
+pred_ax.set_yticks(np.arange(0, nn, 3))
+pred_ax.set_title('Prediction')
+ax = fig.add_subplot(gs[0, 3])
+plt.colorbar(mpl.cm.ScalarMappable(norm), ax, use_gridspec=True)
+fig.suptitle('Source Dynamics')
+if(save_figs):
+    plt.savefig(os.path.join(figs_dir, f'source_dynamics_{figname_suffix}.svg'))
+
+# %%
+fig = plt.figure(figsize=(7, 7), dpi=150, constrained_layout=True)
+gs = fig.add_gridspec(nrows=1, ncols=4, width_ratios=[45, 5, 45, 5])
+gt_ax = fig.add_subplot(gs[0, 0])
+# norm = mpl.colors.Normalize(vmin=1.7, vmax=1.0)
+gt_im = gt_ax.imshow(tf.transpose(obs_data['slp']), aspect='auto', zorder=1, interpolation='none')
+gt_ax.set_xlabel('Time')
+gt_ax.set_ylabel('Sensor')
+gt_ax.set_title('Ground Truth')
+ax = fig.add_subplot(gs[0, 1])
+plt.colorbar(gt_im, ax, use_gridspec=True)
+
+pred_ax = fig.add_subplot(gs[0, 2])
+pred_im = pred_ax.imshow(slp_pred[sample_idx, :, :].T, aspect='auto',
+                         zorder=1, interpolation='none')
+pred_ax.set_title('Prediction')
+ax = fig.add_subplot(gs[0, 3])
+plt.colorbar(pred_im, ax, use_gridspec=True)
+fig.suptitle('SEEG log power')
+if(save_figs):
+    plt.savefig(os.path.join(figs_dir, f'slp_fit_{figname_suffix}.svg'))
 # %%
 # for i, theta in enumerate(samples):
 #     print(f"sample {i} ", flow_dist.log_prob(theta) - epileptor2D_log_prob(theta, obs_data['x'], SC))
