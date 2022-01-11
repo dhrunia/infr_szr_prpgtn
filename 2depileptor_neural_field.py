@@ -27,26 +27,25 @@ def epileptor2D_nf_ode_fn(t, y, x0, tau):
     dz = (1.0/tau)*(4*(x - x0) - z)
     return tf.concat((dx, dz), axis=0)
 # %%
-def euler_integrator(ode_fn, nsteps, y_init, x0, tau):
+def euler_integrator(ode_fn, nsteps, sampling_period, time_step, y_init, x0, tau):
     y = tf.TensorArray(dtype=tf.float32, size=nsteps, clear_after_read=False)
     y_next = y_init
-    time_step = tf.constant(0.01, dtype=tf.float32)
     for i in tf.range(nsteps, dtype=tf.int32):
-        for j in tf.range(0.1/time_step):
-            y_next = y_next + time_step * epileptor2D_nf_ode_fn(0.0, y_next, x0, tau)
+        for j in tf.range(sampling_period/time_step):
+            y_next = y_next + time_step * ode_fn(0.0, y_next, x0, tau)
         y = y.write(i, y_next)
     return y.stack()
 
-def rk4_integrator(ode_fn, nsteps, y_init, x0, tau):
+def rk4_integrator(ode_fn, nsteps, sampling_period, time_step, y_init, x0, tau):
     y = tf.TensorArray(dtype=tf.float32, size=nsteps, clear_after_read=False)
     y_next = y_init
-    h = 0.01
+    h = time_step
     for i in tf.range(nsteps, dtype=tf.int32):
-        for j in tf.range(0.1/h):
-            k1 = epileptor2D_nf_ode_fn(0.0, y_next, x0, tau)
-            k2 = epileptor2D_nf_ode_fn(0.0, y_next + h*(k1/2), x0, tau)
-            k3 = epileptor2D_nf_ode_fn(0.0, y_next + h*(k2/2), x0, tau)
-            k4 = epileptor2D_nf_ode_fn(0.0, y_next + h*k3, x0, tau)
+        for j in tf.range(sampling_period/h):
+            k1 = ode_fn(0.0, y_next, x0, tau)
+            k2 = ode_fn(0.0, y_next + h*(k1/2), x0, tau)
+            k3 = ode_fn(0.0, y_next + h*(k2/2), x0, tau)
+            k4 = ode_fn(0.0, y_next + h*k3, x0, tau)
             y_next = y_next + (h/6) * (k1 + 2*k2 + 2*k3 + k4)
         y = y.write(i, y_next)
     return y.stack()
@@ -58,12 +57,16 @@ def bdf_integrator(ode_fn, t_init, y_init, solution_times, constants):
                              solution_times=solution_times,
                              constants=constants)
 
+
 def dormandprince_integrator(ode_fn, t_init, y_init, solution_times, constants):
-    return tfp.math.ode.DormandPrince(atol=1e-3, rtol=1e-2).solve(ode_fn=ode_fn,
-                             initial_time=t_init,
-                             initial_state=y_init,
-                             solution_times=solution_times,
-                             constants=constants)
+    return tfp.math.ode.DormandPrince(atol=1e-2, 
+                                      rtol=1e-3,
+                                      validate_args=True).solve(
+                                          ode_fn=ode_fn,
+                                          initial_time=t_init,
+                                          initial_state=y_init,
+                                          solution_times=solution_times,
+                                          constants=constants)
 # %%
 t_init = tf.constant(0.0, dtype=tf.float32)
 x_init_true = tf.constant(-2.0, dtype=tf.float32) * tf.ones(N_LAT*N_LON, dtype=tf.float32)
@@ -76,9 +79,11 @@ t_init = tf.constant(0.0, dtype=tf.float32)
 
 # %%
 nsteps = 300
+sampling_period = 0.1
+time_step = 0.01
 start_time = time.time()
-y_true = euler_integrator(epileptor2D_nf_ode_fn, nsteps, y_init_true,
-                    x0_true, tau_true)
+y_true = euler_integrator(epileptor2D_nf_ode_fn, nsteps, sampling_period, 
+                          time_step, y_init_true, x0_true, tau_true)
 print(f"Time elapsed: {time.time() - start_time} seconds")
 
 x_true = y_true[:, :N_LAT*N_LON]
@@ -91,13 +96,15 @@ plt.plot(x_true[:, idx])
 plt.subplot(212)
 plt.plot(z_true[:, idx])
 plt.ylabel(r'$z$', fontsize=15)
-plt.suptitle(f"Euler Integration - dt={0.01}")
+plt.suptitle(f"Euler Integration - dt={time_step}")
 
 # %%
 nsteps = 300
+sampling_period = 0.1
+time_step = 0.1
 start_time = time.time()
-y_true = rk4_integrator(epileptor2D_nf_ode_fn, nsteps, y_init_true,
-                    x0_true, tau_true)
+y_true = rk4_integrator(epileptor2D_nf_ode_fn, nsteps, sampling_period,
+                        time_step, y_init_true, x0_true, tau_true)
 print(f"Time elapsed: {time.time() - start_time} seconds")
 
 x_true = y_true[:, :N_LAT*N_LON]
@@ -106,11 +113,11 @@ idx = 10
 plt.figure(figsize=(7,5), dpi=150, constrained_layout=True)
 plt.subplot(211)
 plt.ylabel(r'$x$', fontsize=15)
-plt.plot(x_true[:, idx])
+plt.plot(x_true[:, idx], color='black', alpha=0.1)
 plt.subplot(212)
-plt.plot(z_true[:, idx])
+plt.plot(z_true[:, idx], color='black', alpha=0.1)
 plt.ylabel(r'$z$', fontsize=15)
-plt.suptitle(f"RK4 Integration - dt={0.1}")
+plt.suptitle(f"RK4 Integration - dt={time_step}")
 # %%
 time_step = tf.constant(0.1, dtype=tf.float32)
 solution_times = time_step * tf.range(0, 300, dtype=tf.float32)
