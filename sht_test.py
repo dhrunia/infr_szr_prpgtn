@@ -27,17 +27,17 @@ F_theta_phi = tf.constant(F_theta_phi, dtype=tf.float32)
 # %%
 F_l_m = tfsht.analys(N_LON, F_theta_phi, glq_wts, P_l_m_costheta)
 # %%
-import shtns
+# import shtns
 # %%
-lmax = L_MAX
-mmax = L_MAX
-sh = shtns.sht(lmax, mmax)
-nlat, nphi = sh.set_grid()
-flm_flat = sh.analys(np.array(F_theta_phi.numpy(), dtype=np.float64))
-flm = np.zeros((lmax+1,mmax+1), dtype=np.complex128)
-for l in range(L_MAX + 1):
-    for m in range(0, l + 1):
-        flm[l,m] = flm_flat[sh.idx(l,m)]
+# lmax = L_MAX
+# mmax = L_MAX
+# sh = shtns.sht(lmax, mmax)
+# nlat, nphi = sh.set_grid()
+# flm_flat = sh.analys(np.array(F_theta_phi.numpy(), dtype=np.float64))
+# flm = np.zeros((lmax+1,mmax+1), dtype=np.complex128)
+# for l in range(L_MAX + 1):
+#     for m in range(0, l + 1):
+#         flm[l,m] = flm_flat[sh.idx(l,m)]
 # %%
 flmr = pysh.expand.SHExpandGLQ(F_theta_phi.numpy(), glq_wts.numpy().real, cos_theta.numpy(), norm=4, csphase=-1, lmax_calc=L_MAX)
 flmc = pysh.shio.SHrtoc(flmr)
@@ -77,7 +77,7 @@ plt.tight_layout()
 # %%
 F_theta_phi_recon = tfsht.synth(N_LON, F_l_m, P_l_m_costheta)
 # %%
-ftp = sh.synth(flm_flat)
+# ftp = sh.synth(flm_flat)
 # %%
 ftp = pysh.expand.MakeGridGLQ(pysh.shio.SHctor(
     flmc), cos_theta.numpy(), lmax=L_MAX, norm=4, csphase=-1)
@@ -132,12 +132,12 @@ Dll = tf.cast(D * l * (l+1), dtype=tf.complex64)
 F_l_m_hat = Dll[:, tf.newaxis] * F_l_m
 F_theta_phi_recon_hat = tfsht.synth(N_LON, F_l_m_hat, P_l_m_costheta)
 # %%
-flm_flat_hat = (-0.01*sh.l*(sh.l+1)) * flm_flat
-flm_hat = np.zeros((lmax+1,mmax+1), dtype=np.complex128)
-for l in range(L_MAX + 1):
-    for m in range(0, l + 1):
-        flm_hat[l,m] = flm_flat_hat[sh.idx(l,m)]
-ftp_hat = sh.synth(flm_flat_hat)
+# flm_flat_hat = (-0.01*sh.l*(sh.l+1)) * flm_flat
+# flm_hat = np.zeros((lmax+1,mmax+1), dtype=np.complex128)
+# for l in range(L_MAX + 1):
+#     for m in range(0, l + 1):
+#         flm_hat[l,m] = flm_flat_hat[sh.idx(l,m)]
+# ftp_hat = sh.synth(flm_flat_hat)
 # %%
 flmc_hat = np.zeros_like(flmc)
 flmc_hat[0] = Dll[:, tf.newaxis].numpy().real * flmc[0]
@@ -168,7 +168,7 @@ plt.title('TFSHT')
 plt.colorbar(fraction=0.025)
 plt.subplot(132)
 plt.imshow(flmc_hat[0])
-plt.title('SHTNS')
+plt.title('PYSH')
 plt.colorbar(fraction=0.025)
 plt.subplot(133)
 plt.imshow(tf.math.abs(flmc_hat[0] - tf.math.real(F_l_m_hat)))
@@ -183,7 +183,7 @@ plt.title('TFSHT')
 plt.colorbar(fraction=0.025)
 plt.subplot(132)
 plt.imshow(flmc_hat[1])
-plt.title('SHTNS')
+plt.title('PYSH')
 plt.colorbar(fraction=0.025)
 plt.subplot(133)
 plt.imshow(tf.math.abs(flmc_hat[1] - tf.math.imag(F_l_m_hat)))
@@ -194,5 +194,3 @@ plt.tight_layout()
 # %%
 y1 = F_theta_phi_recon_hat.numpy()
 np.testing.assert_allclose(y1, ftp_hat, rtol=1e-3, atol=1e-3)
-
-# %%
