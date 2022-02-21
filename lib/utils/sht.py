@@ -19,7 +19,7 @@ def prep(L_MAX):
     P_l_m_costheta = tf.constant(P_l_m_costheta, dtype=tf.complex64)
     return N_LAT, N_LON, cos_theta, glq_wts, P_l_m_costheta
 
-
+@tf.function
 def analys(N_LON, F_theta_phi, glq_wts, P_l_m_costheta):
     pi = tf.constant(np.math.pi, dtype=tf.complex64)
     F_theta_m = tf.signal.rfft(F_theta_phi)
@@ -28,7 +28,7 @@ def analys(N_LON, F_theta_phi, glq_wts, P_l_m_costheta):
                       F_theta_m_glq_wtd) * (2*pi/tf.cast(N_LON, tf.complex64))
     return F_l_m
 
-
+@tf.function
 def synth(N_LON, F_l_m, P_l_m_costheta):
     F_theta_m = tf.einsum('ij,ijk->kj', F_l_m, P_l_m_costheta)
     F_theta_phi = tf.cast(N_LON, tf.float32) * \
