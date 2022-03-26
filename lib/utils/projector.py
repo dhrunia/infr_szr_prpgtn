@@ -28,6 +28,6 @@ def find_rgn_map(N_LAT, N_LON, cos_theta, verts_irreg_fname,
     idcs = np.concatenate((idcs_lh, idcs_rh))
 
     rgn_map_irreg = np.loadtxt(rgn_map_irreg_fname)
-    rgn_map_reg = tf.constant(rgn_map_irreg[idcs], dtype=tf.uint32)
+    rgn_map_reg = tf.constant(rgn_map_irreg[idcs], dtype=tf.int32)
 
     return rgn_map_reg
