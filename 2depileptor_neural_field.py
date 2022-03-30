@@ -71,12 +71,10 @@ def epileptor2D_nf_ode_fn(t, y, x0, tau, K):
     # tf.print(x_hat_roi.shape)
     global_cplng_roi = tf.reduce_sum(
         K * SC * (x_roi[tf.newaxis, :] - x_roi[:, tf.newaxis]), axis=1)
-    # global_cplng_roi = tf.reduce_sum(
-    #     (x_hat_roi[tf.newaxis, :]), axis=1)
     global_cplng_vrtcs = tf.gather(global_cplng_roi, vrtx_roi_map)
     dx = 1.0 - tf.math.pow(x, 3) - 2 * tf.math.pow(x, 2) - \
-        z + I1 + gamma_lc * local_cplng - global_cplng_vrtcs
-    dz = (1.0 / tau) * (4 * (x - x0) - z)
+        z + I1 + gamma_lc * local_cplng
+    dz = (1.0 / tau) * (4 * (x - x0) - z - global_cplng_vrtcs)
     return tf.concat((dx, dz), axis=0)
 
 
