@@ -46,7 +46,7 @@ phi_db = phi[:, tf.newaxis] - phi[tf.newaxis, :]
 m = tf.range(0, L_MAX + 1, dtype=tf.float32)
 cos_m_phidb = 2.0 * tf.math.cos(tf.einsum("m,db->mdb", m, phi_db))
 cos_1tom_phidb = tf.constant(cos_m_phidb[1:, :, :], dtype=tf.float32)
-cos_0_phidb = tf.constant(cos_m_phidb[0, :, :], dtype=tf.float32)
+cos_0_phidb = tf.constant(cos_m_phidb[0, :, :] * 0.5, dtype=tf.float32)
 P_l_m_Dll = delta_phi * tf.math.real(
     Dll)[:, tf.newaxis, tf.newaxis] * tf.math.real(P_l_m_costheta)
 P_l_1tom_Dll = tf.constant(P_l_m_Dll[:, 1:, :], dtype=tf.float32)
@@ -100,71 +100,71 @@ def local_coupling(
     P_l_0_costheta,
     cos_0_phidb,
 ):
-    print("local_coupling()")
-    x_hat_lh = tf.reshape(x[0:N_LAT * N_LON], (N_LAT, N_LON))
-    x_hat_rh = tf.reshape(x[N_LAT * N_LON:], (N_LAT, N_LON))
-    x_lm_lh = tfsht.analys(N_LON, x_hat_lh, glq_wts, P_l_m_costheta)
-    x_lm_hat_lh = Dll[:, tf.newaxis] * x_lm_lh
-    x_lm_rh = tfsht.analys(N_LON, x_hat_rh, glq_wts, P_l_m_costheta)
-    x_lm_hat_rh = Dll[:, tf.newaxis] * x_lm_rh
+    # print("local_coupling()")
+    x_hat_lh = tf.stop_gradient(tf.reshape(x[0:N_LAT * N_LON], (N_LAT, N_LON)))
+    x_hat_rh = tf.stop_gradient(tf.reshape(x[N_LAT * N_LON:], (N_LAT, N_LON)))
+    x_lm_lh = tf.stop_gradient(
+        tfsht.analys(N_LON, x_hat_lh, glq_wts, P_l_m_costheta))
+    x_lm_hat_lh = tf.stop_gradient(Dll[:, tf.newaxis] * x_lm_lh)
+    x_lm_rh = tf.stop_gradient(
+        tfsht.analys(N_LON, x_hat_rh, glq_wts, P_l_m_costheta))
+    x_lm_hat_rh = tf.stop_gradient(Dll[:, tf.newaxis] * x_lm_rh)
     local_cplng_lh = tf.reshape(
         tfsht.synth(N_LON, x_lm_hat_lh, P_l_m_costheta), [-1])
     local_cplng_rh = tf.reshape(
         tfsht.synth(N_LON, x_lm_hat_rh, P_l_m_costheta), [-1])
-    local_cplng = tf.concat((local_cplng_lh, local_cplng_rh), axis=0)
+    local_cplng = tf.stop_gradient(
+        tf.concat((local_cplng_lh, local_cplng_rh), axis=0))
 
     def grad(upstream):
         upstream_lh = tf.reshape(upstream[0:N_LAT * N_LON], (N_LAT, N_LON))
         upstream_rh = tf.reshape(upstream[N_LAT * N_LON:], (N_LAT, N_LON))
-        glq_wts_grad = tf.zeros_like(glq_wts, dtype=tf.complex64)
-        P_l_m_costheta_grad = tf.zeros_like(P_l_m_costheta, dtype=tf.complex64)
-        Dll_grad = tf.zeros_like(Dll, dtype=tf.complex64)
-        N_LAT_grad = tf.zeros_like(N_LAT, dtype=tf.complex64)
-        N_LON_grad = tf.zeros_like(N_LON, dtype=tf.complex64)
-        glq_wts_real_grad = tf.zeros_like(glq_wts_real, dtype=tf.float32)
-        P_l_1tom_Dll_grad = tf.zeros_like(P_l_1tom_Dll, dtype=tf.float32)
-        P_l_1tom_costheta_grad = tf.zeros_like(P_l_1tom_costheta,
-                                               dtype=tf.float32)
-        cos_1tom_phidb_grad = tf.zeros_like(cos_1tom_phidb, dtype=tf.float32)
-        P_l_0_Dll_grad = tf.zeros_like(P_l_0_Dll, dtype=tf.float32)
-        P_l_0_costheta_grad = tf.zeros_like(P_l_0_costheta, dtype=tf.float32)
-        cos_0_phidb_grad = tf.zeros_like(cos_0_phidb, dtype=tf.float32)
+        glq_wts_grad = None  #tf.zeros_like(glq_wts, dtype=tf.complex64)
+        P_l_m_costheta_grad = None  #tf.zeros_like(P_l_m_costheta, dtype=tf.complex64)
+        Dll_grad = None  #tf.zeros_like(Dll, dtype=tf.complex64)
+        N_LAT_grad = None  #tf.zeros_like(N_LAT, dtype=tf.complex64)
+        N_LON_grad = None  #tf.zeros_like(N_LON, dtype=tf.complex64)
+        glq_wts_real_grad = None  #tf.zeros_like(glq_wts_real, dtype=tf.float32)
+        P_l_1tom_Dll_grad = None  #tf.zeros_like(P_l_1tom_Dll, dtype=tf.float32)
+        P_l_1tom_costheta_grad = None  #tf.zeros_like(P_l_1tom_costheta,
+        #        dtype=tf.float32)
+        cos_1tom_phidb_grad = None  #tf.zeros_like(cos_1tom_phidb, dtype=tf.float32)
+        P_l_0_Dll_grad = None  #tf.zeros_like(P_l_0_Dll, dtype=tf.float32)
+        P_l_0_costheta_grad = None  #tf.zeros_like(P_l_0_costheta, dtype=tf.float32)
+        cos_0_phidb_grad = None  #tf.zeros_like(cos_0_phidb, dtype=tf.float32)
         # print(upstream_lh.dtype, upstream_rh.dtype)
         # print(upstream_lh)
         # print(type(upstream_lh), type(glq_wts_real), type(P_l_1tom_Dll),
         #       type(P_l_1tom_costheta), type(cos_1tom_phidb))
-        g_lh = -1.0 * tf.einsum("cd,a,lmc,lma,mdb->ab",
-                                upstream_lh,
-                                glq_wts_real,
-                                P_l_1tom_Dll,
-                                P_l_1tom_costheta,
-                                cos_1tom_phidb,
-                                optimize="optimal") - tf.einsum(
-                                    "cd,a,lc,la,db->ab",
-                                    upstream_lh,
-                                    glq_wts_real,
-                                    P_l_0_Dll,
-                                    P_l_0_costheta,
-                                    cos_0_phidb,
-                                    optimize="optimal")
-        g_rh = -1.0 * tf.einsum("cd,a,lmc,lma,mdb->ab",
-                                upstream_rh,
-                                glq_wts_real,
-                                P_l_1tom_Dll,
-                                P_l_1tom_costheta,
-                                cos_1tom_phidb,
-                                optimize="optimal") - tf.einsum(
-                                    "cd,a,lc,la,db->ab",
-                                    upstream_rh,
-                                    glq_wts_real,
-                                    P_l_0_Dll,
-                                    P_l_0_costheta,
-                                    cos_0_phidb,
-                                    optimize="optimal")
-        g = tf.concat((tf.reshape(g_lh, [-1]), tf.reshape(g_rh, [-1])), axis=0)
-        # g_lh = tf.einsum("ij,ij->ij", upstream_lh, upstream_rh)
-        # g_rh = tf.einsum("ij,ji->ij", upstream_lh, upstream_rh)
-        # g = tf.concat((tf.reshape(g_lh, [-1]), tf.reshape(g_rh, [-1])), axis=0)
+        g_lh = tf.einsum("cd,a,lmc,lma,mdb->ab",
+                         upstream_lh,
+                         glq_wts_real,
+                         P_l_1tom_Dll,
+                         P_l_1tom_costheta,
+                         cos_1tom_phidb,
+                         optimize="optimal") + tf.einsum("cd,a,lc,la,db->ab",
+                                                         upstream_lh,
+                                                         glq_wts_real,
+                                                         P_l_0_Dll,
+                                                         P_l_0_costheta,
+                                                         cos_0_phidb,
+                                                         optimize="optimal")
+        g_rh = tf.einsum("cd,a,lmc,lma,mdb->ab",
+                         upstream_rh,
+                         glq_wts_real,
+                         P_l_1tom_Dll,
+                         P_l_1tom_costheta,
+                         cos_1tom_phidb,
+                         optimize="optimal") + tf.einsum("cd,a,lc,la,db->ab",
+                                                         upstream_rh,
+                                                         glq_wts_real,
+                                                         P_l_0_Dll,
+                                                         P_l_0_costheta,
+                                                         cos_0_phidb,
+                                                         optimize="optimal")
+        g = tf.clip_by_norm(
+            tf.concat((tf.reshape(g_lh, [-1]), tf.reshape(g_rh, [-1])),
+                      axis=0), 100)
         return [
             g, glq_wts_grad, P_l_m_costheta_grad, Dll_grad, N_LAT_grad,
             N_LON_grad, glq_wts_real_grad, P_l_1tom_Dll_grad,
@@ -206,6 +206,66 @@ def epileptor2D_nf_ode_fn(y, x0, tau, K, SC, glq_wts, P_l_m_costheta, Dll,
     return tf.concat((dx, dz), axis=0)
     # return y * tf.constant(-0.1, dtype=tf.float32)
 
+
+# %%
+# Test custom gradients
+
+def local_coupling_wocg(
+    x,
+    glq_wts,
+    P_l_m_costheta,
+    Dll,
+    N_LAT,
+    N_LON,
+):
+    # print("local_coupling()")
+    x_hat_lh = tf.reshape(x[0:N_LAT * N_LON], (N_LAT, N_LON))
+    x_hat_rh = tf.reshape(x[N_LAT * N_LON:], (N_LAT, N_LON))
+    x_lm_lh = tfsht.analys(N_LON, x_hat_lh, glq_wts, P_l_m_costheta)
+    x_lm_hat_lh = Dll[:, tf.newaxis] * x_lm_lh
+    x_lm_rh = tfsht.analys(N_LON, x_hat_rh, glq_wts, P_l_m_costheta)
+    x_lm_hat_rh = Dll[:, tf.newaxis] * x_lm_rh
+    local_cplng_lh = tf.reshape(
+        tfsht.synth(N_LON, x_lm_hat_lh, P_l_m_costheta), [-1])
+    local_cplng_rh = tf.reshape(
+        tfsht.synth(N_LON, x_lm_hat_rh, P_l_m_costheta), [-1])
+    local_cplng = tf.concat((local_cplng_lh, local_cplng_rh), axis=0)
+
+    return local_cplng
+
+def find_grad(x):
+    with tf.GradientTape() as tape:
+        tape.watch(x)
+
+        alpha = tf.constant(1.0, dtype=tf.float32)
+        theta = tf.constant(-1.0, dtype=tf.float32)
+        x_hat = tf.math.sigmoid(alpha * (x - theta)) * unkown_roi_mask
+        lc = local_coupling(x_hat, glq_wts, P_l_m_costheta, Dll, N_LAT, N_LON,
+                            glq_wts_real, P_l_1tom_Dll, P_l_1tom_costheta,
+                            cos_1tom_phidb, P_l_0_Dll, P_l_0_costheta,
+                            cos_0_phidb)
+        return lc, tape.gradient(lc, x)
+
+def find_grad_wocg(x):
+    with tf.GradientTape() as tape:
+        tape.watch(x)
+        alpha = tf.constant(1.0, dtype=tf.float32)
+        theta = tf.constant(-1.0, dtype=tf.float32)
+        x_hat = tf.math.sigmoid(alpha * (x - theta)) * unkown_roi_mask
+        lc = local_coupling_wocg(x_hat, glq_wts, P_l_m_costheta, Dll, N_LAT, N_LON)
+        return lc, tape.gradient(lc, x)
+
+x = tf.constant(-2.0, dtype=tf.float32) * \
+tf.ones(2*N_LAT*N_LON, dtype=tf.float32)
+
+# thrtcl, nmrcl = tf.test.compute_gradient(local_coupling, [
+#     x_hat, glq_wts, P_l_m_costheta, Dll, N_LAT, N_LON, glq_wts_real,
+#     P_l_1tom_Dll, P_l_1tom_costheta, cos_1tom_phidb, P_l_0_Dll, P_l_0_costheta,
+#     cos_0_phidb
+# ])
+lc1, x_hat_grad_cg = find_grad(x)
+lc2, x_hat_grad_wocg = find_grad_wocg(x)
+print(tf.reduce_max(tf.math.abs(x_hat_grad_cg - x_hat_grad_wocg)))
 
 # %%
 
@@ -347,7 +407,7 @@ t_init = tf.constant(0.0, dtype=tf.float32)
 # z_true = y_true[:, nv:].numpy()
 # ode_solver = "Euler Integartion"
 # %%
-nsteps = tf.constant(50, dtype=tf.int32)
+nsteps = tf.constant(150, dtype=tf.int32)
 sampling_period = tf.constant(0.1, dtype=tf.float32)
 time_step = tf.constant(0.01, dtype=tf.float32)
 
@@ -400,7 +460,7 @@ time_step = tf.constant(0.01, dtype=tf.float32)
 #     return r
 
 # integrator_tf_graph = tf.autograph.to_graph(euler_integrator, recursive=True)
-integrator_tf_fn = tf.function(euler_integrator)
+# integrator_tf_fn = tf.function(euler_integrator, jit_compile=True)
 # input_signature=[
 #     tf.TensorSpec(shape=(), dtype=tf.int32),
 #     tf.TensorSpec(shape=(), dtype=tf.float32),
@@ -410,14 +470,14 @@ integrator_tf_fn = tf.function(euler_integrator)
 #     tf.TensorSpec(shape=(1, ), dtype=tf.float32),
 #     tf.TensorSpec(shape=(1, ), dtype=tf.float32)
 # ])
-integrator_conc_fn = integrator_tf_fn.get_concrete_function(
-    nsteps, sampling_period, time_step, y_init_true, x0_true, tau_true, K_true,
-    SC, glq_wts, P_l_m_costheta, Dll, N_LAT, N_LON, unkown_roi_mask,
-    rgn_map_reg_sorted, low_idcs, high_idcs, vrtx_roi_map, glq_wts_real,
-    P_l_1tom_Dll, P_l_1tom_costheta, cos_1tom_phidb, P_l_0_Dll, P_l_0_costheta,
-    cos_0_phidb)
+# integrator_conc_fn = integrator_tf_fn.get_concrete_function(
+#     nsteps, sampling_period, time_step, y_init_true, x0_true, tau_true, K_true,
+#     SC, glq_wts, P_l_m_costheta, Dll, N_LAT, N_LON, unkown_roi_mask,
+#     rgn_map_reg_sorted, low_idcs, high_idcs, vrtx_roi_map, glq_wts_real,
+#     P_l_1tom_Dll, P_l_1tom_costheta, cos_1tom_phidb, P_l_0_Dll, P_l_0_costheta,
+#     cos_0_phidb)
 
-
+@tf.function(jit_compile=True)
 def get_sim_and_gradients(nsteps, sampling_period, time_step, y_init_true,
                           x0_true, tau_true, K_true, SC, glq_wts,
                           P_l_m_costheta, Dll, N_LAT, N_LON, unkown_roi_mask,
@@ -428,14 +488,14 @@ def get_sim_and_gradients(nsteps, sampling_period, time_step, y_init_true,
     with tf.GradientTape() as tape:
         with tf.device("GPU:0"):
             tape.watch([x0_true, K_true, tau_true, y_init_true])
-            y = integrator_conc_fn(nsteps, sampling_period, time_step,
-                                   y_init_true, x0_true, tau_true, K_true, SC,
-                                   glq_wts, P_l_m_costheta, Dll, N_LAT, N_LON,
-                                   unkown_roi_mask, rgn_map_reg_sorted,
-                                   low_idcs, high_idcs, vrtx_roi_map,
-                                   glq_wts_real, P_l_1tom_Dll,
-                                   P_l_1tom_costheta, cos_1tom_phidb,
-                                   P_l_0_Dll, P_l_0_costheta, cos_0_phidb)
+            y = euler_integrator(nsteps, sampling_period, time_step,
+                                 y_init_true, x0_true, tau_true, K_true, SC,
+                                 glq_wts, P_l_m_costheta, Dll, N_LAT, N_LON,
+                                 unkown_roi_mask, rgn_map_reg_sorted, low_idcs,
+                                 high_idcs, vrtx_roi_map, glq_wts_real,
+                                 P_l_1tom_Dll, P_l_1tom_costheta,
+                                 cos_1tom_phidb, P_l_0_Dll, P_l_0_costheta,
+                                 cos_0_phidb)
             return y, tape.gradient(y, tau_true)
         # tape.watch([y_init_true])
         # y_true = test_integrator(epileptor2D_nf_ode_fn, nsteps,
@@ -445,6 +505,15 @@ def get_sim_and_gradients(nsteps, sampling_period, time_step, y_init_true,
 
 
 start_time = time.time()
+# get_sim_and_gradients_tf_fn = tf.function(get_sim_and_gradients,
+#                                           jit_compile=True)
+# get_sim_and_gradients_conc_fn = get_sim_and_gradients_tf_fn.get_concrete_function(
+#     nsteps, sampling_period, time_step, y_init_true, x0_true, tau_true, K_true,
+#     SC, glq_wts, P_l_m_costheta, Dll, N_LAT, N_LON, unkown_roi_mask,
+#     rgn_map_reg_sorted, low_idcs, high_idcs, vrtx_roi_map, glq_wts_real,
+#     P_l_1tom_Dll, P_l_1tom_costheta, cos_1tom_phidb, P_l_0_Dll, P_l_0_costheta,
+#     cos_0_phidb)
+
 y_true, y_tau_grad = get_sim_and_gradients(
     nsteps, sampling_period, time_step, y_init_true, x0_true, tau_true, K_true,
     SC, glq_wts, P_l_m_costheta, Dll, N_LAT, N_LON, unkown_roi_mask,

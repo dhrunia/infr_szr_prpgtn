@@ -25,15 +25,13 @@ def analys(N_LON, F_theta_phi, glq_wts, P_l_m_costheta):
     pi = tf.constant(np.math.pi, dtype=tf.complex64)
     F_theta_m = tf.signal.rfft(F_theta_phi)
     F_theta_m_glq_wtd = F_theta_m * glq_wts[:, tf.newaxis]
-    with tf.device("GPU:0"):
-        F_l_m = tf.einsum('ijk,kj->ij', P_l_m_costheta, F_theta_m_glq_wtd) * (
-            2 * pi / tf.cast(N_LON, tf.complex64))
+    F_l_m = tf.einsum('ijk,kj->ij', P_l_m_costheta, F_theta_m_glq_wtd) * (
+        2 * pi / tf.cast(N_LON, tf.complex64))
     return F_l_m
 
 
 def synth(N_LON, F_l_m, P_l_m_costheta):
-    with tf.device("GPU:0"):
-        F_theta_m = tf.einsum('ij,ijk->kj', F_l_m, P_l_m_costheta)
+    F_theta_m = tf.einsum('ij,ijk->kj', F_l_m, P_l_m_costheta)
     F_theta_phi = tf.cast(N_LON, tf.float32) * \
         tf.signal.irfft(F_theta_m, fft_length=tf.reshape(N_LON, shape=[1]))
     return F_theta_phi
