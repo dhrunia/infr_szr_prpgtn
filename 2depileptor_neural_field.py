@@ -21,7 +21,7 @@ P_l_1tom_costheta = tf.constant(tf.math.real(P_l_m_costheta)[:, 1:, :],
 P_l_0_costheta = tf.constant(tf.math.real(P_l_m_costheta)[:, 0, :],
                              dtype=tf.float32)
 glq_wts_real = tf.constant(tf.math.real(glq_wts), dtype=tf.float32)
-D = tf.constant(-0.01, dtype=tf.float32)
+D = tf.constant(0.01, dtype=tf.float32)
 l = tf.range(0, L_MAX + 1, dtype=tf.float32)
 Dll = tf.cast(D * l * (l + 1), dtype=tf.complex64)
 nv = tf.constant(2 * N_LAT * N_LON, dtype=tf.int32)  # Total no. of vertices
@@ -138,35 +138,38 @@ def local_coupling(
         # print(upstream_lh)
         # print(type(upstream_lh), type(glq_wts_real), type(P_l_1tom_Dll),
         #       type(P_l_1tom_costheta), type(cos_1tom_phidb))
-        g_lh = tf.einsum("cd,a,lmc,lma,mdb->ab",
-                         upstream_lh,
-                         glq_wts_real,
-                         P_l_1tom_Dll,
-                         P_l_1tom_costheta,
-                         cos_1tom_phidb,
-                         optimize="optimal") + tf.einsum("cd,a,lc,la,db->ab",
-                                                         upstream_lh,
-                                                         glq_wts_real,
-                                                         P_l_0_Dll,
-                                                         P_l_0_costheta,
-                                                         cos_0_phidb,
-                                                         optimize="optimal")
-        g_rh = tf.einsum("cd,a,lmc,lma,mdb->ab",
-                         upstream_rh,
-                         glq_wts_real,
-                         P_l_1tom_Dll,
-                         P_l_1tom_costheta,
-                         cos_1tom_phidb,
-                         optimize="optimal") + tf.einsum("cd,a,lc,la,db->ab",
-                                                         upstream_rh,
-                                                         glq_wts_real,
-                                                         P_l_0_Dll,
-                                                         P_l_0_costheta,
-                                                         cos_0_phidb,
-                                                         optimize="optimal")
-        g = tf.clip_by_norm(
-            tf.concat((tf.reshape(g_lh, [-1]), tf.reshape(g_rh, [-1])),
-                      axis=0), 100)
+        g_lh = -1.0 * tf.einsum("cd,a,lmc,lma,mdb->ab",
+                                upstream_lh,
+                                glq_wts_real,
+                                P_l_1tom_Dll,
+                                P_l_1tom_costheta,
+                                cos_1tom_phidb,
+                                optimize="optimal") - tf.einsum(
+                                    "cd,a,lc,la,db->ab",
+                                    upstream_lh,
+                                    glq_wts_real,
+                                    P_l_0_Dll,
+                                    P_l_0_costheta,
+                                    cos_0_phidb,
+                                    optimize="optimal")
+        g_rh = -1.0 * tf.einsum("cd,a,lmc,lma,mdb->ab",
+                                upstream_rh,
+                                glq_wts_real,
+                                P_l_1tom_Dll,
+                                P_l_1tom_costheta,
+                                cos_1tom_phidb,
+                                optimize="optimal") - tf.einsum(
+                                    "cd,a,lc,la,db->ab",
+                                    upstream_rh,
+                                    glq_wts_real,
+                                    P_l_0_Dll,
+                                    P_l_0_costheta,
+                                    cos_0_phidb,
+                                    optimize="optimal")
+        # g = tf.clip_by_norm(
+        #     tf.concat((tf.reshape(g_lh, [-1]), tf.reshape(g_rh, [-1])),
+        #               axis=0), 100)
+        g = tf.concat((tf.reshape(g_lh, [-1]), tf.reshape(g_rh, [-1])), axis=0)
         return [
             g, glq_wts_grad, P_l_m_costheta_grad, Dll_grad, L_MAX_grad,
             N_LAT_grad, N_LON_grad, glq_wts_real_grad, P_l_1tom_Dll_grad,
