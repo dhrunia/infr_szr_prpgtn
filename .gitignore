@@ -1,13 +1,15 @@
 jureca/
 slurm_logs/
 ltxpng/
-data/**
+data
 results
+notebooks
 tmp/
 tvbpipeline/
 pipeline-master/
 datasets
 documents
+cuda_sdk_lib
 *~
 *.swp
 *.pyc
