@@ -8,6 +8,7 @@ import tensorflow_probability as tfp
 import lib.utils.sht as tfsht
 import lib.utils.projector
 import time
+from lib.plots.neuralfield import create_video
 # %%
 gpus = tf.config.list_physical_devices("GPU")
 for gpu in gpus:
@@ -67,19 +68,6 @@ tmp = rgn_map_reg.numpy()
 tmp[tmp > 81] = tmp[tmp > 81] - 9
 vrtx_roi_map = tf.constant(tmp, dtype=tf.int32)
 # SC = tf.random.normal((145, 145), mean=0, stddev=0.2)
-
-# jacobian = -1.0 * tf.einsum("a,lmc,lma,mdb->cdab",
-#                             tf.math.real(glq_wts),
-#                             P_l_m_Dll[:, 1:, :],
-#                             tf.math.real(P_l_m_costheta[:, 1:, :]),
-#                             cos_m_phidb[1:, :, :],
-#                             optimize="optimal") - tf.einsum(
-#                                 "a,lc,la,db->cdab",
-#                                 tf.math.real(glq_wts),
-#                                 P_l_m_Dll[:, 0, :],
-#                                 tf.math.real(P_l_m_costheta)[:, 0, :],
-#                                 cos_m_phidb[0, :, :],
-#                                 optimize="optimal")
 
 # %%
 
@@ -691,12 +679,14 @@ print(y_true, theta_grad)
 # ode_solver = "DormandPrince Integration"
 
 # %%
-plt.figure(figsize=(7, 5), dpi=150, constrained_layout=True)
-plt.subplot(211)
-plt.ylabel(r'$x$', fontsize=15)
-plt.plot(x_true[:, ez_hyp_vrtcs])
-plt.subplot(212)
-plt.plot(z_true[:, ez_hyp_vrtcs])
-plt.ylabel(r'$z$', fontsize=15)
-plt.suptitle(f"{ode_solver} - dt={time_step:.1f}")
-plt.show()
+# plt.figure(figsize=(7, 5), dpi=150, constrained_layout=True)
+# plt.subplot(211)
+# plt.ylabel(r'$x$', fontsize=15)
+# plt.plot(x_true[:, ez_hyp_vrtcs])
+# plt.subplot(212)
+# plt.plot(z_true[:, ez_hyp_vrtcs])
+# plt.ylabel(r'$z$', fontsize=15)
+# plt.suptitle(f"{ode_solver} - dt={time_step:.1f}")
+# plt.show()
+out_dir = 'tmp'
+create_video(x_true, N_LAT.numpy(), N_LON.numpy(), out_dir)
