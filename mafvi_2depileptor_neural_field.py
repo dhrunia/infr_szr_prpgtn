@@ -11,13 +11,18 @@ import lib.utils.projector
 import time
 import lib.utils.tnsrflw
 from lib.plots.neuralfield import create_video
+import os
 # %%
 gpus = tf.config.list_physical_devices("GPU")
 for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu, True)
 # tf.autograph.set_verbosity(10)
 # %%
-L_MAX = 16
+results_dir = 'exp33'
+os.makedirs(results_dir, exist_ok=True)
+figs_dir = f'{results_dir}/figures'
+os.makedirs(figs_dir, exist_ok=True)
+L_MAX = 32
 N_LAT = 129
 N_LON = 257
 N_LAT, N_LON, cos_theta, glq_wts, P_l_m_costheta = tfsht.prep(
@@ -45,6 +50,12 @@ unkown_roi_idcs = np.nonzero(rgn_map_reg == 0)[0]
 unkown_roi_mask = np.ones(nv)
 unkown_roi_mask[unkown_roi_idcs] = 0
 unkown_roi_mask = tf.constant(unkown_roi_mask, dtype=tf.float32)
+
+idcs_nbrs_irreg = lib.utils.projector.find_nbrs_irreg_sphere(
+    N_LAT=N_LAT.numpy(),
+    N_LON=N_LON.numpy(),
+    cos_theta=cos_theta,
+    verts_irreg_fname=verts_irreg_fname)
 
 # Constants cached for computing gradients of local coupling
 delta_phi = tf.constant(2.0 * np.pi / N_LON.numpy(), dtype=tf.float32)
@@ -323,7 +334,7 @@ tau_true = tf.constant(25, dtype=tf.float32, shape=())
 K_true = tf.constant(1.0, dtype=tf.float32, shape=())
 # x0_true = tf.constant(tvb_syn_data['x0'], dtype=tf.float32)
 x0_true = -3.0 * np.ones(2 * N_LAT * N_LON)
-ez_hyp_roi = [10, 15, 23]
+ez_hyp_roi = [116, 127, 151]
 ez_hyp_vrtcs = np.concatenate(
     [np.nonzero(roi == rgn_map_reg)[0] for roi in ez_hyp_roi])
 x0_true[ez_hyp_vrtcs] = -1.8
@@ -340,6 +351,14 @@ SC = SC[idcs1, idcs2]
 SC = SC / np.max(SC)
 SC[np.diag_indices_from(SC)] = 0.0
 SC = tf.constant(SC, dtype=tf.float32)
+gain_irreg = np.load(
+    'datasets/id004_bj_jd/tvb/gain_inv_square_ico7.npz')['gain_inv_square']
+# Remove subcortical vertices
+# NOTE: This won't be necessary once subcortical regions are
+# included in simulation
+num_verts_irreg = np.loadtxt(verts_irreg_fname).shape[0]
+gain_irreg = gain_irreg[:, 0:num_verts_irreg]
+gain_reg = tf.constant(gain_irreg[:, idcs_nbrs_irreg].T, dtype=tf.float32)
 # %%
 nsteps = tf.constant(300, dtype=tf.int32)
 sampling_period = tf.constant(0.1, dtype=tf.float32)
@@ -369,8 +388,17 @@ y_obs = run_sim(nsteps, nsubsteps, time_step, y_init_true, x0_true, tau_true,
                 unkown_roi_mask, rgn_map_reg_sorted, low_idcs, high_idcs,
                 vrtx_roi_map, glq_wts_real, P_l_1tom_Dll, P_l_1tom_costheta,
                 cos_1tom_phidb, P_l_0_Dll, P_l_0_costheta, cos_0_phidb)
+x_obs = y_obs[:, 0:nv] * unkown_roi_mask
+slp_obs = tf.math.log(tf.matmul(tf.math.exp(x_obs), gain_reg))
 
-
+# %%
+plt.figure(figsize=(7, 6), dpi=200)
+plt.imshow(tf.transpose(slp_obs), interpolation=None, aspect='auto', cmap='inferno')
+plt.xlabel('Time')
+plt.ylabel('Sensor')
+# plt.plot(slp_obs, color='black', alpha=0.3);
+plt.colorbar(fraction=0.02)
+plt.savefig(f'{figs_dir}/obs_slp.png')
 # %%
 L_MAX_params = tf.constant(10, dtype=tf.int32)
 _, _, cos_theta_params, glq_wts_params, P_l_m_costheta_params = tfsht.prep(
@@ -398,21 +426,9 @@ _, _, cos_theta_params, glq_wts_params, P_l_m_costheta_params = tfsht.prep(
 num_bijectors = 4
 nparams = 4 * ((L_MAX_params + 1)**2)
 num_hidden = 2 * nparams
-# act_fn = 'relu'
-# tf.random.set_seed(1234567)
-# permutation = tf.random.shuffle(tf.range(3*nn+2))
 
 bijectors = []
-# made = tfb.AutoregressiveNetwork(
-#     params=2,
-#     hidden_units=[num_hidden],
-#     kernel_initializer=tf.keras.initializers.VarianceScaling(0.1),
-#     validate_args=True)
-# maf = tfb.MaskedAutoregressiveFlow(shift_and_log_scale_fn=made,
-#                                    validate_args=True)
-# bijectors.append(maf)
-# bijectors.append(tfb.Permute(permutation=tf.random.shuffle(tf.range(nparams))))
-# bijectors.append(tfb.BatchNormalization())
+
 
 for i in range(num_bijectors - 1):
     made = tfb.AutoregressiveNetwork(
@@ -449,8 +465,11 @@ flow_dist = tfd.TransformedDistribution(distribution=base_dist,
 
 
 # %%
+x0_prior_mu = -3.0 * tf.ones(nv)
+
+
 @tf.function
-def log_prob(theta, y_obs):
+def log_prob(theta, slp_obs):
     nv = 2 * N_LAT * N_LON
     nmodes = tf.pow(L_MAX_params + 1, 2)
     eps = tf.constant(0.1, dtype=tf.float32)
@@ -486,16 +505,22 @@ def log_prob(theta, y_obs):
                               high_idcs, vrtx_roi_map, glq_wts_real,
                               P_l_1tom_Dll, P_l_1tom_costheta, cos_1tom_phidb,
                               P_l_0_Dll, P_l_0_costheta, cos_0_phidb)
-    x_mu = y_pred[:, 0:nv] * unkown_roi_mask
-    x_obs = y_obs[:, 0:nv] * unkown_roi_mask
-    tf.print("nan in x_mu", tf.reduce_any(tf.math.is_nan(x_mu)))
-    likelihood = tf.reduce_sum(tfd.Normal(loc=x_mu, scale=eps).log_prob(x_obs))
-    prior = tf.reduce_sum(tfd.Normal(loc=0.0, scale=5.0).log_prob(theta))
-    return likelihood + prior
+    x_pred = y_pred[:, 0:nv] * unkown_roi_mask
+    tf.print("nan in x_pred", tf.reduce_any(tf.math.is_nan(x_pred)))
+    slp_mu = tf.math.log(tf.matmul(tf.math.exp(x_pred), gain_reg))
+    # tf.print("Nan in x_mu", tf.reduce_any(tf.math.is_nan(x_mu)))
+    likelihood = tf.reduce_sum(
+        tfd.Normal(loc=slp_mu, scale=eps).log_prob(slp_obs))
+    # x0_prior = tf.reduce_sum(tfd.Normal(loc=0.0, scale=5.0).log_prob(theta))
+    x0_prior = tf.reduce_sum(
+        tfd.Normal(loc=x0_prior_mu, scale=0.5).log_prob(x0_trans))
+    lp = likelihood + x0_prior
+    tf.print("likelihood = ", lp, "prior = ", x0_prior)
+    return lp
 
 
 @tf.function
-def loss(y_obs):
+def loss(slp_obs):
     nsamples = 1
     posterior_samples = flow_dist.sample(nsamples)
     # tf.print(posterior_samples)
@@ -506,7 +531,7 @@ def loss(y_obs):
     loss_val = tf.constant(0.0, shape=(1,), dtype=tf.float32)
     for theta in posterior_samples:
         # tf.print("theta: ", theta, summarize=-1)
-        gm_log_prob = log_prob(theta, y_obs)
+        gm_log_prob = log_prob(theta, slp_obs)
         posterior_approx_log_prob = flow_dist.log_prob(theta[tf.newaxis, :])
         tf.print("gm_log_prob:", gm_log_prob, "\tposterior_approx_log_prob:",
                  posterior_approx_log_prob)
@@ -516,9 +541,9 @@ def loss(y_obs):
 
 
 @tf.function
-def get_loss_and_gradients(y_obs):
+def get_loss_and_gradients(slp_obs):
     with tf.GradientTape() as tape:
-        loss_val = loss(y_obs)
+        loss_val = loss(slp_obs)
         return loss_val, tape.gradient(loss_val,
                                        flow_dist.trainable_variables)
 
@@ -539,7 +564,7 @@ def train_loop(num_epochs):
     for epoch in range(num_epochs):
         print(f"Epoch {epoch}")
         # base_dist_samples = base_dist.sample(batch_size)
-        loss_value, grads = get_loss_and_gradients(y_obs)
+        loss_value, grads = get_loss_and_gradients(slp_obs)
         nan_in_grads = tf.reduce_any(
             [tf.reduce_any(tf.math.is_nan(el)) for el in grads])
         tf.print("nan in grads", nan_in_grads)
@@ -558,7 +583,7 @@ def train_loop(num_epochs):
 # base_dist_samples = tf.data.Dataset.from_tensor_slices(
 #     base_dist.sample((1))).batch(batch_size)
 # %%
-num_epochs = 300
+num_epochs = 200
 start_time = time.time()
 train_loop(num_epochs)
 print(f"Elapsed {time.time() - start_time} seconds for {num_epochs} Epochs")
@@ -633,7 +658,7 @@ print(lp)
 out_dir = 'tmp1'
 create_video(x_pred, N_LAT.numpy(), N_LON.numpy(), out_dir)
 # %%
-nsamples = 10
+nsamples = 100
 posterior_samples = flow_dist.sample(nsamples)
 x0_samples = tf.TensorArray(dtype=tf.float32,
                             size=nsamples,
@@ -660,67 +685,53 @@ for i, theta in enumerate(posterior_samples.numpy()):
         tf.constant(-1.0, dtype=tf.float32)) * unkown_roi_mask
     x0_samples = x0_samples.write(i, x0_trans_i)
 x0_samples = x0_samples.stack()
-x0_mean = tf.reduce_mean(x0_samples, axis=0)
+x0_mean = tf.reduce_mean(x0_samples, axis=0).numpy()
+x0_std = tf.math.reduce_std(x0_samples, axis=0).numpy()
+# %%
+
 y_ppc = run_sim(nsteps, nsubsteps, time_step, y_init_true, x0_mean, tau_true,
                 K_true, SC, glq_wts, P_l_m_costheta, Dll, L_MAX, N_LAT, N_LON,
                 unkown_roi_mask, rgn_map_reg_sorted, low_idcs, high_idcs,
                 vrtx_roi_map, glq_wts_real, P_l_1tom_Dll, P_l_1tom_costheta,
                 cos_1tom_phidb, P_l_0_Dll, P_l_0_costheta, cos_0_phidb)
-
-# nmodes = tf.pow(L_MAX_params + 1, 2)
-# x0_lh = tf.reshape(
-#     tfsht.synth(
-#         N_LON,
-#         tf.reshape(tf.complex(theta[0:nmodes], theta[nmodes:2 * nmodes]),
-#                    [L_MAX_params + 1, L_MAX_params + 1]), P_l_m_costheta_params),
-#     [-1])
-# x0_rh = tf.reshape(
-#     tfsht.synth(
-#         N_LON,
-#         tf.reshape(
-#             tf.complex(theta[2 * nmodes:3 * nmodes],
-#                        theta[3 * nmodes:4 * nmodes]),
-#             [L_MAX_params + 1, L_MAX_params + 1]), P_l_m_costheta_params), [-1])
-# x0 = tf.concat([x0_lh, x0_rh], axis=0)
-# x0_trans = lib.utils.tnsrflw.sigmoid_transform(
-#     x0, tf.constant(-5.0, dtype=tf.float32), tf.constant(
-#         5.0, dtype=tf.float32)) * unkown_roi_mask
-# tau = theta[4 * nmodes]
-# tau_trans = lib.utils.tnsrflw.sigmoid_transform(
-#     tau, tf.constant(15, dtype=tf.float32), tf.constant(100, dtype=tf.float32))
-# y_test = run_sim(nsteps, nsubsteps, time_step, y_init_true, x0_trans,
-#                  tau_trans, K_true, SC, glq_wts, P_l_m_costheta, Dll, L_MAX,
-#                  N_LAT, N_LON, unkown_roi_mask, rgn_map_reg_sorted, low_idcs,
-#                  high_idcs, vrtx_roi_map, glq_wts_real, P_l_1tom_Dll,
-#                  P_l_1tom_costheta, cos_1tom_phidb, P_l_0_Dll, P_l_0_costheta,
-#                  cos_0_phidb)
-
-
 x_ppc = y_ppc[:, :nv].numpy()
-out_dir = 'results/exp32/figures/infer'
+slp_ppc = tf.math.log(tf.matmul(tf.math.exp(x_ppc), gain_reg))
+out_dir = f'{figs_dir}/infer'
 create_video(x_ppc, N_LAT.numpy(), N_LON.numpy(), out_dir)
 
 # %%
 x_obs = y_obs[:, 0:nv]
-out_dir = 'results/exp32/figures/ground_truth'
+out_dir = f'{figs_dir}/ground_truth'
 create_video(x_obs, N_LAT.numpy(), N_LON.numpy(), out_dir)
 
 # %%
-out_dir = 'results/exp32/figures'
-fig_fname = 'x0_infer_vs_gt.png'
+plt.figure(figsize=(7, 6), dpi=200)
+plt.imshow(tf.transpose(slp_ppc),
+           interpolation=None,
+           aspect='auto',
+           cmap='inferno')
+plt.xlabel('Time')
+plt.ylabel('Sensor')
+# plt.plot(slp_obs, color='black', alpha=0.3);
+plt.colorbar(fraction=0.02)
+plt.savefig(f'{figs_dir}/slp_ppc.png')
+# %%
+fig_fname = 'x0_gt_vs_inferred_mean_and_std.png'
 fs_small = 5
 fs_med = 7
-x0 = x0_mean.numpy()
-x0[np.where(unkown_roi_mask == 0)[0]] = -3.0
+x0_mean[np.where(unkown_roi_mask == 0)[0]] = -3.0
+# x0_std[np.where(unkown_roi_mask == 0)[0]] = -3.0
 # x0_hat[np.where(unkown_roi_mask == 0)[0]] = -3.0
 plt.figure(dpi=200, figsize=(7, 4))
 x0_lh_gt = np.reshape(x0_true[0:nvph], (N_LAT, N_LON))
 x0_rh_gt = np.reshape(x0_true[nvph:], (N_LAT, N_LON))
-x0_lh_infr = np.reshape(x0[0:nvph], (N_LAT, N_LON))
-x0_rh_infr = np.reshape(x0[nvph:], (N_LAT, N_LON))
-clim_min = np.min([np.min(x0_true), np.min(x0)])
-clim_max = np.max([np.max(x0_true), np.max(x0)])
-plt.subplot(221)
+x0_mean_lh_infr = np.reshape(x0_mean[0:nvph], (N_LAT, N_LON))
+x0_mean_rh_infr = np.reshape(x0_mean[nvph:], (N_LAT, N_LON))
+x0_std_lh_infr = np.reshape(x0_std[0:nvph], (N_LAT, N_LON))
+x0_std_rh_infr = np.reshape(x0_std[nvph:], (N_LAT, N_LON))
+clim_min = np.min([np.min(x0_true), np.min(x0_mean)])
+clim_max = np.max([np.max(x0_true), np.max(x0_mean)])
+plt.subplot(321)
 plt.imshow(x0_lh_gt, interpolation=None)
 plt.clim(clim_min, clim_max)
 plt.title("Ground Truth - Left hemisphere", fontsize=fs_small)
@@ -729,7 +740,7 @@ plt.ylabel("Latitude", fontsize=fs_med)
 plt.xticks(fontsize=fs_med)
 plt.yticks(fontsize=fs_med)
 plt.colorbar(fraction=0.02)
-plt.subplot(222)
+plt.subplot(322)
 plt.imshow(x0_rh_gt, interpolation=None)
 plt.clim(clim_min, clim_max)
 plt.title("Ground Truh - Right hemisphere", fontsize=fs_small)
@@ -739,8 +750,8 @@ plt.xticks(fontsize=fs_med)
 plt.yticks(fontsize=fs_med)
 plt.colorbar(fraction=0.02)
 
-plt.subplot(223)
-plt.imshow(x0_lh_infr, interpolation=None)
+plt.subplot(323)
+plt.imshow(x0_mean_lh_infr, interpolation=None)
 plt.clim(clim_min, clim_max)
 plt.title("Inferred - Left hemisphere", fontsize=fs_small)
 plt.xlabel("Longitude", fontsize=fs_med)
@@ -748,8 +759,8 @@ plt.ylabel("Latitude", fontsize=fs_med)
 plt.xticks(fontsize=fs_med)
 plt.yticks(fontsize=fs_med)
 plt.colorbar(fraction=0.02)
-plt.subplot(224)
-plt.imshow(x0_rh_infr, interpolation=None)
+plt.subplot(324)
+plt.imshow(x0_mean_rh_infr, interpolation=None)
 plt.clim(clim_min, clim_max)
 plt.title("Inferred - Right hemisphere", fontsize=fs_small)
 plt.xlabel("Longitude", fontsize=fs_med)
@@ -758,4 +769,24 @@ plt.xticks(fontsize=fs_med)
 plt.yticks(fontsize=fs_med)
 plt.colorbar(fraction=0.02)
 plt.tight_layout()
-plt.savefig(f"{out_dir}/{fig_fname}", facecolor='white')
+
+plt.subplot(325)
+plt.imshow(x0_std_lh_infr, interpolation=None)
+# plt.clim(clim_min, clim_max)
+plt.title("Standard Deviation - Left hemisphere", fontsize=fs_small)
+plt.xlabel("Longitude", fontsize=fs_med)
+plt.ylabel("Latitude", fontsize=fs_med)
+plt.xticks(fontsize=fs_med)
+plt.yticks(fontsize=fs_med)
+plt.colorbar(fraction=0.02)
+plt.subplot(326)
+plt.imshow(x0_std_rh_infr, interpolation=None)
+# plt.clim(clim_min, clim_max)
+plt.title("Standard Deviation - Right hemisphere", fontsize=fs_small)
+plt.xlabel("Longitude", fontsize=fs_med)
+plt.ylabel("Latitude", fontsize=fs_med)
+plt.xticks(fontsize=fs_med)
+plt.yticks(fontsize=fs_med)
+plt.colorbar(fraction=0.02)
+plt.tight_layout()
+plt.savefig(f"{figs_dir}/{fig_fname}", facecolor='white')
