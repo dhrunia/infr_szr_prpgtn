@@ -3,8 +3,8 @@ import numpy as np
 import tensorflow as tf
 
 
-def find_rgn_map(N_LAT, N_LON, cos_theta, verts_irreg_fname,
-                 rgn_map_irreg_fname):
+def find_rgn_map_reg(N_LAT, N_LON, cos_theta, verts_irreg_fname,
+                     rgn_map_irreg_fname):
     theta = np.arccos(cos_theta)
     phi = np.arange(0, 2 * np.pi, 2 * np.pi / N_LON)
     theta_grid, phi_grid = np.meshgrid(theta, phi, indexing='ij')
