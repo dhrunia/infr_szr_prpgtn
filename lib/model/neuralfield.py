@@ -160,6 +160,7 @@ class Epileptor2D:
     def P_l_m_costheta_params(self):
         return self._P_l_m_costheta_params
 
+    @tf.function
     def x0_trans_to_vrtx_space(self, theta):
         x0_lh = tfsht.synth(
             self._L_MAX_PARAMS, self._N_LON,
@@ -174,6 +175,7 @@ class Epileptor2D:
         x0 = tf.concat([x0_lh, x0_rh], axis=0)
         return x0
 
+    @tf.function
     def x0_bounded_trnsform(self, x0):
         return lib.utils.tnsrflw.sigmoid_transform(x0, self._x0_lb,
                                                    self._x0_ub)
@@ -265,6 +267,7 @@ class Epileptor2D:
 
         return local_cplng, grad
 
+    @tf.function
     def _ode_fn(self, y, x0, tau, K):
         print("epileptor2d_nf_ode_fn()...")
         # nv = 2 * self._N_LAT * self._N_LON
@@ -302,6 +305,7 @@ class Epileptor2D:
                              gamma_lc * local_cplng)) * self._unkown_roi_mask
         return tf.concat((dx, dz), axis=0)
 
+    @tf.function
     def simulate(self, nsteps, nsubsteps, time_step, y_init, x0, tau, K):
         print("euler_integrator()...")
         y = tf.TensorArray(dtype=tf.float32, size=nsteps)
@@ -333,7 +337,7 @@ class Epileptor2D:
         slp = tf.math.log(tf.matmul(tf.math.exp(x), self.gain_reg))
         return slp
 
-    # @tf.function
+    @tf.function
     def log_prob(self, theta, slp_obs, nsteps, nsubsteps, time_step, y_init,
                  tau, K, x0_prior_mu):
         eps = tf.constant(0.1, dtype=tf.float32)

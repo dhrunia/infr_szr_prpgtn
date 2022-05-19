@@ -1,24 +1,25 @@
 # %%
 import numpy as np
 import tensorflow as tf
-import matplotlib.pyplot as plt
-import tensorflow_probability as tfp
-import lib.utils.sht as tfsht
-import lib.utils.projector
-import time
-import lib.utils.tnsrflw
-from lib.plots.neuralfield import create_video
-tfd = tfp.distributions
-tfb = tfp.bijectors
-# tf.config.set_visible_devices([], 'GPU')
-
-# %%
 gpus = tf.config.list_physical_devices("GPU")
 for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu, True)
-# tf.autograph.set_verbosity(10)
+# tf.config.set_visible_devices([], 'GPU')
+import matplotlib.pyplot as plt
+import tensorflow_probability as tfp
+import lib.utils.sht as tfsht
+import time
+import lib.utils.tnsrflw
+import lib.plots.neuralfield
+import os
+import lib.model.neuralfield
+
+tfd = tfp.distributions
+tfb = tfp.bijectors
+import os
+
 # %%
-results_dir = 'exp34'
+results_dir = 'tmp1'
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f'{results_dir}/figures'
 os.makedirs(figs_dir, exist_ok=True)
@@ -34,20 +35,18 @@ dyn_mdl = lib.model.neuralfield.Epileptor2D(
     L_MAX_PARAMS=10)
 
 # %%
-
-
 x_init_true = tf.constant(-2.0, dtype=tf.float32) * \
-    tf.ones(2*N_LAT*N_LON, dtype=tf.float32)
+    tf.ones(dyn_mdl.nv, dtype=tf.float32)
 z_init_true = tf.constant(5.0, dtype=tf.float32) * \
-    tf.ones(2*N_LAT*N_LON, dtype=tf.float32)
+    tf.ones(dyn_mdl.nv, dtype=tf.float32)
 y_init_true = tf.concat((x_init_true, z_init_true), axis=0)
 tau_true = tf.constant(25, dtype=tf.float32, shape=())
 K_true = tf.constant(1.0, dtype=tf.float32, shape=())
 # x0_true = tf.constant(tvb_syn_data['x0'], dtype=tf.float32)
-x0_true = -3.0 * np.ones(2 * N_LAT * N_LON)
+x0_true = -3.0 * np.ones(dyn_mdl.nv)
 ez_hyp_roi = [116, 127, 151]
 ez_hyp_vrtcs = np.concatenate(
-    [np.nonzero(roi == rgn_map_reg)[0] for roi in ez_hyp_roi])
+    [np.nonzero(roi == dyn_mdl.rgn_map_reg)[0] for roi in ez_hyp_roi])
 x0_true[ez_hyp_vrtcs] = -1.8
 x0_true = tf.constant(x0_true, dtype=tf.float32)
 # %%
@@ -70,14 +69,17 @@ x_obs = y_obs[:, 0:dyn_mdl.nv] * dyn_mdl.unkown_roi_mask
 slp_obs = dyn_mdl.project_sensor_space(x_obs)
 # %%
 plt.figure(figsize=(7, 6), dpi=200)
-plt.imshow(tf.transpose(slp_obs), interpolation=None, aspect='auto', cmap='inferno')
+plt.imshow(tf.transpose(slp_obs),
+           interpolation=None,
+           aspect='auto',
+           cmap='inferno')
 plt.xlabel('Time')
 plt.ylabel('Sensor')
 # plt.plot(slp_obs, color='black', alpha=0.3);
 plt.colorbar(fraction=0.02)
 plt.savefig(f'{figs_dir}/obs_slp.png')
 # %%
-nparams = 4 * ((dyn_mdl.L_MAX_params + 1)**2)
+nparams = 4 * ((dyn_mdl.L_MAX_PARAMS + 1)**2)
 loc = tf.Variable(initial_value=tf.zeros(nparams))
 log_scale_diag = tf.Variable(initial_value=-2.3 * tf.ones(nparams))
 # scale_diag = tf.exp(log_scale_diag)
@@ -120,10 +122,7 @@ def get_loss_and_gradients(y_obs):
 # %%
 initial_learning_rate = 1e-2
 lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-    initial_learning_rate,
-    decay_steps=200,
-    decay_rate=0.96,
-    staircase=True)
+    initial_learning_rate, decay_steps=200, decay_rate=0.96, staircase=True)
 optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
 
 
@@ -169,7 +168,6 @@ print(f"Elapsed {time.time() - start_time} seconds for {num_epochs} Epochs")
 # theta_true = tf.concat([
 #     x0_lm_lh_real, x0_lm_lh_imag, x0_lm_rh_real, x0_lm_rh_imag], axis=0)
 
-
 # @tf.function
 # def get_loss(theta, y_obs):
 #     eps = tf.constant(0.1, dtype=tf.float32)
@@ -189,7 +187,6 @@ print(f"Elapsed {time.time() - start_time} seconds for {num_epochs} Epochs")
 #     lp = likelihood + prior
 #     return x_mu, lp
 
-
 # x_pred, slp_pred, lp = get_loss(theta_true, slp_obs)
 # print(lp)
 # # out_dir = 'tmp1'
@@ -204,7 +201,7 @@ x0_samples = tf.TensorArray(dtype=tf.float32,
                             size=nsamples,
                             clear_after_read=False)
 for i, theta in enumerate(posterior_samples.numpy()):
-    x0_lm_i = theta[0:4*dyn_mdl.nmodes_params]
+    x0_lm_i = theta[0:4 * dyn_mdl.nmodes_params]
     x0_i = dyn_mdl.x0_trans_to_vrtx_space(x0_lm_i)
     x0_trans_i = dyn_mdl.x0_bounded_trnsform(x0_i) * dyn_mdl.unkown_roi_mask
     x0_samples = x0_samples.write(i, x0_trans_i)
