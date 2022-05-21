@@ -1,6 +1,7 @@
 # %%
 import numpy as np
 import tensorflow as tf
+
 gpus = tf.config.list_physical_devices("GPU")
 for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu, True)
@@ -14,6 +15,7 @@ import lib.utils.tnsrflw
 import lib.plots.neuralfield
 import os
 import lib.model.neuralfield
+
 tfd = tfp.distributions
 tfb = tfp.bijectors
 # %%
@@ -180,126 +182,25 @@ flow_dist = tfd.TransformedDistribution(distribution=base_dist,
                                         name='Variational_Posterior')
 
 # %%
+
 x0_prior_mu = -3.0 * tf.ones(dyn_mdl.nv)
-
-
-@tf.function
-def loss(slp_obs):
-    nsamples = 1
-    posterior_samples = flow_dist.sample(nsamples)
-    # tf.print(posterior_samples)
-    # tf.print(posterior_samples)
-    # nsamples = base_dist_samples.shape[0]
-    # loss_val = tf.reduce_sum(
-    #     flow_dist.log_prob(posterior_samples) / nsamples)
-    loss_val = tf.constant(0.0, shape=(1, ), dtype=tf.float32)
-    for theta in posterior_samples:
-        # tf.print("theta: ", theta, summarize=-1)
-        gm_log_prob = dyn_mdl.log_prob(theta, slp_obs, nsteps, nsubsteps,
-                                       time_step, y_init_true, tau_true,
-                                       K_true, x0_prior_mu)
-        posterior_approx_log_prob = flow_dist.log_prob(theta[tf.newaxis, :])
-        tf.print("gm_log_prob:", gm_log_prob, "\tposterior_approx_log_prob:",
-                 posterior_approx_log_prob)
-        loss_val += (posterior_approx_log_prob - gm_log_prob) / nsamples
-        # tf.print("loss_val: ", loss_val)
-    return loss_val
-
-
-@tf.function
-def get_loss_and_gradients(slp_obs):
-    with tf.GradientTape() as tape:
-        loss_val = loss(slp_obs)
-        return loss_val, tape.gradient(loss_val, flow_dist.trainable_variables)
-
-
+dyn_mdl.setup_inference(slp_obs=slp_obs,
+                        nsteps=nsteps,
+                        nsubsteps=nsubsteps,
+                        time_step=time_step,
+                        y_init=y_init_true,
+                        tau=tau_true,
+                        K=K_true,
+                        x0_prior_mu=x0_prior_mu)
 # %%
-# initial_learning_rate = 1e-3
-# lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-#     initial_learning_rate,
-#     decay_steps=100,
-#     decay_rate=0.96,
-#     staircase=True)
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
-
-
-# %%
-# @tf.function
-def train_loop(num_epochs):
-    for epoch in range(num_epochs):
-        print(f"Epoch {epoch}")
-        # base_dist_samples = base_dist.sample(batch_size)
-        loss_value, grads = get_loss_and_gradients(slp_obs)
-        nan_in_grads = tf.reduce_any(
-            [tf.reduce_any(tf.math.is_nan(el)) for el in grads])
-        tf.print("nan in grads", nan_in_grads)
-        # grads = [tf.divide(el, batch_size) for el in grads]
-        grads = [tf.clip_by_norm(el, 1000) for el in grads]
-        # tf.print("gradient norm = ", [tf.norm(el) for el in grads], \
-        # output_stream="file://debug.log")
-        tf.print("Epoch ", epoch, "loss: ", loss_value)
-        # training_loss.append(loss_value)
-        optimizer.apply_gradients(zip(grads, flow_dist.trainable_variables))
-
-
-# %%
-
-# batch_size = 1
-# base_dist_samples = tf.data.Dataset.from_tensor_slices(
-#     base_dist.sample((1))).batch(batch_size)
-# %%
-num_epochs = 500
 start_time = time.time()
-train_loop(num_epochs)
-print(f"Elapsed {time.time() - start_time} seconds for {num_epochs} Epochs")
-# %%
-# x0_lh = lib.utils.tnsrflw.inv_sigmoid_transform(x0_true[0:dyn_mdl.nvph],
-#                                                 dyn_mdl.x0_lb, dyn_mdl.x0_ub)
-# x0_rh = lib.utils.tnsrflw.inv_sigmoid_transform(x0_true[dyn_mdl.nvph:],
-#                                                 dyn_mdl.x0_lb, dyn_mdl.x0_ub)
-# x0_lm_lh = tfsht.analys(dyn_mdl.L_MAX_PARAMS, dyn_mdl.N_LAT, dyn_mdl.N_LON,
-#                         x0_lh, dyn_mdl.glq_wts_params,
-#                         dyn_mdl.P_l_m_costheta_params)
-# x0_lm_rh = tfsht.analys(dyn_mdl.L_MAX_PARAMS, dyn_mdl.N_LAT, dyn_mdl.N_LON,
-#                         x0_rh, dyn_mdl.glq_wts_params,
-#                         dyn_mdl.P_l_m_costheta_params)
-# x0_lm_lh_real = tf.reshape(tf.math.real(x0_lm_lh), [-1])
-# x0_lm_rh_real = tf.reshape(tf.math.real(x0_lm_rh), [-1])
-# x0_lm_lh_imag = tf.reshape(tf.math.imag(x0_lm_lh), [-1])
-# x0_lm_rh_imag = tf.reshape(tf.math.imag(x0_lm_rh), [-1])
-
-# # tau = lib.utils.tnsrflw.inv_sigmoid_transform(
-# #     tau_true, tf.constant(15, dtype=tf.float32),
-# #     tf.constant(100, dtype=tf.float32))
-
-# theta_true = tf.concat(
-#     [x0_lm_lh_real, x0_lm_lh_imag, x0_lm_rh_real, x0_lm_rh_imag], axis=0)
-
-
-# @tf.function
-# def get_loss(theta, y_obs):
-#     eps = tf.constant(0.1, dtype=tf.float32)
-#     x0_lm = theta[0:dyn_mdl.nmodes_params]
-#     x0 = dyn_mdl.x0_trans_to_vrtx_space(x0_lm)
-#     x0_trans = dyn_mdl.x0_bounded_trnsform(x0) * dyn_mdl.unkown_roi_mask
-#     # tau = theta[4 * nmodes]
-#     # tau_trans = lib.utils.tnsrflw.sigmoid_transform(
-#     #     tau, tf.constant(15, dtype=tf.float32),
-#     #     tf.constant(100, dtype=tf.float32))
-#     y_pred = dyn_mdl.simulate(nsteps, nsubsteps, time_step, y_init_true,
-#                               x0_trans, tau_true, K_true)
-#     x_mu = y_pred[:, 0:dyn_mdl.nv] * dyn_mdl.unkown_roi_mask
-#     x_obs = y_obs[:, 0:dyn_mdl.nv] * dyn_mdl.unkown_roi_mask
-#     likelihood = tf.reduce_sum(tfd.Normal(loc=x_mu, scale=eps).log_prob(x_obs))
-#     prior = tf.reduce_sum(tfd.Normal(loc=0.0, scale=5.0).log_prob(theta))
-#     lp = likelihood + prior
-#     return x_mu, lp
-
-
-# x_pred, lp = get_loss(theta_true, y_obs)
-# print(lp)
-# out_dir = 'tmp1'
-# create_video(x_pred, dyn_mdl.N_LAT.numpy(), dyn_mdl.N_LON.numpy(), out_dir)
+niters = 1000
+losses = tfp.vi.fit_surrogate_posterior(
+    target_log_prob_fn=dyn_mdl.log_prob,
+    surrogate_posterior=flow_dist,
+    optimizer=tf.keras.optimizers.Adam(learning_rate=1e-6),
+    num_steps=niters)
+print(f"Elapsed {time.time() - start_time} seconds for {niters} iterations")
 # %%
 nsamples = 100
 posterior_samples = flow_dist.sample(nsamples)
@@ -307,7 +208,7 @@ x0_samples = tf.TensorArray(dtype=tf.float32,
                             size=nsamples,
                             clear_after_read=False)
 for i, theta in enumerate(posterior_samples.numpy()):
-    x0_lm_i = theta[0:4*dyn_mdl.nmodes_params]
+    x0_lm_i = theta[0:4 * dyn_mdl.nmodes_params]
     x0_i = dyn_mdl.x0_trans_to_vrtx_space(x0_lm_i)
     x0_trans_i = dyn_mdl.x0_bounded_trnsform(x0_i) * dyn_mdl.unkown_roi_mask
     x0_samples = x0_samples.write(i, x0_trans_i)
