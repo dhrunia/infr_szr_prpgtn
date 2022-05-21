@@ -30,9 +30,9 @@ class Epileptor2D:
         self._Dll = tf.cast(Dll, dtype=tf.complex64)
 
         self._nv = tf.constant(2 * self._N_LAT * self._N_LON,
-                              dtype=tf.int32)  # Total no. of vertices
+                               dtype=tf.int32)  # Total no. of vertices
         self._nvph = tf.math.floordiv(self._nv,
-                                     2)  # No.of vertices per hemisphere
+                                      2)  # No.of vertices per hemisphere
 
         self._rgn_map_reg = lib.utils.projector.find_rgn_map_reg(
             N_LAT=self._N_LAT.numpy(),
@@ -337,36 +337,65 @@ class Epileptor2D:
         slp = tf.math.log(tf.matmul(tf.math.exp(x), self.gain_reg))
         return slp
 
+    def setup_inference(self, slp_obs, nsteps, nsubsteps, time_step, y_init,
+                        tau, K, x0_prior_mu):
+        self._slp_obs = slp_obs
+        self._nsteps = nsteps
+        self._nsubsteps = nsubsteps
+        self._time_step = time_step
+        self._y_init = y_init
+        self._tau = tau
+        self._K = K
+        self._x0_prior_mu = x0_prior_mu
+
     @tf.function
-    def log_prob(self, theta, slp_obs, nsteps, nsubsteps, time_step, y_init,
-                 tau, K, x0_prior_mu):
-        eps = tf.constant(0.1, dtype=tf.float32)
-        tf.print("nan in theta", tf.reduce_any(tf.math.is_nan(theta)))
-        x0 = self.x0_trans_to_vrtx_space(theta[0:4 * self._nmodes_params])
-        tf.print("nan in x0", tf.reduce_any(tf.math.is_nan(x0)))
-        x0_trans = self.x0_bounded_trnsform(x0) * self._unkown_roi_mask
-        # x0_trans_log_det_jcbn = tf.reduce_sum(
-        #     tf.math.log(
-        #         tf.math.abs(
-        #             (x0_trans - x0_lb) * (1 - (x0_trans - x0_lb) /
-        #                                   (x0_ub - x0_lb))) * unkown_roi_mask))
-        tf.print("nan in x0_trans", tf.reduce_any(tf.math.is_nan(x0_trans)))
-        # tau = theta[4 * nmodes]
-        # tau_trans = lib.utils.tnsrflw.sigmoid_transform(
-        #     tau, tf.constant(15, dtype=tf.float32),
-        #     tf.constant(100, dtype=tf.float32))
-        y_pred = self.simulate(nsteps, nsubsteps, time_step, y_init, x0_trans,
-                               tau, K)
-        x_pred = y_pred[:, 0:self._nv] * self._unkown_roi_mask
-        tf.print("nan in x_pred", tf.reduce_any(tf.math.is_nan(x_pred)))
-        # slp_mu = tf.math.log(tf.matmul(tf.math.exp(x_pred), self.gain_reg))
-        slp_mu = self.project_sensor_space(x_pred)
-        # tf.print("Nan in x_mu", tf.reduce_any(tf.math.is_nan(x_mu)))
-        likelihood = tf.reduce_sum(
-            tfd.Normal(loc=slp_mu, scale=eps).log_prob(slp_obs))
-        # x0_prior = tf.reduce_sum(tfd.Normal(loc=0.0, scale=5.0).log_prob(theta))
-        x0_prior = tf.reduce_sum(
-            tfd.Normal(loc=x0_prior_mu, scale=0.5).log_prob(x0_trans))
-        lp = likelihood + x0_prior
-        tf.print("likelihood = ", lp, "prior = ", x0_prior)
-        return lp
+    def log_prob(self, theta):
+        nsamples = theta.shape[0]
+        lp = tf.TensorArray(dtype=tf.float32, size=nsamples)
+        i = tf.constant(0)
+
+        def cond(i, lp):
+            return tf.less(i, nsamples)
+
+        def body(i, lp):
+            eps = tf.constant(0.1, dtype=tf.float32)
+            # tf.print("nan in theta", tf.reduce_any(tf.math.is_nan(theta)))
+            x0 = self.x0_trans_to_vrtx_space(theta[i,
+                                                   0:4 * self._nmodes_params])
+            # tf.print("nan in x0", tf.reduce_any(tf.math.is_nan(x0)))
+            x0_trans = self.x0_bounded_trnsform(x0) * self._unkown_roi_mask
+            # x0_trans_log_det_jcbn = tf.reduce_sum(
+            #     tf.math.log(
+            #         tf.math.abs(
+            #             (x0_trans - x0_lb) * (1 - (x0_trans - x0_lb) /
+            #                                   (x0_ub - x0_lb))) * unkown_roi_mask))
+            # tf.print("nan in x0_trans",
+            #          tf.reduce_any(tf.math.is_nan(x0_trans)))
+            # tau = theta[4 * nmodes]
+            # tau_trans = lib.utils.tnsrflw.sigmoid_transform(
+            #     tau, tf.constant(15, dtype=tf.float32),
+            #     tf.constant(100, dtype=tf.float32))
+            y_pred = self.simulate(self._nsteps, self._nsubsteps,
+                                   self._time_step, self._y_init, x0_trans,
+                                   self._tau, self._K)
+            x_pred = y_pred[:, 0:self._nv] * self._unkown_roi_mask
+            # tf.print("nan in x_pred", tf.reduce_any(tf.math.is_nan(x_pred)))
+            # slp_mu = tf.math.log(tf.matmul(tf.math.exp(x_pred), self.gain_reg))
+            slp_mu = self.project_sensor_space(x_pred)
+            # tf.print("Nan in x_mu", tf.reduce_any(tf.math.is_nan(x_mu)))
+            likelihood = tf.reduce_sum(
+                tfd.Normal(loc=slp_mu, scale=eps).log_prob(self._slp_obs))
+            # x0_prior = tf.reduce_sum(tfd.Normal(loc=0.0, scale=5.0).log_prob(theta))
+            x0_prior = tf.reduce_sum(
+                tfd.Normal(loc=self._x0_prior_mu,
+                           scale=1.0).log_prob(x0_trans))
+            lp_i = likelihood + x0_prior
+            tf.print("likelihood = ", lp_i, "prior = ", x0_prior)
+            lp = lp.write(i, lp_i)
+            return i + 1, lp
+
+        i, lp = tf.while_loop(cond=cond,
+                              body=body,
+                              loop_vars=(i, lp),
+                              parallel_iterations=10)
+        return lp.stack()
