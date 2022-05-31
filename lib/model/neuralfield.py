@@ -100,8 +100,8 @@ class Epileptor2D:
         # included in simulation
         num_verts_irreg = np.loadtxt(verts_irreg_fname).shape[0]
         gain_irreg = gain_irreg[:, 0:num_verts_irreg]
-        self.gain_reg = tf.constant(gain_irreg[:, self._idcs_nbrs_irreg].T,
-                                    dtype=tf.float32)
+        self._gain_reg = tf.constant(gain_irreg[:, self._idcs_nbrs_irreg].T,
+                                     dtype=tf.float32)
         self._L_MAX_PARAMS = L_MAX_PARAMS
         _, _, self._cos_theta_params, self._glq_wts_params, self._P_l_m_costheta_params = tfsht.prep(
             self._L_MAX_PARAMS, self._N_LAT, self._N_LON)
@@ -334,8 +334,9 @@ class Epileptor2D:
                                      maximum_iterations=nsteps)
         return y.stack()
 
+    @tf.function
     def project_sensor_space(self, x):
-        slp = tf.math.log(tf.matmul(tf.math.exp(x), self.gain_reg))
+        slp = tf.math.log(tf.matmul(tf.math.exp(x), self._gain_reg))
         return slp
 
     def setup_inference(self, slp_obs, nsteps, nsubsteps, time_step, y_init,
