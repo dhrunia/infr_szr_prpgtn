@@ -62,8 +62,9 @@ class Epileptor2D:
         self._P_l_m_Dll = delta_phi * tf.math.real(
             self._Dll)[:, :, tf.newaxis] * tf.math.real(self._P_l_m_costheta)
 
+        self._rgn_map_reg_argsort = tf.argsort(self._rgn_map_reg)
         self._rgn_map_reg_sorted = tf.gather(self._rgn_map_reg,
-                                             tf.argsort(self._rgn_map_reg))
+                                             self._rgn_map_reg_argsort)
         self._low_idcs = []
         self._high_idcs = []
         for roi in tf.unique(self._rgn_map_reg_sorted)[0]:
@@ -290,7 +291,7 @@ class Epileptor2D:
             self._P_l_m_Dll,
             self._cos_m_phidb,
         )
-        x_sorted = tf.gather(x, self._rgn_map_reg_sorted)
+        x_sorted = tf.gather(x, self._rgn_map_reg_argsort)
         x_roi = tfp.stats.windowed_mean(x_sorted, self._low_idcs,
                                         self._high_idcs)
         # tf.print(x_hat_roi.shape)
