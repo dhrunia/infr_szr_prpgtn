@@ -1,6 +1,7 @@
 # %%
 import numpy as np
 import tensorflow as tf
+
 gpus = tf.config.list_physical_devices("GPU")
 for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu, True)
@@ -19,7 +20,7 @@ tfb = tfp.bijectors
 import os
 
 # %%
-results_dir = 'tmp1'
+results_dir = 'tmp'
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f'{results_dir}/figures'
 os.makedirs(figs_dir, exist_ok=True)
@@ -87,63 +88,111 @@ log_scale_diag = tf.Variable(initial_value=-2.3 * tf.ones(nparams))
 #     loc=loc, scale_diag=scale_diag, name="variational_posterior")
 
 # %%
-x0_prior_mu = -3.0 * tf.ones(dyn_mdl.nv)
 
-
-@tf.function
-def loss(y_obs):
-    scale_diag = tf.exp(log_scale_diag)
-    # scale_diag = 0.1 * tf.ones(nparams)
-    nsamples = 1
-    posterior_samples = tfd.MultivariateNormalDiag(
-        loc=loc, scale_diag=scale_diag).sample(nsamples)
-    loss_val = tf.constant(0.0, shape=(1, ), dtype=tf.float32)
-    for theta in posterior_samples:
-        # tf.print("theta: ", theta, summarize=-1)
-        gm_log_prob = dyn_mdl.log_prob(theta, slp_obs, nsteps, nsubsteps,
-                                       time_step, y_init_true, tau_true,
-                                       K_true, x0_prior_mu)
-        posterior_approx_log_prob = tfd.MultivariateNormalDiag(
-            loc=loc, scale_diag=scale_diag).log_prob(theta[tf.newaxis, :])
-        tf.print("gm_log_prob:", gm_log_prob, "\tposterior_approx_log_prob:",
-                 posterior_approx_log_prob)
-        loss_val += (posterior_approx_log_prob - gm_log_prob) / nsamples
-        # tf.print("loss_val: ", loss_val)
-    return loss_val
-
-
-@tf.function
-def get_loss_and_gradients(y_obs):
-    with tf.GradientTape() as tape:
-        loss_val = loss(y_obs)
-        return loss_val, tape.gradient(loss_val, [loc, log_scale_diag])
-
-
-# %%
-initial_learning_rate = 1e-2
-lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-    initial_learning_rate, decay_steps=200, decay_rate=0.96, staircase=True)
-optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
-
-
-# %%
 # @tf.function
-def train_loop(num_epochs):
-    for epoch in range(num_epochs):
-        loss_value, grads = get_loss_and_gradients(slp_obs)
+# def loss():
+#     scale_diag = tf.exp(log_scale_diag)
+#     # scale_diag = 0.1 * tf.ones(nparams)
+#     nsamples = 1
+#     posterior_samples = tfd.MultivariateNormalDiag(
+#         loc=loc, scale_diag=scale_diag).sample(nsamples)
+#     loss_val = tf.constant(0.0, shape=(1, ), dtype=tf.float32)
+#     for theta in posterior_samples:
+#         # tf.print("theta: ", theta, summarize=-1)
+#         gm_log_prob = dyn_mdl.log_prob(theta, slp_obs, nsteps, nsubsteps,
+#                                        time_step, y_init_true, tau_true,
+#                                        K_true, x0_prior_mu)
+#         posterior_approx_log_prob = tfd.MultivariateNormalDiag(
+#             loc=loc, scale_diag=scale_diag).log_prob(theta[tf.newaxis, :])
+#         tf.print("gm_log_prob:", gm_log_prob, "\tposterior_approx_log_prob:",
+#                  posterior_approx_log_prob)
+#         loss_val += (posterior_approx_log_prob - gm_log_prob) / nsamples
+#         # tf.print("loss_val: ", loss_val)
+#     return loss_val
+
+
+@tf.function
+def get_loss_and_gradients(nsamples):
+    loss = tf.constant(0, dtype=tf.float32, shape=(1, 1))
+    loc_grad = tf.zeros_like(loc)
+    log_scale_diag_grad = tf.zeros_like(log_scale_diag)
+    i = tf.constant(0, dtype=tf.uint32)
+
+    def cond(i, loc_grad, log_scale_diag_grad, loss):
+        return tf.less(i, nsamples)
+
+    def body(i, loc_grad, log_scale_diag_grad, loss):
+        with tf.GradientTape() as tape:
+            scale_diag = tf.exp(log_scale_diag)
+            theta = tfd.MultivariateNormalDiag(loc=loc,
+                                               scale_diag=scale_diag).sample(1)
+            # loss_val = tf.constant(0.0, shape=(1, ), dtype=tf.float32)
+            gm_log_prob = tf.reduce_sum(dyn_mdl.log_prob(theta))
+            posterior_approx_log_prob = tfd.MultivariateNormalDiag(
+                loc=loc, scale_diag=scale_diag).log_prob(theta)
+            tf.print("\tgm_log_prob:", gm_log_prob,
+                     "\tposterior_approx_log_prob:", posterior_approx_log_prob)
+            loss_i = posterior_approx_log_prob - gm_log_prob
+        grads = tape.gradient(loss_i, [loc, log_scale_diag])
+        loc_grad += grads[0] / tf.cast(nsamples, dtype=tf.float32)
+        log_scale_diag_grad += grads[1] / tf.cast(nsamples, dtype=tf.float32)
+        loss += loss_i / tf.cast(nsamples, dtype=tf.float32)
+        return i + 1, loc_grad, log_scale_diag_grad, loss
+
+    i, loc_grad, log_scale_diag_grad, loss = tf.while_loop(
+        cond=cond,
+        body=body,
+        loop_vars=(i, loc_grad, log_scale_diag_grad, loss),
+        parallel_iterations=1)
+    return loss, [loc_grad, log_scale_diag_grad]
+
+
+# %%
+@tf.function
+def train_loop(num_epochs, nsamples):
+    def cond(i):
+        return tf.less(i, num_epochs)
+
+    def body(i):
+        loss_value, grads = get_loss_and_gradients(nsamples)
         # grads = [tf.divide(el, batch_size) for el in grads]
         # grads = [tf.clip_by_norm(el, 1000) for el in grads]
         # tf.print("gradient norm = ", [tf.norm(el) for el in grads], \
         # output_stream="file://debug.log")
-        tf.print("Epoch ", epoch, "loss: ", loss_value)
+        tf.print("Epoch ", i, "loss: ", loss_value)
         # training_loss.append(loss_value)
         optimizer.apply_gradients(zip(grads, [loc, log_scale_diag]))
+        return i + 1
+
+    i = tf.constant(0, dtype=tf.uint32)
+    i = tf.while_loop(cond=cond,
+                      body=body,
+                      loop_vars=(i, ),
+                      parallel_iterations=1)
 
 
 # %%
-num_epochs = 2000
+x0_prior_mu = -3.0 * tf.ones(dyn_mdl.nv)
+dyn_mdl.setup_inference(slp_obs=slp_obs,
+                        nsteps=nsteps,
+                        nsubsteps=nsubsteps,
+                        time_step=time_step,
+                        y_init=y_init_true,
+                        tau=tau_true,
+                        K=K_true,
+                        x0_prior_mu=x0_prior_mu)
+# %%
+# initial_learning_rate = 1e-2
+# lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+#     initial_learning_rate, decay_steps=200, decay_rate=0.96, staircase=True)
+# optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2)
+# %%
+num_epochs = tf.constant(50, dtype=tf.uint32)
+nsamples = tf.constant(5, dtype=tf.uint32)
+# %%
 start_time = time.time()
-train_loop(num_epochs)
+train_loop(num_epochs, nsamples)
 print(f"Elapsed {time.time() - start_time} seconds for {num_epochs} Epochs")
 # %%
 # x0_lh = lib.utils.tnsrflw.inv_sigmoid_transform(x0_true[0:dyn_mdl.nvph],
