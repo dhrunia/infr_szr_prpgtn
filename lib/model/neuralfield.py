@@ -161,6 +161,18 @@ class Epileptor2D:
     def P_l_m_costheta_params(self):
         return self._P_l_m_costheta_params
 
+    @property
+    def SC(self):
+        return self._SC
+
+    @SC.setter
+    def SC(self, conn):
+        self._SC = conn
+
+    @property
+    def gain(self):
+        return self._gain_reg
+
     @tf.function
     def x0_trans_to_vrtx_space(self, theta):
         x0_lh = tfsht.synth(
