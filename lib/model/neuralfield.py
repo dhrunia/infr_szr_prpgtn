@@ -28,11 +28,14 @@ class Epileptor2D:
         Dll = tf.reshape(tf.repeat(Dll, self._L_MAX + 1),
                          (self._L_MAX + 1, self._L_MAX + 1))
         self._Dll = tf.cast(Dll, dtype=tf.complex64)
-
-        self._nv = tf.constant(2 * self._N_LAT * self._N_LON,
-                               dtype=tf.int32)  # Total no. of vertices
-        self._nvph = tf.math.floordiv(self._nv,
-                                      2)  # No.of vertices per hemisphere
+        # Total number of vertices
+        self._nv = tf.constant(2 * self._N_LAT * self._N_LON, dtype=tf.int32)
+        # Number of vertices per hemisphere
+        self._nvph = tf.math.floordiv(self._nv, 2)
+        # Total number of subcortical regions
+        self._ns = tf.constant(18, dtype=tf.int32)
+        # Number of subcortical regions per hemisphere
+        self._nsph = tf.math.floordiv(self._ns, 2)
 
         self._rgn_map_reg = lib.utils.projector.find_rgn_map_reg(
             N_LAT=self._N_LAT.numpy(),
@@ -43,6 +46,9 @@ class Epileptor2D:
         self._unkown_roi_idcs = np.nonzero(self._rgn_map_reg == 0)[0]
         unkown_roi_mask = np.ones(self._nv)
         unkown_roi_mask[self._unkown_roi_idcs] = 0
+        # Append 1s to account for subcoritial rois
+        unkown_roi_mask = np.concatenate((unkown_roi_mask, np.ones(self._ns)),
+                                         axis=0)
         self._unkown_roi_mask = tf.constant(unkown_roi_mask, dtype=tf.float32)
 
         self._idcs_nbrs_irreg = lib.utils.projector.find_nbrs_irreg_sphere(
@@ -75,25 +81,35 @@ class Epileptor2D:
                                    1 if roi_idcs.ndim > 0 else roi_idcs + 1)
 
         # Compute a region mapping such that all cortical rois are contiguous
-        # NOTE: This shouldn't be necessary once subcortical regions are also
-        # included in the simulation
+        # and all subcortical rois are contiguous
+        print("Assuming there are 9 subcortical and 72 cortical roi per " +
+              "hemisphere and 1 unkown roi")
         tmp = self._rgn_map_reg.numpy()
         tmp[tmp > 81] = tmp[tmp > 81] - 9
+        tmp = np.concatenate((tmp, np.arange(145, 145 + 18)), axis=0)
         self._vrtx_roi_map = tf.constant(tmp, dtype=tf.int32)
 
         SC = np.loadtxt(SC_path)
 
-        # remove subcortical regions
-        # NOTE: not required once subcortical regions are included
-        # in simulation
-        idcs1, idcs2 = np.meshgrid(np.unique(self._rgn_map_reg),
-                                   np.unique(self._rgn_map_reg),
+        # Re order the SC such that all cortical rois are continguous
+        # and all subcortical rois are contiguous
+        print("Assuming zero based indices of subcortical roi in the " +
+              "provided SC to be [73:81] for left hemisphere " +
+              "and [154:162] for right hemisphere")
+        idcs_subcrtx_roi = np.concatenate(
+            (np.arange(73, 73 + 9), np.arange(154, 154 + 9)))
+        idcs1, idcs2 = np.meshgrid(np.concatenate(
+            (np.unique(self._rgn_map_reg), idcs_subcrtx_roi)),
+                                   np.concatenate(
+                                       (np.unique(self._rgn_map_reg),
+                                        idcs_subcrtx_roi)),
                                    indexing='ij')
         SC = SC[idcs1, idcs2]
 
         SC = SC / np.max(SC)
         SC[np.diag_indices_from(SC)] = 0.0
         self._SC = tf.constant(SC, dtype=tf.float32)
+        self._nroi = SC.shape[0]
         gain_irreg = np.load(gain_irreg_path)['gain_inv_square']
         # Remove subcortical vertices
         # NOTE: This won't be necessary once subcortical regions are
@@ -128,6 +144,14 @@ class Epileptor2D:
     @property
     def nvph(self):
         return self._nvph
+
+    @property
+    def ns(self):
+        return self._ns
+
+    @property
+    def nsph(self):
+        return self._nsph
 
     @property
     def rgn_map_reg(self):
@@ -192,6 +216,15 @@ class Epileptor2D:
     def x0_bounded_trnsform(self, x0):
         return lib.utils.tnsrflw.sigmoid_transform(x0, self._x0_lb,
                                                    self._x0_ub)
+
+    @tf.function
+    def _roi_mean(self, x):
+        x_roi = tf.TensorArray(size=self._nroi, dtype=tf.float32)
+        i = 0
+        for l_idx, h_idx in zip(self._low_idcs, self._high_idcs):
+            x_roi = x_roi.write(i, tf.reduce_mean(x[l_idx:h_idx]))
+            i += 1
+        return x_roi
 
     @tf.custom_gradient
     def _local_coupling(
@@ -283,17 +316,19 @@ class Epileptor2D:
     @tf.function
     def _ode_fn(self, y, x0, tau, K):
         print("epileptor2d_nf_ode_fn()...")
-        # nv = 2 * self._N_LAT * self._N_LON
-        x = y[0:self._nv]
-        z = y[self._nv:2 * self._nv]
+        x = y[0:self._nv + self._ns]
+        # x_subcort = y[self._nv:self._nv + self._ns]
+        z = y[self._nv + self._ns:2 * (self._nv + self._ns)]
+
         I1 = tf.constant(4.1, dtype=tf.float32)
         # NOTE: alpha > 7.0 is causing DormandPrince integrator to diverge
         alpha = tf.constant(1.0, dtype=tf.float32)
         theta = tf.constant(-1.0, dtype=tf.float32)
-        gamma_lc = tf.constant(5.0, dtype=tf.float32)
-        x_hat = tf.math.sigmoid(alpha * (x - theta)) * self._unkown_roi_mask
+        gamma_lc = tf.constant(2.0, dtype=tf.float32)
+        x_crtx_hat = tf.math.sigmoid(
+            alpha * (x[0:self._nv] - theta)) * self._unkown_roi_mask
         local_cplng = self._local_coupling(
-            x_hat,
+            x_crtx_hat,
             self._glq_wts,
             self._P_l_m_costheta,
             self._Dll,
@@ -303,11 +338,9 @@ class Epileptor2D:
             self._P_l_m_Dll,
             self._cos_m_phidb,
         )
-        x_sorted = tf.gather(x, self._rgn_map_reg_argsort)
-        x_roi = tfp.stats.windowed_mean(x_sorted, self._low_idcs,
-                                        self._high_idcs)
-        # tf.print(x_hat_roi.shape)
-        # tf.print("tau = ", tau)
+        x_crtx_sorted = tf.gather(x[0:self._nv], self._rgn_map_reg_argsort)
+        x_crtx_roi = self._roi_mean(x_crtx_sorted)
+        x_roi = tf.concat([x_crtx_roi, x[self._nv:self._nv + self._ns]])
         global_cplng_roi = tf.reduce_sum(
             K * self._SC * (x_roi[tf.newaxis, :] - x_roi[:, tf.newaxis]),
             axis=1)
@@ -402,7 +435,7 @@ class Epileptor2D:
             # x0_prior = tf.reduce_sum(tfd.Normal(loc=0.0, scale=5.0).log_prob(theta))
             x0_prior = tf.reduce_sum(
                 tfd.Normal(loc=self._x0_prior_mu,
-                           scale=1.0).log_prob(x0_trans))
+                           scale=0.5).log_prob(x0_trans))
             lp_i = likelihood + x0_prior
             # tf.print("likelihood = ", likelihood, "prior = ", x0_prior)
             lp = lp.write(i, lp_i)
