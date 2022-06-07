@@ -25,10 +25,10 @@ def find_rgn_map_reg(N_LAT, N_LON, cos_theta, verts_irreg_fname,
     kdtree = scipy.spatial.KDTree(verts_irreg[nvph_irreg:, :])
     _, idcs_rh = kdtree.query(verts_reg)
     idcs_rh += nvph_irreg
-    idcs = np.concatenate((idcs_lh, idcs_rh))
+    idcs = np.concatenate((idcs_lh, idcs_rh), dtype=np.int32)
 
-    rgn_map_irreg = np.loadtxt(rgn_map_irreg_fname)
-    rgn_map_reg = tf.constant(rgn_map_irreg[idcs], dtype=tf.int32)
+    rgn_map_irreg = np.loadtxt(rgn_map_irreg_fname, dtype=np.int32)
+    rgn_map_reg = rgn_map_irreg[idcs]
 
     return rgn_map_reg
 

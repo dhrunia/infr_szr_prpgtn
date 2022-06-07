@@ -5,7 +5,14 @@ import os
 import glob
 import lib.utils.consts as consts
 
-def create_video(x, N_LAT, N_LON, out_dir, movie_name=None, clim=None):
+
+def create_video(x,
+                 N_LAT,
+                 N_LON,
+                 out_dir,
+                 movie_name=None,
+                 clim=None,
+                 unkown_roi_mask=None):
     os.makedirs(out_dir, exist_ok=True)
     files = glob.glob(f'{out_dir}/*')
     for f in files:
@@ -15,14 +22,13 @@ def create_video(x, N_LAT, N_LON, out_dir, movie_name=None, clim=None):
         clim = {'min': np.min(x), 'max': np.max(x)}
 
     for i in range(x.shape[0]):
-        _, axs = plt.subplots(1, 2, dpi=200, figsize=(7, 4), tight_layout=True)
         spatial_map(x[i],
                     N_LAT=N_LAT,
                     N_LON=N_LON,
                     clim=clim,
-                    axs=axs,
                     fig_dir=out_dir,
-                    fig_name=f'x_{i+1:06d}.png')
+                    fig_name=f'x_{i+1:06d}.png',
+                    unkown_roi_mask=unkown_roi_mask)
         plt.close()
 
     (ffmpeg.input(f"{out_dir}/x_%06d.png", framerate=16).filter_(
@@ -93,7 +99,8 @@ def x0_gt_vs_infer(x0_gt,
     plt.subplot(325)
     plt.imshow(x0_infer_std_lh, interpolation=None, cmap='hot')
     # plt.clim(clim_min, clim_max)
-    plt.title("Standard Deviation - Left hemisphere", fontsize=consts.FS_SMALLl)
+    plt.title("Standard Deviation - Left hemisphere",
+              fontsize=consts.FS_SMALLl)
     plt.xlabel("Longitude", fontsize=consts.FS_MED)
     plt.ylabel("Latitude", fontsize=consts.FS_MED)
     plt.xticks(fontsize=consts.FS_MED)
@@ -102,7 +109,8 @@ def x0_gt_vs_infer(x0_gt,
     plt.subplot(326)
     plt.imshow(x0_infer_std_rh, interpolation=None, cmap='hot')
     # plt.clim(clim_min, clim_max)
-    plt.title("Standard Deviation - Right hemisphere", fontsize=consts.FS_SMALLl)
+    plt.title("Standard Deviation - Right hemisphere",
+              fontsize=consts.FS_SMALLl)
     plt.xlabel("Longitude", fontsize=consts.FS_MED)
     plt.ylabel("Latitude", fontsize=consts.FS_MED)
     plt.xticks(fontsize=consts.FS_MED)
@@ -118,43 +126,89 @@ def x0_gt_vs_infer(x0_gt,
 def spatial_map(x,
                 N_LAT,
                 N_LON,
-                title={
-                    'lh': 'Left Hemisphsere',
-                    'rh': 'Right Hemisphere'
-                },
+                title=None,
                 clim=None,
                 fig_dir=None,
                 fig_name=None,
-                axs=None):
+                ax=None,
+                unkown_roi_mask=None):
+    from matplotlib.cm import ScalarMappable
+    from matplotlib.colors import Normalize
+
     nvph = N_LAT * N_LON
-    x_lh = np.reshape(x[0:nvph], (N_LAT, N_LON))
-    x_rh = np.reshape(x[nvph:], (N_LAT, N_LON))
-    if axs is None:
-        fig, axs = plt.subplots(1,
-                                2,
-                                dpi=200,
-                                figsize=(7, 4),
-                                tight_layout=True)
+    nv = 2 * nvph
     if clim is None:
         clim = {'min': np.min(x), 'max': np.max(x)}
-    fig = axs[0].get_figure()
-    im = axs[0].imshow(x_lh, interpolation=None, cmap='hot')
-    im.set_clim(clim['min'], clim['max'])
-    axs[0].set_title(title['lh'], fontsize=consts.FS_LARGE)
-    axs[0].set_xlabel("Longitude", fontsize=consts.FS_MED)
-    axs[0].set_ylabel("Latitude", fontsize=consts.FS_MED)
-    axs[0].tick_params(labelsize=consts.FS_SMALLl)
-    cbar = fig.colorbar(im, ax=axs[0], shrink=0.2, fraction=0.3)
-    cbar.ax.tick_params(labelsize=consts.FS_SMALLl)
-    im = axs[1].imshow(x_rh, interpolation=None, cmap='hot')
-    im.set_clim(clim['min'], clim['max'])
-    axs[1].set_title(title['rh'], fontsize=consts.FS_LARGE)
-    axs[1].set_xlabel("Longitude", fontsize=consts.FS_MED)
-    axs[1].set_ylabel("Latitude", fontsize=consts.FS_MED)
-    axs[1].tick_params(labelsize=consts.FS_SMALLl)
-    cbar = fig.colorbar(im, ax=axs[1], shrink=0.2, fraction=0.3)
-    cbar.ax.tick_params(labelsize=consts.FS_SMALLl)
+
+    if unkown_roi_mask is not None:
+        x[np.nonzero(unkown_roi_mask == 0)] = clim['min']
+
+    x_lh = np.reshape(x[0:nvph], (N_LAT, N_LON))
+    x_rh = np.reshape(x[nvph:nv], (N_LAT, N_LON))
+    x_subcrtx_lh = x[nv:nv + 9][np.newaxis, :]
+    x_subcrtx_rh = x[nv + 9:][np.newaxis, :]
+
+    if ax is None:
+        fig = plt.figure(figsize=(7, 4), dpi=200, constrained_layout=True)
+        gs = fig.add_gridspec(2,
+                              3,
+                              height_ratios=[0.9, 0.1],
+                              width_ratios=[0.49, 0.49, 0.02])
+        ax = {}
+        ax['crtx_lh'] = fig.add_subplot(gs[0, 0])
+        ax['crtx_rh'] = fig.add_subplot(gs[0, 1])
+        ax['subcrtx_lh'] = fig.add_subplot(gs[1, 0])
+        ax['subcrtx_rh'] = fig.add_subplot(gs[1, 1])
+        ax['clr_bar'] = fig.add_subplot(gs[:, 2])
+
+    if title is None:
+        title = {
+            'crtx_lh': 'Left Hemisphsere',
+            'crtx_rh': 'Right Hemisphere',
+            'subcrtx_lh': 'Left Subcortical',
+            'subcrtx_rh': 'Right Subcortical'
+        }
+
+    im = ax['crtx_lh'].imshow(x_lh,
+                              interpolation=None,
+                              cmap='hot',
+                              vmin=clim['min'],
+                              vmax=clim['max'])
+    ax['crtx_lh'].set_title(title['crtx_lh'], fontsize=consts.FS_LARGE)
+    ax['crtx_lh'].set_xlabel("Longitude", fontsize=consts.FS_MED)
+    ax['crtx_lh'].set_ylabel("Latitude", fontsize=consts.FS_MED)
+    ax['crtx_lh'].tick_params(labelsize=consts.FS_SMALL)
+    im = ax['crtx_rh'].imshow(x_rh,
+                              interpolation=None,
+                              cmap='hot',
+                              vmin=clim['min'],
+                              vmax=clim['max'])
+    ax['crtx_rh'].set_title(title['crtx_rh'], fontsize=consts.FS_LARGE)
+    ax['crtx_rh'].set_xlabel("Longitude", fontsize=consts.FS_MED)
+    ax['crtx_rh'].set_ylabel("Latitude", fontsize=consts.FS_MED)
+    ax['crtx_rh'].tick_params(labelsize=consts.FS_SMALL)
+    im = ax['subcrtx_lh'].imshow(x_subcrtx_lh,
+                                 interpolation=None,
+                                 cmap='hot',
+                                 vmin=clim['min'],
+                                 vmax=clim['max'])
+    ax['subcrtx_lh'].axes.yaxis.set_visible(False)
+    ax['subcrtx_lh'].set_title(title['subcrtx_lh'], fontsize=consts.FS_LARGE)
+    ax['subcrtx_lh'].tick_params(labelsize=consts.FS_SMALL)
+    im = ax['subcrtx_rh'].imshow(x_subcrtx_rh,
+                                 interpolation=None,
+                                 cmap='hot',
+                                 vmin=clim['min'],
+                                 vmax=clim['max'])
+    ax['subcrtx_rh'].axes.yaxis.set_visible(False)
+    ax['subcrtx_rh'].set_title(title['subcrtx_rh'], fontsize=consts.FS_LARGE)
+    ax['subcrtx_rh'].tick_params(labelsize=consts.FS_SMALL)
+    sm = ScalarMappable(norm=Normalize(vmin=clim['min'], vmax=clim['max']),
+                        cmap='hot')
+    cbar = plt.colorbar(sm, cax=ax['clr_bar'])
+    ax['clr_bar'].tick_params(labelsize=consts.FS_SMALL)
+
     if (fig_name is not None):
-        fig.savefig(f"{fig_dir}/{fig_name}",
+        plt.savefig(f"{fig_dir}/{fig_name}",
                     bbox_inches='tight',
                     facecolor='white')

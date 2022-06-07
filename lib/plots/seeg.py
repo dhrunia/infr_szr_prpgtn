@@ -185,4 +185,4 @@ def plot_slp(slp,
     cbar = fig.colorbar(im, ax=ax, shrink=0.5, fraction=0.1)
     cbar.ax.tick_params(labelsize=consts.FS_MED)
     if fig_name is not None:
-        plt.savefig(f'{save_dir}/{fig_name}')
+        plt.savefig(f'{save_dir}/{fig_name}', facecolor='white')
