@@ -49,7 +49,7 @@ class Epileptor2D:
         self._nroi = SC.shape[0]
 
         # Indices of subcortical ROI in the provided SC
-        print("Assuming indices (zero based ) of subcortical roi in the " +
+        print("Assuming indices (zero based) of subcortical roi in the " +
               "provided SC to be [73:81] for left hemisphere " +
               "and [154:162] for right hemisphere")
         idcs_subcrtx_roi = np.concatenate(
@@ -474,10 +474,14 @@ class Epileptor2D:
         def body(i, lp):
             eps = tf.constant(0.1, dtype=tf.float32)
             # tf.print("nan in theta", tf.reduce_any(tf.math.is_nan(theta)))
-            x0 = self.x0_trans_to_vrtx_space(theta[i,
-                                                   0:4 * self._nmodes_params])
+            x0_crtx = self.x0_trans_to_vrtx_space(theta[i, 0:4 *
+                                                        self._nmodes_params])
+            x0_subcrtx = theta[i, 4 *
+                               self._nmodes_params:4 * self._nmodes_params +
+                               self._ns]
+            x0_hat = tf.concat([x0_crtx, x0_subcrtx], axis=0)
             # tf.print("nan in x0", tf.reduce_any(tf.math.is_nan(x0)))
-            x0_trans = self.x0_bounded_trnsform(x0) * self._unkown_roi_mask
+            x0 = self.x0_bounded_trnsform(x0_hat) * self._unkown_roi_mask
             # x0_trans_log_det_jcbn = tf.reduce_sum(
             #     tf.math.log(
             #         tf.math.abs((x0_trans - x0_lb) * (1 - (x0_trans - x0_lb) /
@@ -490,7 +494,7 @@ class Epileptor2D:
             #     tau, tf.constant(15, dtype=tf.float32),
             #     tf.constant(100, dtype=tf.float32))
             y_pred = self.simulate(self._nsteps, self._nsubsteps,
-                                   self._time_step, self._y_init, x0_trans,
+                                   self._time_step, self._y_init, x0,
                                    self._tau, self._K)
             x_pred = y_pred[:, 0:self._nv + self._ns] * self._unkown_roi_mask
             # tf.print("nan in x_pred", tf.reduce_any(tf.math.is_nan(x_pred)))
@@ -499,8 +503,7 @@ class Epileptor2D:
             likelihood = tf.reduce_sum(
                 tfd.Normal(loc=slp_mu, scale=eps).log_prob(self._slp_obs))
             x0_prior = tf.reduce_sum(
-                tfd.Normal(loc=self._x0_prior_mu,
-                           scale=0.5).log_prob(x0_trans))
+                tfd.Normal(loc=self._x0_prior_mu, scale=0.5).log_prob(x0))
             lp_i = likelihood + x0_prior
             # tf.print("likelihood = ", likelihood, "prior = ", x0_prior)
             lp = lp.write(i, lp_i)
