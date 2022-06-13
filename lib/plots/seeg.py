@@ -170,6 +170,7 @@ def plot_slp(slp,
              clim=None):
     import matplotlib.pyplot as plt
     import lib.utils.consts as consts
+    import os
 
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize, dpi=120)
@@ -185,4 +186,6 @@ def plot_slp(slp,
     cbar = fig.colorbar(im, ax=ax, shrink=0.5, fraction=0.1)
     cbar.ax.tick_params(labelsize=consts.FS_MED)
     if fig_name is not None:
+        if(not os.path.exists(save_dir)):
+            os.makedirs(save_dir, exist_ok=True)
         plt.savefig(f'{save_dir}/{fig_name}', facecolor='white')

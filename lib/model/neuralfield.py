@@ -271,9 +271,49 @@ class Epileptor2D:
         return x0
 
     @tf.function
-    def x0_bounded_trnsform(self, x0):
+    def x0_bounded(self, x0):
         return lib.utils.tnsrflw.sigmoid_transform(x0, self._x0_lb,
                                                    self._x0_ub)
+
+    @tf.function
+    def eps_bounded(self, eps):
+        return lib.utils.tnsrflw.sigmoid_transform(eps, 0.0, 1.0)
+
+    @tf.function
+    def transformed_parameters(self, theta):
+        x0_crtx_lm = self.x0_trans_to_vrtx_space(theta[0:4 *
+                                                       self._nmodes_params])
+        x0_subcrtx = theta[4 * self._nmodes_params:4 * self._nmodes_params +
+                           self._ns]
+        x0_hat = tf.concat([x0_crtx_lm, x0_subcrtx], axis=0)
+        x0 = self.x0_bounded(x0_hat) * self._unkown_roi_mask
+        eps_hat = theta[4 * self._nmodes_params + self._ns]
+        eps = self.eps_bounded(eps_hat)
+        return x0, eps
+
+    @tf.function
+    def inv_transformed_parameters(self, x0, eps):
+        x0_hat = lib.utils.tnsrflw.inv_sigmoid_transform(
+            x0, self._x0_lb, self._x0_ub)
+        x0_crtx_lh = x0_hat[0:self._nvph]
+        x0_crtx_rh = x0_hat[self._nvph:self._nv]
+        x0_subcrtx = x0_hat[self._nv:self._nv + self._ns]
+        x0_crtx_lm_lh = tfsht.analys(self._L_MAX_PARAMS, self._N_LAT,
+                                     self._N_LON, x0_crtx_lh,
+                                     self._glq_wts_params,
+                                     self._P_l_m_costheta_params)
+        x0_crtx_lm_rh = tfsht.analys(self._L_MAX_PARAMS, self._N_LAT,
+                                     self._N_LON, x0_crtx_rh,
+                                     self._glq_wts_params,
+                                     self._P_l_m_costheta_params)
+        x0_lm = tf.concat(
+            (tf.math.real(x0_crtx_lm_lh), tf.math.imag(x0_crtx_lm_lh),
+             tf.math.real(x0_crtx_lm_rh), tf.math.imag(x0_crtx_lm_rh),
+             x0_subcrtx),
+            axis=0)
+        eps_hat = lib.utils.tnsrflw.inv_sigmoid_transform(eps, 0.0, 1.0)
+        theta = tf.concat((x0_lm, eps_hat), axis=0)
+        return theta
 
     @tf.function
     def _roi_mean(self, x):
@@ -451,9 +491,9 @@ class Epileptor2D:
         slp = tf.math.log(tf.matmul(tf.math.exp(x), self._gain_reg))
         return slp
 
-    def setup_inference(self, slp_obs, nsteps, nsubsteps, time_step, y_init,
+    def setup_inference(self, obs_data, nsteps, nsubsteps, time_step, y_init,
                         tau, K, x0_prior_mu):
-        self._slp_obs = slp_obs
+        self._obs = obs_data
         self._nsteps = nsteps
         self._nsubsteps = nsubsteps
         self._time_step = time_step
@@ -472,16 +512,9 @@ class Epileptor2D:
             return tf.less(i, nsamples)
 
         def body(i, lp):
-            eps = tf.constant(0.1, dtype=tf.float32)
+            # eps = tf.constant(0.1, dtype=tf.float32)
             # tf.print("nan in theta", tf.reduce_any(tf.math.is_nan(theta)))
-            x0_crtx = self.x0_trans_to_vrtx_space(theta[i, 0:4 *
-                                                        self._nmodes_params])
-            x0_subcrtx = theta[i, 4 *
-                               self._nmodes_params:4 * self._nmodes_params +
-                               self._ns]
-            x0_hat = tf.concat([x0_crtx, x0_subcrtx], axis=0)
-            # tf.print("nan in x0", tf.reduce_any(tf.math.is_nan(x0)))
-            x0 = self.x0_bounded_trnsform(x0_hat) * self._unkown_roi_mask
+            x0, eps = self.transformed_parameters(theta[i])
             # x0_trans_log_det_jcbn = tf.reduce_sum(
             #     tf.math.log(
             #         tf.math.abs((x0_trans - x0_lb) * (1 - (x0_trans - x0_lb) /
@@ -498,10 +531,12 @@ class Epileptor2D:
                                    self._tau, self._K)
             x_pred = y_pred[:, 0:self._nv + self._ns] * self._unkown_roi_mask
             # tf.print("nan in x_pred", tf.reduce_any(tf.math.is_nan(x_pred)))
-            slp_mu = self.project_sensor_space(x_pred)
-            # tf.print("Nan in x_mu", tf.reduce_any(tf.math.is_nan(x_mu)))
+            # slp_mu = self.project_sensor_space(x_pred)
+            # # tf.print("Nan in x_mu", tf.reduce_any(tf.math.is_nan(x_mu)))
+            # likelihood = tf.reduce_sum(
+            #     tfd.Normal(loc=slp_mu, scale=eps).log_prob(self._slp_obs))
             likelihood = tf.reduce_sum(
-                tfd.Normal(loc=slp_mu, scale=eps).log_prob(self._slp_obs))
+                tfd.Normal(loc=x_pred, scale=eps).log_prob(self._obs))
             x0_prior = tf.reduce_sum(
                 tfd.Normal(loc=self._x0_prior_mu, scale=0.5).log_prob(x0))
             lp_i = likelihood + x0_prior
