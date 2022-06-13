@@ -158,13 +158,13 @@ dyn_mdl.setup_inference(obs_data=x_obs,
 #     initial_learning_rate, decay_steps=100, decay_rate=0.5)
 
 # optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-1, clipnorm=10)
+optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2, clipnorm=10)
 # optimizer = tf.keras.optimizers.SGD(learning_rate=1e-7, momentum=0.9)
 # %%
 start_time = time.time()
-niters = tf.constant(500, dtype=tf.int32)
+niters = tf.constant(50, dtype=tf.int32)
 # lr = tf.constant(1e-4, dtype=tf.float32)
-train_loop(niters, optimizer)
+losses = train_loop(niters, optimizer)
 print(f"Elapsed {time.time() - start_time} seconds for {niters} iterations")
 # %% loss at ground truth
 eps_true = tf.constant(0.22, shape=(1,), dtype=tf.float32)

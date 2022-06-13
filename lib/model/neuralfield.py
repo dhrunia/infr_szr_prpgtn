@@ -161,6 +161,15 @@ class Epileptor2D:
         self._x0_lb = x0_lb
         self._x0_ub = x0_ub
 
+        # Compute the no.of vertices in each ROI
+        self._nv_per_roi = tf.constant([
+            tf.where(self._rgn_map == roi).shape[0]
+            for roi in range(self._nroi)
+        ])
+        self._vrtx_wts = tf.cast(tf.gather(1 / self._nv_per_roi,
+                                           self._rgn_map),
+                                 dtype=tf.float32)
+
     @property
     def L_MAX(self):
         return self._L_MAX
@@ -536,11 +545,13 @@ class Epileptor2D:
             # likelihood = tf.reduce_sum(
             #     tfd.Normal(loc=slp_mu, scale=eps).log_prob(self._slp_obs))
             likelihood = tf.reduce_sum(
-                tfd.Normal(loc=x_pred, scale=eps).log_prob(self._obs))
+                tfd.Normal(loc=x_pred, scale=eps).log_prob(self._obs) *
+                self._vrtx_wts)
             x0_prior = tf.reduce_sum(
-                tfd.Normal(loc=self._x0_prior_mu, scale=0.5).log_prob(x0))
+                tfd.Normal(loc=self._x0_prior_mu, scale=0.5).log_prob(x0) *
+                self._vrtx_wts)
             lp_i = likelihood + x0_prior
-            # tf.print("likelihood = ", likelihood, "prior = ", x0_prior)
+            tf.print("likelihood = ", likelihood, "prior = ", x0_prior)
             lp = lp.write(i, lp_i)
             return i + 1, lp
 
