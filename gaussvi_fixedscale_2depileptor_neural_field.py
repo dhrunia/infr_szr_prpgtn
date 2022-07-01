@@ -12,6 +12,7 @@ import lib.utils.sht as tfsht
 import time
 import lib.utils.tnsrflw
 import lib.plots.neuralfield
+import lib.plots.seeg
 import os
 import lib.model.neuralfield
 
@@ -50,6 +51,9 @@ ez_hyp_vrtcs = np.concatenate(
     [np.nonzero(roi == dyn_mdl.rgn_map_reg)[0] for roi in ez_hyp_roi])
 x0_true[ez_hyp_vrtcs] = -1.8
 x0_true = tf.constant(x0_true, dtype=tf.float32)
+t = dyn_mdl.SC.numpy()
+t[140 - 9, 116 - 9] = 5.0
+dyn_mdl.SC = tf.constant(t, dtype=tf.float32)
 # %%
 nsteps = tf.constant(300, dtype=tf.int32)
 sampling_period = tf.constant(0.1, dtype=tf.float32)
@@ -57,73 +61,39 @@ time_step = tf.constant(0.05, dtype=tf.float32)
 nsubsteps = tf.cast(tf.math.floordiv(sampling_period, time_step),
                     dtype=tf.int32)
 
+# @tf.function
+# def run_sim(nsteps, nsubsteps, time_step, y_init, x0, tau, K):
+#     y = dyn_mdl.simulate(nsteps, nsubsteps, time_step, y_init, x0, tau, K)
+#     return y
 
-@tf.function
-def run_sim(nsteps, nsubsteps, time_step, y_init, x0, tau, K):
-    y = dyn_mdl.simulate(nsteps, nsubsteps, time_step, y_init, x0, tau, K)
-    return y
-
-
-y_obs = run_sim(nsteps, nsubsteps, time_step, y_init_true, x0_true, tau_true,
-                K_true)
+y_obs = dyn_mdl.simulate(nsteps, nsubsteps, time_step, y_init_true, x0_true,
+                         tau_true, K_true)
 x_obs = y_obs[:, 0:dyn_mdl.nv] * dyn_mdl.unkown_roi_mask
 slp_obs = dyn_mdl.project_sensor_space(x_obs)
 # %%
-plt.figure(figsize=(7, 6), dpi=200)
-plt.imshow(tf.transpose(slp_obs),
-           interpolation=None,
-           aspect='auto',
-           cmap='inferno')
-plt.xlabel('Time')
-plt.ylabel('Sensor')
-# plt.plot(slp_obs, color='black', alpha=0.3);
-plt.colorbar(fraction=0.02)
-plt.savefig(f'{figs_dir}/obs_slp.png')
+lib.plots.seeg.plot_slp(slp_obs.numpy(),
+                        save_dir=figs_dir,
+                        fig_name='slp_obs.png')
 # %%
 nparams = 4 * ((dyn_mdl.L_MAX_PARAMS + 1)**2)
 loc = tf.Variable(initial_value=tf.zeros(nparams))
-log_scale_diag = tf.Variable(initial_value=-2.3 * tf.ones(nparams))
-# scale_diag = tf.exp(log_scale_diag)
+scale_diag = 0.1 * tf.ones(nparams)
 # var_dist = tfd.MultivariateNormalDiag(
 #     loc=loc, scale_diag=scale_diag, name="variational_posterior")
 
 # %%
-
-# @tf.function
-# def loss():
-#     scale_diag = tf.exp(log_scale_diag)
-#     # scale_diag = 0.1 * tf.ones(nparams)
-#     nsamples = 1
-#     posterior_samples = tfd.MultivariateNormalDiag(
-#         loc=loc, scale_diag=scale_diag).sample(nsamples)
-#     loss_val = tf.constant(0.0, shape=(1, ), dtype=tf.float32)
-#     for theta in posterior_samples:
-#         # tf.print("theta: ", theta, summarize=-1)
-#         gm_log_prob = dyn_mdl.log_prob(theta, slp_obs, nsteps, nsubsteps,
-#                                        time_step, y_init_true, tau_true,
-#                                        K_true, x0_prior_mu)
-#         posterior_approx_log_prob = tfd.MultivariateNormalDiag(
-#             loc=loc, scale_diag=scale_diag).log_prob(theta[tf.newaxis, :])
-#         tf.print("gm_log_prob:", gm_log_prob, "\tposterior_approx_log_prob:",
-#                  posterior_approx_log_prob)
-#         loss_val += (posterior_approx_log_prob - gm_log_prob) / nsamples
-#         # tf.print("loss_val: ", loss_val)
-#     return loss_val
 
 
 @tf.function
 def get_loss_and_gradients(nsamples):
     loss = tf.constant(0, dtype=tf.float32, shape=(1, 1))
     loc_grad = tf.zeros_like(loc)
-    log_scale_diag_grad = tf.zeros_like(log_scale_diag)
-    i = tf.constant(0, dtype=tf.uint32)
 
-    def cond(i, loc_grad, log_scale_diag_grad, loss):
+    def cond(i, loc_grad, loss):
         return tf.less(i, nsamples)
 
-    def body(i, loc_grad, log_scale_diag_grad, loss):
+    def body(i, loc_grad, loss):
         with tf.GradientTape() as tape:
-            scale_diag = tf.exp(log_scale_diag)
             theta = tfd.MultivariateNormalDiag(loc=loc,
                                                scale_diag=scale_diag).sample(1)
             # loss_val = tf.constant(0.0, shape=(1, ), dtype=tf.float32)
@@ -133,18 +103,18 @@ def get_loss_and_gradients(nsamples):
             tf.print("\tgm_log_prob:", gm_log_prob,
                      "\tposterior_approx_log_prob:", posterior_approx_log_prob)
             loss_i = posterior_approx_log_prob - gm_log_prob
-        grads = tape.gradient(loss_i, [loc, log_scale_diag])
+        grads = tape.gradient(loss_i, [loc])
         loc_grad += grads[0] / tf.cast(nsamples, dtype=tf.float32)
-        log_scale_diag_grad += grads[1] / tf.cast(nsamples, dtype=tf.float32)
         loss += loss_i / tf.cast(nsamples, dtype=tf.float32)
-        return i + 1, loc_grad, log_scale_diag_grad, loss
+        return i + 1, loc_grad, loss
 
-    i, loc_grad, log_scale_diag_grad, loss = tf.while_loop(
+    i = tf.constant(0, dtype=tf.uint32)
+    i, loc_grad, loss = tf.while_loop(
         cond=cond,
         body=body,
-        loop_vars=(i, loc_grad, log_scale_diag_grad, loss),
+        loop_vars=(i, loc_grad, loss),
         parallel_iterations=1)
-    return loss, [loc_grad, log_scale_diag_grad]
+    return loss, [loc_grad]
 
 
 # %%
@@ -161,7 +131,7 @@ def train_loop(num_epochs, nsamples):
         # output_stream="file://debug.log")
         tf.print("Epoch ", i, "loss: ", loss_value)
         # training_loss.append(loss_value)
-        optimizer.apply_gradients(zip(grads, [loc, log_scale_diag]))
+        optimizer.apply_gradients(zip(grads, [loc]))
         return i + 1
 
     i = tf.constant(0, dtype=tf.uint32)
@@ -188,61 +158,13 @@ dyn_mdl.setup_inference(slp_obs=slp_obs,
 # optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2)
 # %%
-num_epochs = tf.constant(50, dtype=tf.uint32)
-nsamples = tf.constant(5, dtype=tf.uint32)
+num_epochs = tf.constant(500, dtype=tf.uint32)
+nsamples = tf.constant(1, dtype=tf.uint32)
 # %%
 start_time = time.time()
 train_loop(num_epochs, nsamples)
 print(f"Elapsed {time.time() - start_time} seconds for {num_epochs} Epochs")
 # %%
-# x0_lh = lib.utils.tnsrflw.inv_sigmoid_transform(x0_true[0:dyn_mdl.nvph],
-#                                                 dyn_mdl.x0_lb, dyn_mdl.x0_ub)
-# x0_rh = lib.utils.tnsrflw.inv_sigmoid_transform(x0_true[dyn_mdl.nvph:],
-#                                                 dyn_mdl.x0_lb, dyn_mdl.x0_ub)
-# x0_lm_lh = tfsht.analys(dyn_mdl.L_MAX_PARAMS, dyn_mdl.N_LAT, dyn_mdl.N_LON,
-#                         x0_lh, dyn_mdl.glq_wts_params,
-#                         dyn_mdl.P_l_m_costheta_params)
-# x0_lm_rh = tfsht.analys(dyn_mdl.L_MAX_PARAMS, dyn_mdl.N_LAT, dyn_mdl.N_LON,
-#                         x0_rh, dyn_mdl.glq_wts_params,
-#                         dyn_mdl.P_l_m_costheta_params)
-# x0_lm_lh_real = tf.reshape(tf.math.real(x0_lm_lh), [-1])
-# x0_lm_rh_real = tf.reshape(tf.math.real(x0_lm_rh), [-1])
-# x0_lm_lh_imag = tf.reshape(tf.math.imag(x0_lm_lh), [-1])
-# x0_lm_rh_imag = tf.reshape(tf.math.imag(x0_lm_rh), [-1])
-
-# # tau = lib.utils.tnsrflw.inv_sigmoid_transform(
-# #     tau_true, tf.constant(15, dtype=tf.float32),
-# #     tf.constant(100, dtype=tf.float32))
-
-# theta_true = tf.concat([
-#     x0_lm_lh_real, x0_lm_lh_imag, x0_lm_rh_real, x0_lm_rh_imag], axis=0)
-
-# @tf.function
-# def get_loss(theta, y_obs):
-#     eps = tf.constant(0.1, dtype=tf.float32)
-#     x0_lm = theta[0:dyn_mdl.nmodes_params]
-#     x0 = dyn_mdl.x0_trans_to_vrtx_space(x0_lm)
-#     x0_trans = dyn_mdl.x0_bounded_trnsform(x0) * dyn_mdl.unkown_roi_mask
-#     # tau = theta[4 * nmodes]
-#     # tau_trans = lib.utils.tnsrflw.sigmoid_transform(
-#     #     tau, tf.constant(15, dtype=tf.float32),
-#     #     tf.constant(100, dtype=tf.float32))
-#     y_pred = dyn_mdl.simulate(nsteps, nsubsteps, time_step, y_init_true,
-#                               x0_trans, tau_true, K_true)
-#     x_mu = y_pred[:, 0:dyn_mdl.nv] * dyn_mdl.unkown_roi_mask
-#     x_obs = y_obs[:, 0:dyn_mdl.nv] * dyn_mdl.unkown_roi_mask
-#     likelihood = tf.reduce_sum(tfd.Normal(loc=x_mu, scale=eps).log_prob(x_obs))
-#     prior = tf.reduce_sum(tfd.Normal(loc=0.0, scale=5.0).log_prob(theta))
-#     lp = likelihood + prior
-#     return x_mu, lp
-
-# x_pred, slp_pred, lp = get_loss(theta_true, slp_obs)
-# print(lp)
-# # out_dir = 'tmp1'
-# # create_video(x_pred, N_LAT.numpy(), N_LON.numpy(), out_dir)
-# %%
-scale_diag = tf.exp(log_scale_diag)
-# scale_diag = 0.1 * tf.ones(nparams)
 nsamples = 100
 posterior_samples = tfd.MultivariateNormalDiag(
     loc=loc, scale_diag=scale_diag).sample(nsamples)
@@ -280,24 +202,7 @@ lib.plots.neuralfield.x0_gt_vs_infer(x0_true, x0_mean, x0_std,
                                      dyn_mdl.unkown_roi_mask, figs_dir,
                                      fig_name)
 # %%
-plt.figure(figsize=(10, 6), dpi=200)
-plt.subplot(121)
-plt.imshow(tf.transpose(slp_obs),
-           interpolation=None,
-           aspect='auto',
-           cmap='inferno')
-plt.xlabel('Time')
-plt.ylabel('Sensor')
-plt.title("Observed")
-plt.colorbar(fraction=0.02)
-plt.subplot(122)
-plt.imshow(tf.transpose(slp_ppc),
-           interpolation=None,
-           aspect='auto',
-           cmap='inferno')
-plt.xlabel('Time')
-plt.ylabel('Sensor')
-plt.title("Predicted")
-plt.colorbar(fraction=0.02)
-plt.tight_layout()
-plt.savefig(f'{figs_dir}/slp_obs_vs_pred.png', facecolor='white')
+fig, axs = plt.subplots(1, 2, figsize=(10, 6), dpi=200)
+lib.plots.seeg.plot_slp(slp_obs.numpy(), ax=axs[0], title='Observed')
+lib.plots.seeg.plot_slp(slp_ppc.numpy(), ax=axs[1], title='Predicted')
+fig.savefig(f'{figs_dir}/slp_obs_vs_pred.png', facecolor='white')
