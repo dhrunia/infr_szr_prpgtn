@@ -1,4 +1,4 @@
-FROM tensorflow/tensorflow:latest-gpu
+FROM tensorflow/tensorflow:2.9.1-gpu
 ARG USERNAME=anirudh
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
@@ -13,16 +13,10 @@ RUN groupadd --gid $USER_GID $USERNAME \
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
 
-RUN mkdir -p /home/$USERNAME/.ssh
-# COPY .ssh/git_rsa /home/$USERNAME/.ssh/id_rsa
-# RUN chown -R $USERNAME:$USERNAME /home/$USERNAME/.ssh
+RUN pip install --upgrade pip
 
-RUN apt-get update && apt-get install -y \
-    openssh-client \
-    git
-
-RUN pip install --upgrade tensorflow-probability pyshtools ffmpeg-python \
-    matplotlib
+RUN pip install --upgrade tensorflow-probability==0.17.0 pyshtools==4.10 ffmpeg-python \
+    matplotlib pylint yapf ipykernel
 
 # [Optional] Set the default user. Omit if you want to keep the default as root.
 USER $USERNAME
