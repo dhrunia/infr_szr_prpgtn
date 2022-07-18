@@ -13,10 +13,11 @@ RUN groupadd --gid $USER_GID $USERNAME \
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
 
+RUN sudo apt-get update && sudo apt-get install -y git ffmpeg
+
 RUN pip install --upgrade pip
 
-RUN pip install --upgrade tensorflow-probability==0.17.0 pyshtools==4.10 ffmpeg-python \
-    matplotlib pylint yapf ipykernel
+RUN pip install --upgrade tensorflow-probability==0.17.0 pyshtools==4.10 ffmpeg-python matplotlib pylint yapf black ipykernel autopep8
 
 # [Optional] Set the default user. Omit if you want to keep the default as root.
 USER $USERNAME

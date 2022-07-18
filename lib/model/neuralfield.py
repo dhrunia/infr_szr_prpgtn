@@ -9,6 +9,7 @@ tfd = tfp.distributions
 
 
 class Epileptor2D:
+
     def __init__(self,
                  L_MAX,
                  N_LAT,
@@ -587,11 +588,11 @@ class Epileptor2D:
     @tf.function
     def _prior_log_prob(self, x0):
         x0_crtx_prior_lp = tf.reduce_sum(
-            tfd.Normal(loc=self._x0_prior_mu[0:self._nv], scale=0.5).log_prob(
+            tfd.Normal(loc=self._x0_prior_mu[0:self._nv], scale=0.1).log_prob(
                 x0[0:self._nv]) * self._vrtx_wts[0:self._nv])
         x0_subcrtx_prior_lp = tf.reduce_sum(
             tfd.Normal(loc=self._x0_prior_mu[self._nv:self._nv + self._ns],
-                       scale=0.5).log_prob(x0[self._nv:self._nv + self._ns]))
+                       scale=0.1).log_prob(x0[self._nv:self._nv + self._ns]))
         x0_prior_lp = x0_crtx_prior_lp + x0_subcrtx_prior_lp
         return x0_prior_lp
 

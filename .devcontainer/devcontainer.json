@@ -6,9 +6,8 @@
 		"dockerfile": "Dockerfile"
 	},
 	"mounts": [
-		"source=/home/anirudh/.ssh,target=/home/anirudh/.ssh,type=bind,consistency=cached",
-		"source=/home/anirudh/GDrive/Academia/Projects/Neural fields inversion/datasets,target=/workspaces/isp_neural_fields/datasets,type=bind,consistency=cached",
-		"source=/home/anirudh/GDrive/Academia/Projects/Neural fields inversion/results,target=/workspaces/isp_neural_fields/results,type=bind,consistency=cached"
+		"source=/home/anirudh/Nextcloud/Academia/Projects/Neural fields inversion/datasets,target=/workspaces/isp_neural_fields/datasets,type=bind,consistency=cached",
+		"source=/home/anirudh/Nextcloud/Academia/Projects/Neural fields inversion/results,target=/workspaces/isp_neural_fields/results,type=bind,consistency=cached"
 	],
 	"runArgs": [
 		"--gpus=all",
