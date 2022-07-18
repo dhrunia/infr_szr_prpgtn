@@ -596,7 +596,7 @@ class Epileptor2D:
             x0_crtx_prior_lp = tf.reduce_sum(
                 tfd.Normal(loc=self._x0_prior_mu[0:self._nv],
                            scale=0.5).log_prob(x0[0:self._nv]))
-        x0_subcrtx_prior_lp = tf.reduce_sum(
+        x0_subcrtx_prior_lp = 100.0 * tf.reduce_sum(
             tfd.Normal(loc=self._x0_prior_mu[self._nv:self._nv + self._ns],
                        scale=0.5).log_prob(x0[self._nv:self._nv + self._ns]))
         x0_prior_lp = x0_crtx_prior_lp + x0_subcrtx_prior_lp
