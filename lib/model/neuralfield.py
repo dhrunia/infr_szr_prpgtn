@@ -378,11 +378,11 @@ class Epileptor2D:
                                          self._N_LON, x0_crtx_rh,
                                          self._glq_wts_params,
                                          self._P_l_m_costheta_params)
-            x0_lm = tf.concat(
-                (tf.math.real(x0_crtx_lm_lh), tf.math.imag(x0_crtx_lm_lh),
-                 tf.math.real(x0_crtx_lm_rh), tf.math.imag(x0_crtx_lm_rh),
-                 x0_subcrtx),
-                axis=0)
+            x0_lm = tf.concat(values=(tf.math.real(x0_crtx_lm_lh),
+                                      tf.math.imag(x0_crtx_lm_lh),
+                                      tf.math.real(x0_crtx_lm_rh),
+                                      tf.math.imag(x0_crtx_lm_rh), x0_subcrtx),
+                              axis=0)
             eps_hat = self.eps_unbounded(eps)
             theta = tf.concat((x0_lm, eps_hat), axis=0)
         if param_space == 'vertex':
@@ -586,13 +586,19 @@ class Epileptor2D:
     #     self._x0_prior = tfd.Normal(loc=x0_prior_loc, scale=x0_prior_scale)
 
     @tf.function
-    def _prior_log_prob(self, x0):
-        x0_crtx_prior_lp = tf.reduce_sum(
-            tfd.Normal(loc=self._x0_prior_mu[0:self._nv], scale=0.1).log_prob(
-                x0[0:self._nv]) * self._vrtx_wts[0:self._nv])
+    def _prior_log_prob(self, x0, roi_weighted):
+        if roi_weighted:
+            x0_crtx_prior_lp = tf.reduce_sum(
+                tfd.Normal(loc=self._x0_prior_mu[0:self._nv],
+                           scale=0.5).log_prob(x0[0:self._nv]) *
+                self._vrtx_wts[0:self._nv])
+        else:
+            x0_crtx_prior_lp = tf.reduce_sum(
+                tfd.Normal(loc=self._x0_prior_mu[0:self._nv],
+                           scale=0.5).log_prob(x0[0:self._nv]))
         x0_subcrtx_prior_lp = tf.reduce_sum(
             tfd.Normal(loc=self._x0_prior_mu[self._nv:self._nv + self._ns],
-                       scale=0.1).log_prob(x0[self._nv:self._nv + self._ns]))
+                       scale=0.5).log_prob(x0[self._nv:self._nv + self._ns]))
         x0_prior_lp = x0_crtx_prior_lp + x0_subcrtx_prior_lp
         return x0_prior_lp
 
@@ -616,7 +622,8 @@ class Epileptor2D:
         return llp
 
     @tf.function
-    def log_prob(self, theta, obs_data, param_space, obs_space):
+    def log_prob(self, theta, obs_data, param_space, obs_space,
+                 prior_roi_weighted):
         nsamples = theta.shape[0]
         lp = tf.TensorArray(dtype=tf.float32, size=nsamples)
         i = tf.constant(0)
@@ -630,7 +637,8 @@ class Epileptor2D:
             x0, eps = self.transformed_parameters(theta[i], param_space)
             x0_unkown_masked = x0 * self._unkown_roi_mask
 
-            prior_lp = self._prior_log_prob(x0_unkown_masked)
+            prior_lp = self._prior_log_prob(x0_unkown_masked,
+                                            prior_roi_weighted)
             likelihood_lp = self._likelihood_log_prob(x0_unkown_masked, eps,
                                                       obs_data, obs_space)
             lp_i = prior_lp + likelihood_lp
