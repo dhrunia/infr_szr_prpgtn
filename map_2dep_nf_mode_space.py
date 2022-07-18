@@ -19,7 +19,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = "results/exp39"
+results_dir = "results/exp40"
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
 os.makedirs(figs_dir, exist_ok=True)
@@ -83,7 +83,7 @@ lib.plots.seeg.plot_slp(slp_true.numpy(),
                         fig_name="slp_obs.png")
 # %%
 
-x0 = -3.0 * tf.ones(dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32)
+x0 = -4.0 * tf.ones(dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32)
 # x0 = tf.constant(np.load(f'{results_dir}/x0_pred_lmax=5.npy'),
 #                  dtype=tf.float32)
 # x0 = x0_true
@@ -296,3 +296,5 @@ lib.plots.neuralfield.spatial_map(
     clim=clim,
 )
 plt.savefig(f"{figs_dir}/{fig_name}", facecolor="white", bbox_inches="tight")
+
+# %%
