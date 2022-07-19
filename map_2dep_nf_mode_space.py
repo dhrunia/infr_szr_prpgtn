@@ -19,7 +19,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = "results/exp40"
+results_dir = "results/exp41"
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
 os.makedirs(figs_dir, exist_ok=True)
@@ -61,8 +61,8 @@ lib.plots.neuralfield.spatial_map(
     N_LAT=dyn_mdl.N_LAT.numpy(),
     N_LON=dyn_mdl.N_LON.numpy(),
     clim={
-        "min": -3.5,
-        "max": -1.0
+        "min": -5.0,
+        "max": 0.0
     },
     unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
 )
@@ -134,7 +134,9 @@ def train_loop(num_iters, optimizer, obs_data, obs_space, prior_roi_weighted):
 
 # %%
 
-x0_prior_mu = -3.0 * tf.ones(dyn_mdl.nv + dyn_mdl.ns) * dyn_mdl.unkown_roi_mask
+x0_prior_mu = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
+x0_prior_mu[ez_hyp_vrtcs] = -1.5
+x0_prior_mu = tf.constant(x0_prior_mu, dtype=tf.float32) * dyn_mdl.unkown_roi_mask
 
 dyn_mdl.setup_inference(
     nsteps=nsteps,
