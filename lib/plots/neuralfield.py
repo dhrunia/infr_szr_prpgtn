@@ -208,7 +208,12 @@ def spatial_map(x,
     cbar = plt.colorbar(sm, cax=ax['clr_bar'])
     ax['clr_bar'].tick_params(labelsize=consts.FS_SMALL)
 
-    if (fig_name is not None):
+    if fig_dir is None:
+        fig_dir = os.getcwd()
+
+    os.makedirs(fig_dir, exist_ok=True)
+
+    if fig_name is not None:
         plt.savefig(f"{fig_dir}/{fig_name}",
                     bbox_inches='tight',
                     facecolor='white')

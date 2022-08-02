@@ -19,15 +19,15 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = 'results/exp45'
+results_dir = 'results/exp46'
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f'{results_dir}/figures'
 os.makedirs(figs_dir, exist_ok=True)
 
 dyn_mdl = lib.model.neuralfield.Epileptor2D(
     L_MAX=32,
-    N_LAT=129,
-    N_LON=257,
+    N_LAT=65,#129,
+    N_LON=129,#257,
     verts_irreg_fname='datasets/data_jd/id004_bj/tvb/ico7/vertices.txt',
     rgn_map_irreg_fname=
     'datasets/data_jd/id004_bj/tvb/Cortex_region_map_ico7.txt',
@@ -65,7 +65,9 @@ lib.plots.neuralfield.spatial_map(
         'min': -5.0,
         'max': 0.0
     },
-    unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy())
+    unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
+    fig_dir=f"{figs_dir}/ground_truth",
+    fig_name="x0_gt.png")
 # %%
 nsteps = tf.constant(300, dtype=tf.int32)
 sampling_period = tf.constant(0.1, dtype=tf.float32)
