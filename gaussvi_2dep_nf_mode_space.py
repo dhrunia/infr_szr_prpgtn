@@ -19,7 +19,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = 'results/exp43'
+results_dir = 'results/exp45'
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f'{results_dir}/figures'
 os.makedirs(figs_dir, exist_ok=True)
@@ -28,11 +28,13 @@ dyn_mdl = lib.model.neuralfield.Epileptor2D(
     L_MAX=32,
     N_LAT=129,
     N_LON=257,
-    verts_irreg_fname='datasets/id004_bj_jd/tvb/ico7/vertices.txt',
-    rgn_map_irreg_fname='datasets/id004_bj_jd/tvb/Cortex_region_map_ico7.txt',
-    conn_zip_path='datasets/id004_bj_jd/tvb/connectivity.vep.zip',
-    gain_irreg_path='datasets/id004_bj_jd/tvb/gain_inv_square_ico7.npz',
-    gain_irreg_rgn_map_path='datasets/id004_bj_jd/tvb/gain_region_map_ico7.txt',
+    verts_irreg_fname='datasets/data_jd/id004_bj/tvb/ico7/vertices.txt',
+    rgn_map_irreg_fname=
+    'datasets/data_jd/id004_bj/tvb/Cortex_region_map_ico7.txt',
+    conn_zip_path='datasets/data_jd/id004_bj/tvb/connectivity.vep.zip',
+    gain_irreg_path='datasets/data_jd/id004_bj/tvb/gain_inv_square_ico7.npz',
+    gain_irreg_rgn_map_path=
+    'datasets/data_jd/id004_bj/tvb/gain_region_map_ico7.txt',
     L_MAX_PARAMS=16)
 
 # %%
@@ -45,7 +47,7 @@ tau_true = tf.constant(25, dtype=tf.float32, shape=())
 K_true = tf.constant(1.0, dtype=tf.float32, shape=())
 # x0_true = tf.constant(tvb_syn_data['x0'], dtype=tf.float32)
 x0_true = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
-ez_hyp_roi_tvb = [116, 127, 157]
+ez_hyp_roi_tvb = [157] #[116, 127, 157]
 ez_hyp_roi = [dyn_mdl.roi_map_tvb_to_tfnf[roi] for roi in ez_hyp_roi_tvb]
 ez_hyp_vrtcs = np.concatenate(
     [np.nonzero(roi == dyn_mdl.rgn_map)[0] for roi in ez_hyp_roi])
@@ -163,7 +165,10 @@ def train_loop(obs_data, num_epochs, nsamples, obs_space, prior_roi_weighted):
 
 
 # %%
-x0_prior_mu = -3.0 * tf.ones(dyn_mdl.nv + dyn_mdl.ns) * dyn_mdl.unkown_roi_mask
+x0_prior_mu = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
+# x0_prior_mu[-6] = -1.5
+x0_prior_mu = tf.constant(x0_prior_mu,
+                          dtype=tf.float32) * dyn_mdl.unkown_roi_mask
 dyn_mdl.setup_inference(nsteps=nsteps,
                         nsubsteps=nsubsteps,
                         time_step=time_step,
@@ -189,7 +194,7 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2, clipnorm=10)
 # %%
 start_time = time.time()
 losses = train_loop(obs_data_aug,
-                    num_epochs=tf.constant(50, dtype=tf.int32),
+                    num_epochs=tf.constant(2000, dtype=tf.int32),
                     nsamples=tf.constant(1, dtype=tf.uint32),
                     obs_space='sensor',
                     prior_roi_weighted=False)
