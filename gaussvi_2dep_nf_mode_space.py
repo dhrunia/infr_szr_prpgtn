@@ -19,7 +19,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = 'results/exp48'
+results_dir = 'results/exp49'
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f'{results_dir}/figures'
 os.makedirs(figs_dir, exist_ok=True)
@@ -204,7 +204,7 @@ print(f"Elapsed {time.time() - start_time} seconds")
 # %%
 scale_diag = tf.exp(log_scale_diag)
 # scale_diag = 0.1 * tf.ones(nparams)
-nsamples = 100
+nsamples = 1000
 posterior_samples = tfd.MultivariateNormalDiag(
     loc=loc, scale_diag=scale_diag).sample(nsamples)
 x0_samples = tf.TensorArray(dtype=tf.float32,
