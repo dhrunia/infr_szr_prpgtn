@@ -52,7 +52,7 @@ class Epileptor2D:
         print("Assuming indices (zero based) of subcortical roi in the " +
               "provided SC to be [73:81] for left hemisphere " +
               "and [154:162] for right hemisphere")
-        idcs_subcrtx_roi = np.concatenate(
+        tvb_idcs_subcrtx_roi = np.concatenate(
             (np.arange(73, 73 + 9, dtype=np.int32),
              np.arange(154, 154 + 9, dtype=np.int32)),
             dtype=np.int32)
@@ -69,7 +69,7 @@ class Epileptor2D:
         # Compute mappings between roi indices in TVB and this class
         roi_map_tfnf_to_tvb = np.zeros(self._nroi, dtype=np.int32)
         roi_map_tfnf_to_tvb = np.concatenate(
-            (np.unique(rgn_map_reg_tvb), idcs_subcrtx_roi), dtype=np.int32)
+            (np.unique(rgn_map_reg_tvb), tvb_idcs_subcrtx_roi), dtype=np.int32)
         self._roi_map_tfnf_to_tvb = tf.constant(roi_map_tfnf_to_tvb,
                                                 dtype=tf.int32)
         roi_map_tvb_to_tfnf = np.zeros(self._nroi, dtype=np.int32)
@@ -137,31 +137,28 @@ class Epileptor2D:
             self._high_idcs.append(roi_idcs[-1] +
                                    1 if roi_idcs.ndim > 0 else roi_idcs + 1)
 
-        # Prepare the gain matrix
-        gain_irreg = np.load(gain_irreg_path)['gain_inv_square']
-        num_verts_irreg = np.loadtxt(verts_irreg_fname).shape[0]
-        gain_irreg_crtx = gain_irreg[:, 0:num_verts_irreg]
-        # subcortical regions are treated as point masses
-        gain_irreg_subcrtx = np.zeros(shape=(gain_irreg_crtx.shape[0],
-                                             idcs_subcrtx_roi.shape[0]))
-        gain_irreg_rgn_map = np.loadtxt(gain_irreg_rgn_map_path)
-        for i, roi in enumerate(idcs_subcrtx_roi):
-            idcs = np.nonzero(gain_irreg_rgn_map == roi)[0]
-            gain_irreg_subcrtx[:, i] = np.sum(gain_irreg[:, idcs], axis=1)
-        gain_reg_crtx = gain_irreg_crtx[:, self._idcs_nbrs_irreg].T
-        gain_reg_subcrtx = gain_irreg_subcrtx.T
-        gain_reg = np.concatenate([gain_reg_crtx, gain_reg_subcrtx], axis=0)
-        self._gain_reg = tf.constant(gain_reg, dtype=tf.float32)
-        # self._gain_reg_crtx = tf.constant(gain_reg_crtx, dtype=tf.float32)
-        # self._gain_reg_subcrtx = tf.constant(gain_reg_subcrtx,
-        #                                      dtype=tf.float32)
+        # Mapping from vertices in irregular sphere to the regular sphere
+        vrtx_map_irreg_to_reg_sphere = lib.utils.projector.map_irreg_to_reg_sphere(
+            N_LAT=self._N_LAT.numpy(),
+            N_LON=self._N_LON.numpy(),
+            cos_theta=self._cos_theta,
+            verts_irreg_fname=verts_irreg_fname)
 
-        # # SHT constants for inference in modes space
-        # self._L_MAX_PARAMS = L_MAX_PARAMS
-        # (_, _, self._cos_theta_params, self._glq_wts_params,
-        #  self._P_l_m_costheta_params) = tfsht.prep(self._L_MAX_PARAMS,
-        #                                            self._N_LAT, self._N_LON)
-        # self._nmodes_params = tf.pow(self._L_MAX_PARAMS + 1, 2)
+        # Binary mask of the mapped vertices
+        vrtx_map_mask = np.zeros(self._nv)
+        vrtx_map_mask[np.unique(vrtx_map_irreg_to_reg_sphere)] = 1
+        # Append 1s for subcortical regions
+        vrtx_map_mask = np.concatenate([vrtx_map_mask, np.ones(self._ns)])
+        self._vrtx_map_mask = tf.constant(vrtx_map_mask, dtype=tf.float32)
+
+        # Prepare the gain matrix
+        self.build_gain_reg(
+            gain_irreg_path=gain_irreg_path,
+            verts_irreg_fname=verts_irreg_fname,
+            gain_irreg_rgn_map_path=gain_irreg_rgn_map_path,
+            tvb_idcs_subcrtx_roi=tvb_idcs_subcrtx_roi,
+            vrtx_map_irreg_to_reg_sphere=vrtx_map_irreg_to_reg_sphere)
+
         self.setup_param_mode_space_constants(L_MAX_PARAMS)
 
         # Compute the no.of vertices in each ROI
@@ -296,6 +293,33 @@ class Epileptor2D:
     @property
     def time_step(self):
         return self._time_step
+
+    def build_gain_reg(self, gain_irreg_path, verts_irreg_fname,
+                       gain_irreg_rgn_map_path, tvb_idcs_subcrtx_roi,
+                       vrtx_map_irreg_to_reg_sphere):
+
+        gain_irreg = np.load(gain_irreg_path)['gain_inv_square']
+        num_verts_irreg = np.loadtxt(verts_irreg_fname).shape[0]
+        gain_irreg_crtx = gain_irreg[:, 0:num_verts_irreg]
+        # subcortical regions are treated as point masses
+        gain_irreg_subcrtx = np.zeros(shape=(gain_irreg_crtx.shape[0],
+                                             tvb_idcs_subcrtx_roi.shape[0]))
+        gain_irreg_rgn_map = np.loadtxt(gain_irreg_rgn_map_path)
+        for i, roi in enumerate(tvb_idcs_subcrtx_roi):
+            idcs = np.nonzero(gain_irreg_rgn_map == roi)[0]
+            gain_irreg_subcrtx[:, i] = np.sum(gain_irreg[:, idcs], axis=1)
+        gain_reg_subcrtx = gain_irreg_subcrtx.T
+
+        self._num_sensors = gain_irreg.shape[0]
+        gain_reg_crtx = np.zeros((self._nv, self._num_sensors))
+        for i in range(self._nv):
+            if self._unkown_roi_mask[i] == 1:
+                idcs = np.nonzero(vrtx_map_irreg_to_reg_sphere == i)[0]
+                if idcs.shape[0] != 0:
+                    gain_reg_crtx[i, :] = np.sum(gain_irreg_crtx[:, idcs],
+                                                 axis=1)
+        gain_reg = np.concatenate([gain_reg_crtx, gain_reg_subcrtx], axis=0)
+        self._gain_reg = tf.constant(gain_reg, dtype=tf.float32)
 
     @tf.function
     def _build_rgn_map(self, rgn_map_reg_tvb):
@@ -499,9 +523,9 @@ class Epileptor2D:
         alpha = tf.constant(1.0, dtype=tf.float32)
         theta = tf.constant(-1.0, dtype=tf.float32)
         gamma_lc = tf.constant(2.0, dtype=tf.float32)
-        x_crtx_hat = tf.math.sigmoid(
-            alpha *
-            (x[0:self._nv] - theta)) * self._unkown_roi_mask[0:self._nv]
+        x_crtx_hat = tf.math.sigmoid(alpha * (x[0:self._nv] - theta)) * \
+            self._unkown_roi_mask[0:self._nv] * \
+            self._vrtx_map_mask[0:self._nv]
         local_cplng = self._local_coupling(
             x_crtx_hat,
             self._glq_wts,
@@ -525,9 +549,12 @@ class Epileptor2D:
             axis=1)
         global_cplng_vrtcs = tf.gather(global_cplng_roi, self._rgn_map)
         dx = (1.0 - tf.math.pow(x, 3) - 2 * tf.math.pow(x, 2) - z +
-              I1) * self._unkown_roi_mask
-        dz = ((1.0 / tau) * (4 * (x - x0) - z - global_cplng_vrtcs -
-                             gamma_lc * local_cplng)) * self._unkown_roi_mask
+              I1) * self._unkown_roi_mask * self._vrtx_map_mask
+        dz = ((1.0 / tau) * \
+              (4 * (x - x0) - z - global_cplng_vrtcs -
+               gamma_lc * local_cplng)) * \
+             self._unkown_roi_mask * \
+             self._vrtx_map_mask
         return tf.concat((dx, dz), axis=0)
 
     @tf.function
