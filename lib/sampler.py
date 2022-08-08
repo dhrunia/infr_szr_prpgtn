@@ -40,29 +40,34 @@ class SVGD():
     @tf.function
     def _find_opt_prtrbtn(self, theta):
         lnpgrad = tf.TensorArray(dtype=tf.float32, size=theta.shape[0])
+        lnp = tf.TensorArray(dtype=tf.float32, size=theta.shape[0])
 
-        def cond(i, lnpgrad, lnp_sum):
+        def cond(i, lnpgrad, lnp):
             return tf.less(i, theta.shape[0])
 
-        def body(i, lnpgrad, lnp_sum):
+        def body(i, lnpgrad, lnp):
             with tf.GradientTape() as tape:
                 theta_i = theta[i]
                 tape.watch(theta_i)
-                lnp = self._dyn_mdl.log_prob(theta_i)
-                lnpgrad = lnpgrad.write(i, tape.gradient(lnp, theta_i))
-            return i + 1, lnpgrad, lnp_sum + lnp
+                lnp_i = self._dyn_mdl.log_prob(theta_i)
+                lnpgrad = lnpgrad.write(i, tape.gradient(lnp_i, theta_i))
+                lnp = lnp.write(i, lnp_i)
+            return i + 1, lnpgrad, lnp
 
         i = tf.constant(0, dtype=tf.int32)
-        lnp_sum = tf.constant(0.0, dtype=tf.float32, shape=(1, ))
-        i, lnpgrad, lnp_sum = tf.while_loop(cond=cond,
-                                            body=body,
-                                            loop_vars=[i, lnpgrad, lnp_sum],
-                                            parallel_iterations=1)
+
+        i, lnpgrad, lnp = tf.while_loop(cond=cond,
+                                        body=body,
+                                        loop_vars=[i, lnpgrad, lnp],
+                                        parallel_iterations=1)
         lnpgrad = lnpgrad.stack()
+        lnp = lnp.stack()
+        # tf.print("lnpgrad=", lnpgrad)
         # calculating the kernel matrix
         kxy, dxkxy = self._rbf_kernel(theta)
+        # tf.print("kxy=", kxy, "dxkxy=", dxkxy)
         phi_star = (tf.matmul(kxy, lnpgrad) + dxkxy) / theta.shape[0]
-        return phi_star, lnp_sum
+        return phi_star, lnp
 
     # @tf.function
     def update(self,
@@ -72,9 +77,11 @@ class SVGD():
                stepsize=1e-3,
                fudge_factor=1e-6):
         for i in range(n_iters):
-            grad_theta, lnp_sum = self._find_opt_prtrbtn(theta)
-            if i % 50 == 0:
+            grad_theta, lnp = self._find_opt_prtrbtn(theta)
+            lnp_sum = tf.reduce_sum(lnp)
+            if i % 1 == 0:
                 print(f"Iter {i}: {lnp_sum}")
+            # print("grad_theta=", grad_theta)
             historical_grad = tf.zeros_like(grad_theta)
             # adagrad
             if i == 0:
@@ -86,3 +93,35 @@ class SVGD():
                                  fudge_factor + tf.sqrt(historical_grad))
             theta = theta + stepsize * adj_grad
         return theta
+
+
+# @tf.function
+# def _find_opt_prtrbtn(self, theta):
+#     with tf.GradientTape() as tape:
+#         tape.watch(theta)
+#         lnp = tf.TensorArray(dtype=tf.float32, size=theta.shape[0])
+#         def cond(i, lnp):
+#             return tf.less(i, theta.shape[0])
+
+#         def body(i, lnp):
+#             with tf.GradientTape() as tape:
+#                 theta_i = theta[i]
+#                 tape.watch(theta_i)
+#                 lnp_i = self._dyn_mdl.log_prob(theta_i)
+#                 lnp = lnp.write(i, lnp_i)
+#             return i + 1, lnp
+
+#         i = tf.constant(0, dtype=tf.int32)
+
+#         i, lnp = tf.while_loop(cond=cond,
+#                             body=body,
+#                             loop_vars=[i, lnp],
+#                             parallel_iterations=5)
+#         lnp = lnp.stack()
+#     lnpgrad = tape.gradient(lnp, theta)
+#     # tf.print("lnpgrad=", lnpgrad)
+#     # calculating the kernel matrix
+#     kxy, dxkxy = self._rbf_kernel(theta)
+#     # tf.print("kxy=", kxy, "dxkxy=", dxkxy)
+#     phi_star = (tf.matmul(kxy, lnpgrad) + dxkxy) / theta.shape[0]
+#     return phi_star, lnp
