@@ -1,6 +1,6 @@
 # %%
 import tensorflow as tf
-from svgd import SVGD
+from lib.sampler import SVGD
 import tensorflow_probability as tfp
 import time
 import matplotlib.pyplot as plt
@@ -26,7 +26,6 @@ class GMM():
         return lp
 # %%
 svgd_sampler = SVGD(dyn_mdl=GMM())
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 # %%
 start_time = time.time()
 n_iters = 2000
