@@ -149,6 +149,8 @@ class Epileptor2D:
             idcs = np.nonzero(gain_irreg_rgn_map == roi)[0]
             gain_irreg_subcrtx[:, i] = np.sum(gain_irreg[:, idcs], axis=1)
         gain_reg_crtx = gain_irreg_crtx[:, self._idcs_nbrs_irreg].T
+        # Set the gain of unkown ROI to zero
+        gain_reg_crtx[self._unkown_roi_idcs] = 0.0
         gain_reg_subcrtx = gain_irreg_subcrtx.T
         gain_reg = np.concatenate([gain_reg_crtx, gain_reg_subcrtx], axis=0)
         self._gain_reg = tf.constant(gain_reg, dtype=tf.float32)
