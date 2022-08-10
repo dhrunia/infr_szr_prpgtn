@@ -19,7 +19,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = 'results/exp56'
+results_dir = 'results/exp57'
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f'{results_dir}/figures'
 os.makedirs(figs_dir, exist_ok=True)
@@ -39,9 +39,11 @@ dyn_mdl = lib.model.neuralfield.Epileptor2D(
 
 # %%
 x_init_true = tf.constant(-2.0, dtype=tf.float32) * \
-    tf.ones(dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32)
+    tf.ones(dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32) * \
+        dyn_mdl.unkown_roi_mask
 z_init_true = tf.constant(5.0, dtype=tf.float32) * \
-    tf.ones(dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32)
+    tf.ones(dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32) * \
+        dyn_mdl.unkown_roi_mask
 y_init_true = tf.concat((x_init_true, z_init_true), axis=0)
 tau_true = tf.constant(25, dtype=tf.float32, shape=())
 K_true = tf.constant(1.0, dtype=tf.float32, shape=())
@@ -52,7 +54,7 @@ ez_hyp_roi = [dyn_mdl.roi_map_tvb_to_tfnf[roi] for roi in ez_hyp_roi_tvb]
 ez_hyp_vrtcs = np.concatenate(
     [np.nonzero(roi == dyn_mdl.rgn_map)[0] for roi in ez_hyp_roi])
 x0_true[ez_hyp_vrtcs] = -1.8
-x0_true = tf.constant(x0_true, dtype=tf.float32)
+x0_true = tf.constant(x0_true, dtype=tf.float32) * dyn_mdl.unkown_roi_mask
 # t = dyn_mdl.SC.numpy()
 # t[dyn_mdl.roi_map_tvb_to_tfnf[140], dyn_mdl.roi_map_tvb_to_tfnf[116]] = 5.0
 # dyn_mdl.SC = tf.constant(t, dtype=tf.float32)
@@ -61,11 +63,6 @@ lib.plots.neuralfield.spatial_map(
     x0_true.numpy(),
     N_LAT=dyn_mdl.N_LAT.numpy(),
     N_LON=dyn_mdl.N_LON.numpy(),
-    clim={
-        'min': -5.0,
-        'max': 0.0
-    },
-    unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
     fig_dir=f"{figs_dir}/ground_truth",
     fig_name="x0_gt.png")
 # %%
