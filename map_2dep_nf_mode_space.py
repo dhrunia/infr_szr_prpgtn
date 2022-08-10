@@ -19,39 +19,43 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = "results/exp42"
+results_dir = "results/exp58"
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
 os.makedirs(figs_dir, exist_ok=True)
 
 dyn_mdl = lib.model.neuralfield.Epileptor2D(
     L_MAX=32,
-    N_LAT=129,
-    N_LON=257,
-    verts_irreg_fname="datasets/id004_bj_jd/tvb/ico7/vertices.txt",
-    rgn_map_irreg_fname="datasets/id004_bj_jd/tvb/Cortex_region_map_ico7.txt",
-    conn_zip_path="datasets/id004_bj_jd/tvb/connectivity.vep.zip",
-    gain_irreg_path="datasets/id004_bj_jd/tvb/gain_inv_square_ico7.npz",
-    gain_irreg_rgn_map_path="datasets/id004_bj_jd/tvb/gain_region_map_ico7.txt",
+    N_LAT=65,  #129,
+    N_LON=129,  #257,
+    verts_irreg_fname="datasets/data_jd/id004_bj/tvb/ico7/vertices.txt",
+    rgn_map_irreg_fname=
+    "datasets/data_jd/id004_bj/tvb/Cortex_region_map_ico7.txt",
+    conn_zip_path="datasets/data_jd/id004_bj/tvb/connectivity.vep.zip",
+    gain_irreg_path="datasets/data_jd/id004_bj/tvb/gain_inv_square_ico7.npz",
+    gain_irreg_rgn_map_path=
+    "datasets/data_jd/id004_bj/tvb/gain_region_map_ico7.txt",
     L_MAX_PARAMS=16,
 )
 
 # %%
 x_init_true = tf.constant(-2.0, dtype=tf.float32) * tf.ones(
-    dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32)
+    dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32) * \
+        dyn_mdl.unkown_roi_mask
 z_init_true = tf.constant(5.0, dtype=tf.float32) * tf.ones(
-    dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32)
+    dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32) * \
+        dyn_mdl.unkown_roi_mask
 y_init_true = tf.concat((x_init_true, z_init_true), axis=0)
 tau_true = tf.constant(25, dtype=tf.float32, shape=())
 K_true = tf.constant(1.0, dtype=tf.float32, shape=())
 # x0_true = tf.constant(tvb_syn_data['x0'], dtype=tf.float32)
 x0_true = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
-ez_hyp_roi_tvb = [116, 127, 157]
+ez_hyp_roi_tvb = [154, 156]
 ez_hyp_roi = [dyn_mdl.roi_map_tvb_to_tfnf[roi] for roi in ez_hyp_roi_tvb]
 ez_hyp_vrtcs = np.concatenate(
     [np.nonzero(roi == dyn_mdl.rgn_map)[0] for roi in ez_hyp_roi])
 x0_true[ez_hyp_vrtcs] = -1.8
-x0_true = tf.constant(x0_true, dtype=tf.float32)
+x0_true = tf.constant(x0_true, dtype=tf.float32) * dyn_mdl.unkown_roi_mask
 # t = dyn_mdl.SC.numpy()
 # t[dyn_mdl.roi_map_tvb_to_tfnf[140], dyn_mdl.roi_map_tvb_to_tfnf[116]] = 5.0
 # dyn_mdl.SC = tf.constant(t, dtype=tf.float32)
@@ -64,7 +68,6 @@ lib.plots.neuralfield.spatial_map(
         "min": -5.0,
         "max": 0.0
     },
-    unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
 )
 # %%
 nsteps = tf.constant(300, dtype=tf.int32)
@@ -82,8 +85,10 @@ lib.plots.seeg.plot_slp(slp_true.numpy(),
                         save_dir=f"{figs_dir}/ground_truth",
                         fig_name="slp_obs.png")
 # %%
-
-x0 = -4.0 * tf.ones(dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32)
+x0 = tf.random.uniform(shape=[dyn_mdl.nv + dyn_mdl.ns],
+                       minval=dyn_mdl.x0_lb,
+                       maxval=dyn_mdl.x0_ub)
+# x0 = -4.0 * tf.ones(dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32)
 # x0 = tf.constant(np.load(f'{results_dir}/x0_pred_lmax=5.npy'),
 #                  dtype=tf.float32)
 # x0 = x0_true
@@ -133,11 +138,10 @@ def train_loop(num_iters, optimizer, obs_data, obs_space, prior_roi_weighted):
 
 
 # %%
-wrong_ez_hyp_vrtcs = ez_hyp_vrtcs
-wrong_ez_hyp_vrtcs[-1] = 66322
 x0_prior_mu = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
-x0_prior_mu[ez_hyp_vrtcs] = -1.5
-x0_prior_mu = tf.constant(x0_prior_mu, dtype=tf.float32) * dyn_mdl.unkown_roi_mask
+# x0_prior_mu[ez_hyp_vrtcs] = -1.5
+x0_prior_mu = tf.constant(x0_prior_mu,
+                          dtype=tf.float32) * dyn_mdl.unkown_roi_mask
 
 dyn_mdl.setup_inference(
     nsteps=nsteps,
@@ -286,7 +290,6 @@ lib.plots.neuralfield.spatial_map(
     x0_true.numpy(),
     N_LAT=dyn_mdl.N_LAT.numpy(),
     N_LON=dyn_mdl.N_LON.numpy(),
-    unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
     ax=ax_gt,
     clim=clim,
 )
@@ -294,7 +297,6 @@ lib.plots.neuralfield.spatial_map(
     x0_pred.numpy(),
     N_LAT=dyn_mdl.N_LAT.numpy(),
     N_LON=dyn_mdl.N_LON.numpy(),
-    unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
     ax=ax_infr,
     clim=clim,
 )
