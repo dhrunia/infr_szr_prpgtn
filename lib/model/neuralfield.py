@@ -570,7 +570,8 @@ class Epileptor2D:
         return slp
 
     def setup_inference(self, nsteps, nsubsteps, time_step, y_init, tau, K,
-                        x0_prior_mu):
+                        x0_prior_mu, obs_data, param_space, obs_space,
+                        prior_roi_weighted):
         # self._obs = obs_data
         self._nsteps = nsteps
         self._nsubsteps = nsubsteps
@@ -579,6 +580,11 @@ class Epileptor2D:
         self._tau = tau
         self._K = K
         self._x0_prior_mu = x0_prior_mu
+        self._x0_prior_mu = x0_prior_mu
+        self._obs_data = obs_data
+        self._param_space = param_space
+        self._obs_space = obs_space
+        self._prior_roi_weighted = prior_roi_weighted
 
     # def _build_priors(self, x0_prior_loc, x0_prior_scale):
     #     # self._x0_prior = tfd.MixtureSameFamily(
@@ -624,8 +630,9 @@ class Epileptor2D:
         return llp
 
     @tf.function
-    def log_prob(self, theta, obs_data, param_space, obs_space,
-                 prior_roi_weighted):
+    def log_prob(self, theta):
+        if theta.shape.ndims == 1:
+            theta = theta[tf.newaxis, :]
         nsamples = theta.shape[0]
         lp = tf.TensorArray(dtype=tf.float32, size=nsamples)
         i = tf.constant(0)
@@ -636,13 +643,13 @@ class Epileptor2D:
         def body(i, lp):
             # eps = tf.constant(0.1, dtype=tf.float32)
             # tf.print("nan in theta", tf.reduce_any(tf.math.is_nan(theta)))
-            x0, eps = self.transformed_parameters(theta[i], param_space)
+            x0, eps = self.transformed_parameters(theta[i], self._param_space)
             x0_unkown_masked = x0 * self._unkown_roi_mask
 
             prior_lp = self._prior_log_prob(x0_unkown_masked,
-                                            prior_roi_weighted)
+                                            self._prior_roi_weighted)
             likelihood_lp = self._likelihood_log_prob(x0_unkown_masked, eps,
-                                                      obs_data, obs_space)
+                                                      self._obs_data, self._obs_space)
             lp_i = prior_lp + likelihood_lp
             tf.print("likelihood = ", likelihood_lp, "prior = ", prior_lp)
             lp = lp.write(i, lp_i)
