@@ -19,15 +19,15 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = 'results/exp57'
+results_dir = 'results/61'
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f'{results_dir}/figures'
 os.makedirs(figs_dir, exist_ok=True)
 
 dyn_mdl = lib.model.neuralfield.Epileptor2D(
     L_MAX=32,
-    N_LAT=65,#129,
-    N_LON=129,#257,
+    N_LAT=65,
+    N_LON=129,
     verts_irreg_fname='datasets/data_jd/id004_bj/tvb/ico7/vertices.txt',
     rgn_map_irreg_fname=
     'datasets/data_jd/id004_bj/tvb/Cortex_region_map_ico7.txt',
@@ -44,27 +44,26 @@ x_init_true = tf.constant(-2.0, dtype=tf.float32) * \
 z_init_true = tf.constant(5.0, dtype=tf.float32) * \
     tf.ones(dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32) * \
         dyn_mdl.unkown_roi_mask
-y_init_true = tf.concat((x_init_true, z_init_true), axis=0)
+y_init_true = tf.concat(values=(x_init_true, z_init_true), axis=0)
 tau_true = tf.constant(25, dtype=tf.float32, shape=())
 K_true = tf.constant(1.0, dtype=tf.float32, shape=())
 # x0_true = tf.constant(tvb_syn_data['x0'], dtype=tf.float32)
 x0_true = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
-ez_hyp_roi_tvb = [154, 156] #[116, 127, 157]
+ez_hyp_roi_tvb = [154, 156]  #[116, 127, 157]
 ez_hyp_roi = [dyn_mdl.roi_map_tvb_to_tfnf[roi] for roi in ez_hyp_roi_tvb]
 ez_hyp_vrtcs = np.concatenate(
     [np.nonzero(roi == dyn_mdl.rgn_map)[0] for roi in ez_hyp_roi])
 x0_true[ez_hyp_vrtcs] = -1.8
 x0_true = tf.constant(x0_true, dtype=tf.float32) * dyn_mdl.unkown_roi_mask
-# t = dyn_mdl.SC.numpy()
-# t[dyn_mdl.roi_map_tvb_to_tfnf[140], dyn_mdl.roi_map_tvb_to_tfnf[116]] = 5.0
-# dyn_mdl.SC = tf.constant(t, dtype=tf.float32)
+t = dyn_mdl.SC.numpy()
+t[[94, 107], ez_hyp_roi] = 5.0
+dyn_mdl.SC = tf.constant(t, dtype=tf.float32)
 # %%
-lib.plots.neuralfield.spatial_map(
-    x0_true.numpy(),
-    N_LAT=dyn_mdl.N_LAT.numpy(),
-    N_LON=dyn_mdl.N_LON.numpy(),
-    fig_dir=f"{figs_dir}/ground_truth",
-    fig_name="x0_gt.png")
+lib.plots.neuralfield.spatial_map(x0_true.numpy(),
+                                  N_LAT=dyn_mdl.N_LAT.numpy(),
+                                  N_LON=dyn_mdl.N_LON.numpy(),
+                                  fig_dir=f"{figs_dir}/ground_truth",
+                                  fig_name="x0_gt.png")
 # %%
 nsteps = tf.constant(300, dtype=tf.int32)
 sampling_period = tf.constant(0.1, dtype=tf.float32)
@@ -95,7 +94,7 @@ log_scale_diag = tf.Variable(initial_value=-1.0 * tf.ones(nparams))
 
 
 @tf.function
-def get_loss_and_gradients(obs_data, nsamples, obs_space, prior_roi_weighted):
+def get_loss_and_gradients(nsamples):
     loss = tf.constant(0, dtype=tf.float32, shape=(1, 1))
     loc_grad = tf.zeros_like(loc)
     log_scale_diag_grad = tf.zeros_like(log_scale_diag)
@@ -110,12 +109,7 @@ def get_loss_and_gradients(obs_data, nsamples, obs_space, prior_roi_weighted):
             theta = tfd.MultivariateNormalDiag(loc=loc,
                                                scale_diag=scale_diag).sample(1)
             # loss_val = tf.constant(0.0, shape=(1, ), dtype=tf.float32)
-            gm_log_prob = tf.reduce_sum(
-                dyn_mdl.log_prob(theta,
-                                 obs_data,
-                                 param_space='mode',
-                                 obs_space=obs_space,
-                                 prior_roi_weighted=prior_roi_weighted))
+            gm_log_prob = tf.reduce_sum(dyn_mdl.log_prob(theta))
             posterior_approx_log_prob = tfd.MultivariateNormalDiag(
                 loc=loc, scale_diag=scale_diag).log_prob(theta)
             # rglzr = tf.reduce_sum(scale_diag**2)
@@ -139,16 +133,14 @@ def get_loss_and_gradients(obs_data, nsamples, obs_space, prior_roi_weighted):
 
 # %%
 # @tf.function
-def train_loop(obs_data, num_epochs, nsamples, obs_space, prior_roi_weighted):
+def train_loop(num_epochs, nsamples):
     loss_at = tf.TensorArray(size=num_epochs, dtype=tf.float32)
 
     def cond(i, loss_at):
         return tf.less(i, num_epochs)
 
     def body(i, loss_at):
-        loss_value, grads = get_loss_and_gradients(obs_data, nsamples,
-                                                   obs_space,
-                                                   prior_roi_weighted)
+        loss_value, grads = get_loss_and_gradients(nsamples)
         loss_at = loss_at.write(i, loss_value)
         tf.print("Epoch ", i, "loss: ", loss_value)
         # training_loss.append(loss_value)
@@ -164,6 +156,14 @@ def train_loop(obs_data, num_epochs, nsamples, obs_space, prior_roi_weighted):
 
 
 # %%
+n_sample_aug = 50
+obs_data_aug = tf.TensorArray(dtype=tf.float32, size=n_sample_aug)
+for j in range(n_sample_aug):
+    data_noised = slp_obs + \
+        tf.random.normal(shape=slp_obs.shape, mean=0, stddev=0.1)
+    obs_data_aug = obs_data_aug.write(j, data_noised)
+obs_data_aug = obs_data_aug.stack()
+# %%
 x0_prior_mu = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
 # x0_prior_mu[-6] = -1.5
 x0_prior_mu = tf.constant(x0_prior_mu,
@@ -174,15 +174,11 @@ dyn_mdl.setup_inference(nsteps=nsteps,
                         y_init=y_init_true,
                         tau=tau_true,
                         K=K_true,
-                        x0_prior_mu=x0_prior_mu)
-# %%
-n_sample_aug = 50
-obs_data_aug = tf.TensorArray(dtype=tf.float32, size=n_sample_aug)
-for j in range(n_sample_aug):
-    data_noised = slp_obs + \
-        tf.random.normal(shape=slp_obs.shape, mean=0, stddev=0.1)
-    obs_data_aug = obs_data_aug.write(j, data_noised)
-obs_data_aug = obs_data_aug.stack()
+                        x0_prior_mu=x0_prior_mu,
+                        obs_data=obs_data_aug,
+                        param_space='mode',
+                        obs_space='sensor',
+                        prior_roi_weighted=False)
 # %%
 # initial_learning_rate = 1e-2
 # lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
@@ -192,11 +188,8 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2, clipnorm=10)
 
 # %%
 start_time = time.time()
-losses = train_loop(obs_data_aug,
-                    num_epochs=tf.constant(2000, dtype=tf.int32),
-                    nsamples=tf.constant(1, dtype=tf.uint32),
-                    obs_space='sensor',
-                    prior_roi_weighted=False)
+losses = train_loop(num_epochs=tf.constant(1000, dtype=tf.int32),
+                    nsamples=tf.constant(1, dtype=tf.uint32))
 print(f"Elapsed {time.time() - start_time} seconds")
 # %%
 scale_diag = tf.exp(log_scale_diag)

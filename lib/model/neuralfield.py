@@ -553,6 +553,7 @@ class Epileptor2D:
 
             j, y_next = tf.while_loop(cond2,
                                       body2, (j, y_next),
+                                      parallel_iterations=1,
                                       maximum_iterations=nsubsteps)
 
             y = y.write(i, y_next)
@@ -561,6 +562,7 @@ class Epileptor2D:
         i = tf.constant(0)
         i, y, y_next = tf.while_loop(cond1,
                                      body1, (i, y, y_next),
+                                     parallel_iterations=1,
                                      maximum_iterations=nsteps)
         return y.stack()
 
@@ -649,14 +651,12 @@ class Epileptor2D:
             prior_lp = self._prior_log_prob(x0_unkown_masked,
                                             self._prior_roi_weighted)
             likelihood_lp = self._likelihood_log_prob(x0_unkown_masked, eps,
-                                                      self._obs_data, self._obs_space)
+                                                      self._obs_data,
+                                                      self._obs_space)
             lp_i = prior_lp + likelihood_lp
             tf.print("likelihood = ", likelihood_lp, "prior = ", prior_lp)
             lp = lp.write(i, lp_i)
             return i + 1, lp
 
-        i, lp = tf.while_loop(cond=cond,
-                              body=body,
-                              loop_vars=(i, lp),
-                              parallel_iterations=1)
+        i, lp = tf.while_loop(cond=cond, body=body, loop_vars=(i, lp))
         return lp.stack()
