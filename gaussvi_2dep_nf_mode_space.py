@@ -19,7 +19,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = 'results/exp64'
+results_dir = 'results/exp65'
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f'{results_dir}/figures'
 os.makedirs(figs_dir, exist_ok=True)
@@ -28,12 +28,12 @@ dyn_mdl = lib.model.neuralfield.Epileptor2D(
     L_MAX=32,
     N_LAT=129,
     N_LON=257,
-    verts_irreg_fname='datasets/data_jd/id001_bt/ico7/vertices.txt',
-    rgn_map_irreg_fname='datasets/data_jd/id001_bt/Cortex_region_map_ico7.txt',
-    conn_zip_path='datasets/data_jd/id001_bt/connectivity.vep.zip',
-    gain_irreg_path='datasets/data_jd/id001_bt/gain_inv_square_ico7.npz',
+    verts_irreg_fname='datasets/data_jd/id002_sd/ico7/vertices.txt',
+    rgn_map_irreg_fname='datasets/data_jd/id002_sd/Cortex_region_map_ico7.txt',
+    conn_zip_path='datasets/data_jd/id002_sd/connectivity.vep.zip',
+    gain_irreg_path='datasets/data_jd/id002_sd/gain_inv_square_ico7.npz',
     gain_irreg_rgn_map_path=
-    'datasets/data_jd/id001_bt/gain_region_map_ico7.txt',
+    'datasets/data_jd/id002_sd/gain_region_map_ico7.txt',
     L_MAX_PARAMS=16)
 
 # %%
@@ -48,7 +48,7 @@ tau_true = tf.constant(25, dtype=tf.float32, shape=())
 K_true = tf.constant(1.0, dtype=tf.float32, shape=())
 # x0_true = tf.constant(tvb_syn_data['x0'], dtype=tf.float32)
 x0_true = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
-ez_hyp_roi_tvb = [131, 135]
+ez_hyp_roi_tvb = [54, 50, 49, 46, 135, 132]
 ez_hyp_roi = [dyn_mdl.roi_map_tvb_to_tfnf[roi] for roi in ez_hyp_roi_tvb]
 ez_hyp_vrtcs = np.concatenate(
     [np.nonzero(roi == dyn_mdl.rgn_map)[0] for roi in ez_hyp_roi])
@@ -62,6 +62,10 @@ lib.plots.neuralfield.spatial_map(
     x0_true.numpy(),
     N_LAT=dyn_mdl.N_LAT.numpy(),
     N_LON=dyn_mdl.N_LON.numpy(),
+    clim={
+        "min": -5.0,
+        "max": 0.0
+    },
     unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
     fig_dir=f"{figs_dir}/ground_truth",
     fig_name="x0_gt.png")
@@ -166,7 +170,7 @@ for j in range(n_sample_aug):
 obs_data_aug = obs_data_aug.stack()
 # %%
 x0_prior_mu = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
-x0_prior_mu[ez_hyp_vrtcs] = -1.5
+# x0_prior_mu[ez_hyp_vrtcs] = -1.5
 x0_prior_mu = tf.constant(x0_prior_mu,
                           dtype=tf.float32) * dyn_mdl.unkown_roi_mask
 dyn_mdl.setup_inference(nsteps=nsteps,
