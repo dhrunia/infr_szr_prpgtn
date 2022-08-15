@@ -19,15 +19,15 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = 'results/61'
+results_dir = 'results/exp62'
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f'{results_dir}/figures'
 os.makedirs(figs_dir, exist_ok=True)
 
 dyn_mdl = lib.model.neuralfield.Epileptor2D(
     L_MAX=32,
-    N_LAT=65,
-    N_LON=129,
+    N_LAT=129,
+    N_LON=257,
     verts_irreg_fname='datasets/data_jd/id004_bj/tvb/ico7/vertices.txt',
     rgn_map_irreg_fname=
     'datasets/data_jd/id004_bj/tvb/Cortex_region_map_ico7.txt',
@@ -55,9 +55,9 @@ ez_hyp_vrtcs = np.concatenate(
     [np.nonzero(roi == dyn_mdl.rgn_map)[0] for roi in ez_hyp_roi])
 x0_true[ez_hyp_vrtcs] = -1.8
 x0_true = tf.constant(x0_true, dtype=tf.float32) * dyn_mdl.unkown_roi_mask
-t = dyn_mdl.SC.numpy()
-t[[94, 107], ez_hyp_roi] = 5.0
-dyn_mdl.SC = tf.constant(t, dtype=tf.float32)
+# t = dyn_mdl.SC.numpy()
+# t[[94, 107], ez_hyp_roi] = 5.0
+# dyn_mdl.SC = tf.constant(t, dtype=tf.float32)
 # %%
 lib.plots.neuralfield.spatial_map(x0_true.numpy(),
                                   N_LAT=dyn_mdl.N_LAT.numpy(),
@@ -165,7 +165,7 @@ for j in range(n_sample_aug):
 obs_data_aug = obs_data_aug.stack()
 # %%
 x0_prior_mu = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
-# x0_prior_mu[-6] = -1.5
+x0_prior_mu[ez_hyp_vrtcs] = -1.5
 x0_prior_mu = tf.constant(x0_prior_mu,
                           dtype=tf.float32) * dyn_mdl.unkown_roi_mask
 dyn_mdl.setup_inference(nsteps=nsteps,
@@ -248,14 +248,14 @@ lib.plots.neuralfield.spatial_map(
     x0_mean,
     N_LAT=dyn_mdl.N_LAT,
     N_LON=dyn_mdl.N_LON,
-    # unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
+    unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
     fig_dir=f"{figs_dir}",
     fig_name="x0_posterior_mean.png")
 lib.plots.neuralfield.spatial_map(
     x0_std,
     N_LAT=dyn_mdl.N_LAT,
     N_LON=dyn_mdl.N_LON,
-    # unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
+    unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
     fig_dir=f"{figs_dir}",
     fig_name="x0_posterior_std.png")
 # %%
