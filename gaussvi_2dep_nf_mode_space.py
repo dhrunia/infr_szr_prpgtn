@@ -19,7 +19,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = 'results/exp65'
+results_dir = 'results/exp66'
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f'{results_dir}/figures'
 os.makedirs(figs_dir, exist_ok=True)
@@ -170,7 +170,7 @@ for j in range(n_sample_aug):
 obs_data_aug = obs_data_aug.stack()
 # %%
 x0_prior_mu = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
-# x0_prior_mu[ez_hyp_vrtcs] = -1.5
+x0_prior_mu[ez_hyp_vrtcs] = -1.5
 x0_prior_mu = tf.constant(x0_prior_mu,
                           dtype=tf.float32) * dyn_mdl.unkown_roi_mask
 dyn_mdl.setup_inference(nsteps=nsteps,
