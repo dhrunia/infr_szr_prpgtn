@@ -1,8 +1,9 @@
-import ffmpeg
-import matplotlib.pyplot as plt
-import numpy as np
+# import ffmpeg
 import os
 import glob
+import matplotlib.pyplot as plt
+import matplotlib.animation as anim
+import numpy as np
 import lib.utils.consts as consts
 
 
@@ -14,26 +15,44 @@ def create_video(x,
                  clim=None,
                  unkown_roi_mask=None):
     os.makedirs(out_dir, exist_ok=True)
-    files = glob.glob(f'{out_dir}/*')
-    for f in files:
-        os.remove(f)
+    # files = glob.glob(f'{out_dir}/*')
+    # for f in files:
+    #     os.remove(f)
 
     if clim is None:
         clim = {'min': np.min(x), 'max': np.max(x)}
 
-    for i in range(x.shape[0]):
-        spatial_map(x[i],
-                    N_LAT=N_LAT,
-                    N_LON=N_LON,
-                    clim=clim,
-                    fig_dir=out_dir,
-                    fig_name=f'x_{i+1:06d}.png',
-                    unkown_roi_mask=unkown_roi_mask)
-        plt.close()
+    fig = plt.figure(figsize=(7, 4), constrained_layout=True)
+    gs = fig.add_gridspec(2,
+                          3,
+                          height_ratios=[0.9, 0.1],
+                          width_ratios=[0.49, 0.49, 0.02])
+    ax = {}
+    ax['crtx_lh'] = fig.add_subplot(gs[0, 0])
+    ax['crtx_rh'] = fig.add_subplot(gs[0, 1])
+    ax['subcrtx_lh'] = fig.add_subplot(gs[1, 0])
+    ax['subcrtx_rh'] = fig.add_subplot(gs[1, 1])
+    ax['clr_bar'] = fig.add_subplot(gs[:, 2])
+    moviewriter = anim.FFMpegWriter(fps=16)
+    with moviewriter.saving(fig=fig,
+                            outfile=f"{out_dir}/{movie_name}",
+                            dpi=500):
+        for i in range(x.shape[0]):
+            for key in ax:
+                ax[key].clear()
+            spatial_map(x[i],
+                        N_LAT=N_LAT,
+                        N_LON=N_LON,
+                        clim=clim,
+                        unkown_roi_mask=unkown_roi_mask,
+                        ax=ax)
+            moviewriter.grab_frame()
 
-    (ffmpeg.input(f"{out_dir}/x_%06d.png", framerate=16).filter_(
-        'scale', size='hd1080', force_original_aspect_ratio='increase').output(
-            f'{out_dir}/{movie_name}').run())
+    # plt.close()
+
+    # (ffmpeg.input(f"{out_dir}/x_%06d.png", framerate=16).filter_(
+    #     'scale', size='hd1080', force_original_aspect_ratio='increase').output(
+    #         f'{out_dir}/{movie_name}').run())
 
 
 def x0_gt_vs_infer(x0_gt,
@@ -60,7 +79,7 @@ def x0_gt_vs_infer(x0_gt,
     plt.subplot(321)
     plt.imshow(x0_gt_lh, interpolation=None, cmap='hot')
     plt.clim(clim_min, clim_max)
-    plt.title("Ground Truth - Left hemisphere", fontsize=consts.FS_SMALLl)
+    plt.title("Ground Truth - Left hemisphere", fontsize=consts.FS_SMALL)
     plt.xlabel("Longitude", fontsize=consts.FS_MED)
     plt.ylabel("Latitude", fontsize=consts.FS_MED)
     plt.xticks(fontsize=consts.FS_MED)
@@ -69,7 +88,7 @@ def x0_gt_vs_infer(x0_gt,
     plt.subplot(322)
     plt.imshow(x0_gt_rh, interpolation=None, cmap='hot')
     plt.clim(clim_min, clim_max)
-    plt.title("Ground Truh - Right hemisphere", fontsize=consts.FS_SMALLl)
+    plt.title("Ground Truh - Right hemisphere", fontsize=consts.FS_SMALL)
     plt.xlabel("Longitude", fontsize=consts.FS_MED)
     plt.ylabel("Latitude", fontsize=consts.FS_MED)
     plt.xticks(fontsize=consts.FS_MED)
@@ -79,7 +98,7 @@ def x0_gt_vs_infer(x0_gt,
     plt.subplot(323)
     plt.imshow(x0_infer_mean_lh, interpolation=None, cmap='hot')
     plt.clim(clim_min, clim_max)
-    plt.title("Inferred Mean - Left hemisphere", fontsize=consts.FS_SMALLl)
+    plt.title("Inferred Mean - Left hemisphere", fontsize=consts.FS_SMALL)
     plt.xlabel("Longitude", fontsize=consts.FS_MED)
     plt.ylabel("Latitude", fontsize=consts.FS_MED)
     plt.xticks(fontsize=consts.FS_MED)
@@ -88,7 +107,7 @@ def x0_gt_vs_infer(x0_gt,
     plt.subplot(324)
     plt.imshow(x0_infer_mean_rh, interpolation=None, cmap='hot')
     plt.clim(clim_min, clim_max)
-    plt.title("Inferred Mean - Right hemisphere", fontsize=consts.FS_SMALLl)
+    plt.title("Inferred Mean - Right hemisphere", fontsize=consts.FS_SMALL)
     plt.xlabel("Longitude", fontsize=consts.FS_MED)
     plt.ylabel("Latitude", fontsize=consts.FS_MED)
     plt.xticks(fontsize=consts.FS_MED)
@@ -100,7 +119,7 @@ def x0_gt_vs_infer(x0_gt,
     plt.imshow(x0_infer_std_lh, interpolation=None, cmap='hot')
     # plt.clim(clim_min, clim_max)
     plt.title("Standard Deviation - Left hemisphere",
-              fontsize=consts.FS_SMALLl)
+              fontsize=consts.FS_SMALL)
     plt.xlabel("Longitude", fontsize=consts.FS_MED)
     plt.ylabel("Latitude", fontsize=consts.FS_MED)
     plt.xticks(fontsize=consts.FS_MED)
@@ -110,7 +129,7 @@ def x0_gt_vs_infer(x0_gt,
     plt.imshow(x0_infer_std_rh, interpolation=None, cmap='hot')
     # plt.clim(clim_min, clim_max)
     plt.title("Standard Deviation - Right hemisphere",
-              fontsize=consts.FS_SMALLl)
+              fontsize=consts.FS_SMALL)
     plt.xlabel("Longitude", fontsize=consts.FS_MED)
     plt.ylabel("Latitude", fontsize=consts.FS_MED)
     plt.xticks(fontsize=consts.FS_MED)
@@ -208,10 +227,8 @@ def spatial_map(x,
     cbar = plt.colorbar(sm, cax=ax['clr_bar'])
     ax['clr_bar'].tick_params(labelsize=consts.FS_SMALL)
 
-    if fig_dir is None:
-        fig_dir = os.getcwd()
-
-    os.makedirs(fig_dir, exist_ok=True)
+    if fig_dir is not None:
+        os.makedirs(fig_dir, exist_ok=True)
 
     if fig_name is not None:
         plt.savefig(f"{fig_dir}/{fig_name}",
