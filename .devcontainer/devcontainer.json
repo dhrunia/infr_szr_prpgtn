@@ -11,7 +11,9 @@
 	],
 	"runArgs": [
 		"--gpus=all",
-		"--name=neuralfields"
+		"--name=neuralfields",
+		"--env=DISPLAY",
+		"--volume=/tmp/.X11-unix:/tmp/.X11-unix"
 	],
 	"customizations": {
 		// Configure properties specific to VS Code.
