@@ -18,7 +18,8 @@ def create_video(x,
                  clim=None,
                  unkown_roi_mask=None,
                  vis_type='rect',
-                 dpi=200):
+                 dpi=200,
+                 ds_freq=1):
     os.makedirs(out_dir, exist_ok=True)
     # files = glob.glob(f'{out_dir}/*')
     # for f in files:
@@ -60,7 +61,8 @@ def create_video(x,
                             clim=clim,
                             unkown_roi_mask=unkown_roi_mask,
                             ax=ax,
-                            dpi=dpi)
+                            dpi=dpi,
+                            ds_freq=ds_freq)
                 moviewriter.grab_frame()
 
 
@@ -264,7 +266,8 @@ def spherical_spat_map(x,
                        clim=None,
                        fig_dir=None,
                        fig_name=None,
-                       dpi=200):
+                       dpi=200,
+                       ds_freq=1):
 
     nvph = N_LAT * N_LON
     nv = 2 * nvph
@@ -278,19 +281,20 @@ def spherical_spat_map(x,
     if coords is None:
         coords = setup_spherical_coords(N_LAT=N_LAT, N_LON=N_LON)
 
-    close_plot = False
+    # close_plot = False
     if ax is None:
         fig, ax = setup_spherical_spat_map_axs(dpi=dpi)
-        close_plot = True
+        # close_plot = True
+
     x_crtx_lh = np.reshape(x[0:nvph], (N_LAT, N_LON))
     x_crtx_rh = np.reshape(x[nvph:2 * nvph], (N_LAT, N_LON))
     x_subcrtx_lh = x[nv:nv + 9][:, np.newaxis]
     x_subcrtx_rh = x[nv + 9:][:, np.newaxis]
-    ax['crtx_lh_front'].scatter(coords['x_front'],
-                                coords['y_front'],
-                                coords['z_front'],
+    ax['crtx_lh_front'].scatter(coords['x_front'][0:-1:ds_freq],
+                                coords['y_front'][0:-1:ds_freq],
+                                coords['z_front'][0:-1:ds_freq],
                                 s=8.0,
-                                c=x_crtx_lh[:, 0:N_LON // 2],
+                                c=x_crtx_lh[0:-1:ds_freq, 0:N_LON // 2],
                                 vmin=clim['min'],
                                 vmax=clim['max'],
                                 cmap='hot')
@@ -299,11 +303,11 @@ def spherical_spat_map(x,
     ax['crtx_lh_front'].view_init(azim=270, elev=0)
     ax['crtx_lh_front'].set_axis_off()
 
-    ax['crtx_lh_back'].scatter(coords['x_back'],
-                               coords['y_back'],
-                               coords['z_back'],
+    ax['crtx_lh_back'].scatter(coords['x_back'][0:-1:ds_freq],
+                               coords['y_back'][0:-1:ds_freq],
+                               coords['z_back'][0:-1:ds_freq],
                                s=8.0,
-                               c=x_crtx_lh[:, N_LON // 2:N_LON],
+                               c=x_crtx_lh[0:-1:ds_freq, N_LON // 2:N_LON],
                                vmin=clim['min'],
                                vmax=clim['max'],
                                cmap='hot')
@@ -312,11 +316,11 @@ def spherical_spat_map(x,
     ax['crtx_lh_back'].view_init(azim=90, elev=0)
     ax['crtx_lh_back'].set_axis_off()
 
-    ax['crtx_rh_front'].scatter(coords['x_front'],
-                                coords['y_front'],
-                                coords['z_front'],
+    ax['crtx_rh_front'].scatter(coords['x_front'][0:-1:ds_freq],
+                                coords['y_front'][0:-1:ds_freq],
+                                coords['z_front'][0:-1:ds_freq],
                                 s=8.0,
-                                c=x_crtx_rh[:, 0:N_LON // 2],
+                                c=x_crtx_rh[0:-1:ds_freq, 0:N_LON // 2],
                                 vmin=clim['min'],
                                 vmax=clim['max'],
                                 cmap='hot')
@@ -325,11 +329,11 @@ def spherical_spat_map(x,
     ax['crtx_rh_front'].view_init(azim=270, elev=0)
     ax['crtx_rh_front'].set_axis_off()
 
-    ax['crtx_rh_back'].scatter(coords['x_back'],
-                               coords['y_back'],
-                               coords['z_back'],
+    ax['crtx_rh_back'].scatter(coords['x_back'][0:-1:ds_freq],
+                               coords['y_back'][0:-1:ds_freq],
+                               coords['z_back'][0:-1:ds_freq],
                                s=8.0,
-                               c=x_crtx_rh[:, N_LON // 2:N_LON],
+                               c=x_crtx_rh[0:-1:ds_freq, N_LON // 2:N_LON],
                                vmin=clim['min'],
                                vmax=clim['max'],
                                cmap='hot')
@@ -354,7 +358,7 @@ def spherical_spat_map(x,
     ax['subcrtx_rh'].tick_params(labelsize=consts.FS_SMALL)
 
     sm = ScalarMappable(norm=Normalize(vmin=clim['min'], vmax=clim['max']),
-                        cmap='inferno')
+                        cmap='hot')
     cbar = plt.colorbar(sm, cax=ax['clr_bar'])
     ax['clr_bar'].tick_params(labelsize=consts.FS_SMALL)
 
@@ -362,8 +366,8 @@ def spherical_spat_map(x,
         os.makedirs(fig_dir, exist_ok=True)
     if fig_name is not None:
         plt.savefig(f'{fig_dir}/{fig_name}', facecolor='white')
-    if close_plot:
-        plt.close()
+    # if close_plot:
+    #     plt.close()
 
 
 def setup_spherical_coords(N_LAT, N_LON):

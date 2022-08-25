@@ -19,13 +19,13 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = "results/exp68"
+results_dir = "results/exp69"
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
 os.makedirs(figs_dir, exist_ok=True)
 
 dyn_mdl = lib.model.neuralfield.Epileptor2D(
-    L_MAX=50,
+    L_MAX=100,
     N_LAT=128,
     N_LON=256,
     verts_irreg_fname="datasets/data_jd/id004_bj/tvb/ico7/vertices.txt",
@@ -36,7 +36,8 @@ dyn_mdl = lib.model.neuralfield.Epileptor2D(
     gain_irreg_rgn_map_path=
     "datasets/data_jd/id004_bj/tvb/gain_region_map_ico7.txt",
     L_MAX_PARAMS=16,
-    diff_coeff=0.05)
+    diff_coeff=0.01,
+    alpha=1.0)
 
 # %%
 x_init_true = tf.constant(-2.0, dtype=tf.float32) * tf.ones(
@@ -60,7 +61,7 @@ x0_true = tf.constant(x0_true, dtype=tf.float32) * dyn_mdl.unkown_roi_mask
 # t[dyn_mdl.roi_map_tvb_to_tfnf[140], dyn_mdl.roi_map_tvb_to_tfnf[116]] = 5.0
 # dyn_mdl.SC = tf.constant(t, dtype=tf.float32)
 # %%
-lib.plots.neuralfield.spatial_map(
+lib.plots.neuralfield.spherical_spat_map(
     x0_true.numpy(),
     N_LAT=dyn_mdl.N_LAT.numpy(),
     N_LON=dyn_mdl.N_LON.numpy(),
@@ -68,14 +69,17 @@ lib.plots.neuralfield.spatial_map(
         "min": -5.0,
         "max": 0.0
     },
-)
+    unkown_roi_mask=dyn_mdl.unkown_roi_mask,
+    fig_dir=f'{figs_dir}/ground_truth',
+    fig_name='x0_gt.png',
+    dpi=100)
 # %%
 nsteps = tf.constant(300, dtype=tf.int32)
 sampling_period = tf.constant(0.1, dtype=tf.float32)
 time_step = tf.constant(0.05, dtype=tf.float32)
 nsubsteps = tf.cast(tf.math.floordiv(sampling_period, time_step),
                     dtype=tf.int32)
-gamma_lc = 1.0
+gamma_lc = 0.3
 
 y_obs = dyn_mdl.simulate(nsteps, nsubsteps, time_step, y_init_true, x0_true,
                          tau_true, K_true, gamma_lc)
@@ -120,6 +124,7 @@ def train_loop(num_iters, optimizer):
 
     def body(i, loss_at):
         loss_value, grads = get_loss_and_gradients()
+        # tf.print("NAN in grads: ", tf.reduce_any(tf.math.is_nan(grads)), output_stream='file:///workspaces/isp_neural_fields/debug.txt')
         loss_at = loss_at.write(i, loss_value)
         tf.print("Iter ", i + 1, "loss: ", loss_value)
         optimizer.apply_gradients(zip(grads, [theta]))
@@ -191,49 +196,11 @@ lib.plots.seeg.plot_slp(slp_true.numpy(), ax=axs[0], title='Observed')
 lib.plots.seeg.plot_slp(slp_pred.numpy(), ax=axs[1], title='Predicted')
 fig.savefig(f'{figs_dir}/slp_obs_vs_pred.png', facecolor='white')
 # %%
-fig_name = "x0_infer_vs_gt.png"
-clim = {}
-clim["min"] = np.min([np.min(x0_true.numpy()), np.min(x0_pred.numpy())])
-clim["max"] = np.max([np.max(x0_true.numpy()), np.max(x0_pred.numpy())])
-
-fig = plt.figure(figsize=(8, 7), dpi=200, constrained_layout=True)
-sub_figs = fig.subfigures(2, 1)
-gs_gt = sub_figs[0].add_gridspec(2,
-                                 3,
-                                 height_ratios=[0.9, 0.1],
-                                 width_ratios=[0.49, 0.49, 0.02])
-ax_gt = {}
-ax_gt["crtx_lh"] = fig.add_subplot(gs_gt[0, 0])
-ax_gt["crtx_rh"] = fig.add_subplot(gs_gt[0, 1])
-ax_gt["subcrtx_lh"] = fig.add_subplot(gs_gt[1, 0])
-ax_gt["subcrtx_rh"] = fig.add_subplot(gs_gt[1, 1])
-ax_gt["clr_bar"] = fig.add_subplot(gs_gt[:, 2])
-gs_infr = sub_figs[1].add_gridspec(2,
-                                   3,
-                                   height_ratios=[0.9, 0.1],
-                                   width_ratios=[0.49, 0.49, 0.02])
-ax_infr = {}
-ax_infr["crtx_lh"] = fig.add_subplot(gs_infr[0, 0])
-ax_infr["crtx_rh"] = fig.add_subplot(gs_infr[0, 1])
-ax_infr["subcrtx_lh"] = fig.add_subplot(gs_infr[1, 0])
-ax_infr["subcrtx_rh"] = fig.add_subplot(gs_infr[1, 1])
-ax_infr["clr_bar"] = fig.add_subplot(gs_infr[:, 2])
-lib.plots.neuralfield.spatial_map(
-    x0_true.numpy(),
-    N_LAT=dyn_mdl.N_LAT.numpy(),
-    N_LON=dyn_mdl.N_LON.numpy(),
-    ax=ax_gt,
-    clim=clim,
-)
-lib.plots.neuralfield.spatial_map(
-    x0_pred.numpy(),
-    N_LAT=dyn_mdl.N_LAT.numpy(),
-    N_LON=dyn_mdl.N_LON.numpy(),
-    ax=ax_infr,
-    clim=clim,
-)
-plt.savefig(f"{figs_dir}/{fig_name}", facecolor="white", bbox_inches="tight")
-
+lib.plots.neuralfield.spherical_spat_map(x0_pred.numpy(),
+                                         N_LAT=dyn_mdl.N_LAT.numpy(),
+                                         N_LON=dyn_mdl.N_LON.numpy(),
+                                         fig_dir=f'{figs_dir}/infer',
+                                         fig_name='x0_map_estim.png')
 # %%
 lib.plots.neuralfield.create_video(
     x_pred.numpy(),
@@ -242,7 +209,8 @@ lib.plots.neuralfield.create_video(
     out_dir=f"{figs_dir}/infer",
     movie_name="source_activity.mp4",
     unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
-)
+    vis_type='spherical',
+    dpi=100)
 # %% loss at ground truth
 theta_pred = dyn_mdl.inv_transformed_parameters(x0_pred,
                                                 tf.reshape(eps_pred,
@@ -268,7 +236,7 @@ lib.plots.neuralfield.create_video(
     out_dir=f"{figs_dir}/ground_truth",
     movie_name="source_activity.mp4",
     unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
-)
+    vis_type='spherical')
 # %%
 lib.plots.neuralfield.create_video(
     x_obs.numpy(),
@@ -277,4 +245,5 @@ lib.plots.neuralfield.create_video(
     out_dir=f"{figs_dir}/ground_truth",
     movie_name="source_activity.mp4",
     unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
-)
+    vis_type='spherical',
+    dpi=100)

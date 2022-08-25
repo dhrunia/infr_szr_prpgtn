@@ -22,8 +22,10 @@ class Epileptor2D:
                  gain_irreg_rgn_map_path,
                  L_MAX_PARAMS,
                  diff_coeff,
+                 alpha,
                  param_bounds=None):
         self._L_MAX = L_MAX
+        self._alpha = alpha
         (self._N_LAT, self._N_LON, self._cos_theta, self._glq_wts,
          self._P_l_m_costheta) = tfsht.prep(L_MAX, N_LAT, N_LON)
         self._D = tf.constant(diff_coeff, dtype=tf.float32)
@@ -500,11 +502,14 @@ class Epileptor2D:
 
         I1 = tf.constant(4.1, dtype=tf.float32)
         # NOTE: alpha > 7.0 is causing DormandPrince integrator to diverge
-        alpha = tf.constant(1.0, dtype=tf.float32)
+        # alpha = tf.constant(1.0, dtype=tf.float32)
         theta = tf.constant(-1.0, dtype=tf.float32)
         x_crtx_hat = tf.math.sigmoid(
-            alpha *
+            self._alpha *
             (x[0:self._nv] - theta)) * self._unkown_roi_mask[0:self._nv]
+        # x_crtx_hat = tf.keras.activations.relu(
+        #     (x[0:self._nv] - theta),
+        #     max_value=1.0) * self._unkown_roi_mask[0:self._nv]
         local_cplng = self._local_coupling(
             x_crtx_hat,
             self._glq_wts,
@@ -516,9 +521,19 @@ class Epileptor2D:
             self._P_l_m_Dll,
             self._cos_m_phidb,
         )
-        # Remove -ve values from local coupling
-        local_cplng = tf.where(local_cplng > 0, local_cplng,
-                               tf.zeros_like(local_cplng))
+        # tf.print(
+        #     "NAN in local coupling: ",
+        #     tf.reduce_any(tf.math.is_nan(local_cplng)),
+        #     output_stream='file:///workspaces/isp_neural_fields/debug.txt')
+
+        # # Remove -ve values from local coupling
+        # local_cplng = tf.where(local_cplng > 0, local_cplng,
+        #                        1e-5 + tf.zeros_like(local_cplng))
+        local_cplng = tf.keras.activations.gelu(local_cplng)
+        # tf.print(
+        #     "lc_sum: ",
+        #     tf.reduce_sum(local_cplng),
+        #     output_stream='file:///workspaces/isp_neural_fields/debug.txt')
         # Append zeros for subcortical regions
         local_cplng = tf.concat(
             [local_cplng, tf.zeros(self._ns, dtype=tf.float32)], axis=0)
@@ -530,10 +545,18 @@ class Epileptor2D:
             K * self._SC * (x_roi[tf.newaxis, :] - x_roi[:, tf.newaxis]),
             axis=1)
         global_cplng_vrtcs = tf.gather(global_cplng_roi, self._rgn_map)
-        dx = (1.0 - tf.math.pow(x, 3) - 2 * tf.math.pow(x, 2) - z + I1 +
+        dx = (1.0 - tf.math.pow(x, 3) - 2 * tf.math.pow(x, 2) - z +
+              I1) * self._unkown_roi_mask
+        # tf.print(
+        #     "NAN in dx: ",
+        #     tf.reduce_any(tf.math.is_nan(dx)),
+        #     output_stream='file:///workspaces/isp_neural_fields/debug.txt')
+        dz = ((1.0 / tau) * (4 * (x - x0) - z - global_cplng_vrtcs) -
               gamma_lc * local_cplng) * self._unkown_roi_mask
-        dz = ((1.0 / tau) *
-              (4 * (x - x0) - z - global_cplng_vrtcs)) * self._unkown_roi_mask
+        # tf.print(
+        #     "NAN in dz: ",
+        #     tf.reduce_any(tf.math.is_nan(dz)),
+        #     output_stream='file:///workspaces/isp_neural_fields/debug.txt')
         return tf.concat((dx, dz), axis=0)
 
     @tf.function
