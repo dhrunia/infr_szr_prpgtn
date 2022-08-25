@@ -19,7 +19,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = "results/exp69"
+results_dir = "results/exp70"
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
 os.makedirs(figs_dir, exist_ok=True)
@@ -37,7 +37,8 @@ dyn_mdl = lib.model.neuralfield.Epileptor2D(
     "datasets/data_jd/id004_bj/tvb/gain_region_map_ico7.txt",
     L_MAX_PARAMS=16,
     diff_coeff=0.01,
-    alpha=1.0)
+    alpha=2.0,
+    theta=-1.0)
 
 # %%
 x_init_true = tf.constant(-2.0, dtype=tf.float32) * tf.ones(
@@ -172,7 +173,7 @@ dyn_mdl.setup_inference(nsteps=nsteps,
 #     initial_learning_rate, decay_steps=100, decay_rate=0.5)
 
 # optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3, clipnorm=10)
+optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2, clipnorm=10)
 # optimizer = tf.keras.optimizers.SGD(learning_rate=1e-7, momentum=0.9)
 # %%
 start_time = time.time()
@@ -196,11 +197,18 @@ lib.plots.seeg.plot_slp(slp_true.numpy(), ax=axs[0], title='Observed')
 lib.plots.seeg.plot_slp(slp_pred.numpy(), ax=axs[1], title='Predicted')
 fig.savefig(f'{figs_dir}/slp_obs_vs_pred.png', facecolor='white')
 # %%
-lib.plots.neuralfield.spherical_spat_map(x0_pred.numpy(),
-                                         N_LAT=dyn_mdl.N_LAT.numpy(),
-                                         N_LON=dyn_mdl.N_LON.numpy(),
-                                         fig_dir=f'{figs_dir}/infer',
-                                         fig_name='x0_map_estim.png')
+lib.plots.neuralfield.spherical_spat_map(
+    x0_pred.numpy(),
+    N_LAT=dyn_mdl.N_LAT.numpy(),
+    N_LON=dyn_mdl.N_LON.numpy(),
+    fig_dir=f'{figs_dir}/infer',
+    fig_name='x0_map_estim.png',
+    clim={
+        'max': 0.0,
+        'min': -5.0
+    },
+    unkown_roi_mask=dyn_mdl.unkown_roi_mask,
+    dpi=100)
 # %%
 lib.plots.neuralfield.create_video(
     x_pred.numpy(),
@@ -210,7 +218,8 @@ lib.plots.neuralfield.create_video(
     movie_name="source_activity.mp4",
     unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
     vis_type='spherical',
-    dpi=100)
+    dpi=100,
+    ds_freq=3)
 # %% loss at ground truth
 theta_pred = dyn_mdl.inv_transformed_parameters(x0_pred,
                                                 tf.reshape(eps_pred,
@@ -236,7 +245,8 @@ lib.plots.neuralfield.create_video(
     out_dir=f"{figs_dir}/ground_truth",
     movie_name="source_activity.mp4",
     unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
-    vis_type='spherical')
+    vis_type='spherical',
+    ds_freq=3)
 # %%
 lib.plots.neuralfield.create_video(
     x_obs.numpy(),
@@ -246,4 +256,5 @@ lib.plots.neuralfield.create_video(
     movie_name="source_activity.mp4",
     unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
     vis_type='spherical',
-    dpi=100)
+    dpi=100,
+    ds_freq=3)

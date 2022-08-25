@@ -23,9 +23,11 @@ class Epileptor2D:
                  L_MAX_PARAMS,
                  diff_coeff,
                  alpha,
+                 theta,
                  param_bounds=None):
         self._L_MAX = L_MAX
         self._alpha = alpha
+        self._theta = theta
         (self._N_LAT, self._N_LON, self._cos_theta, self._glq_wts,
          self._P_l_m_costheta) = tfsht.prep(L_MAX, N_LAT, N_LON)
         self._D = tf.constant(diff_coeff, dtype=tf.float32)
@@ -503,10 +505,10 @@ class Epileptor2D:
         I1 = tf.constant(4.1, dtype=tf.float32)
         # NOTE: alpha > 7.0 is causing DormandPrince integrator to diverge
         # alpha = tf.constant(1.0, dtype=tf.float32)
-        theta = tf.constant(-1.0, dtype=tf.float32)
+        # theta = tf.constant(-1.0, dtype=tf.float32)
         x_crtx_hat = tf.math.sigmoid(
             self._alpha *
-            (x[0:self._nv] - theta)) * self._unkown_roi_mask[0:self._nv]
+            (x[0:self._nv] - self._theta)) * self._unkown_roi_mask[0:self._nv]
         # x_crtx_hat = tf.keras.activations.relu(
         #     (x[0:self._nv] - theta),
         #     max_value=1.0) * self._unkown_roi_mask[0:self._nv]
@@ -551,8 +553,7 @@ class Epileptor2D:
         #     "NAN in dx: ",
         #     tf.reduce_any(tf.math.is_nan(dx)),
         #     output_stream='file:///workspaces/isp_neural_fields/debug.txt')
-        dz = ((1.0 / tau) * (4 * (x - x0) - z - global_cplng_vrtcs) -
-              gamma_lc * local_cplng) * self._unkown_roi_mask
+        dz = ((1.0 / tau) * (4 * (x - x0) - z - global_cplng_vrtcs) -  gamma_lc * local_cplng) * self._unkown_roi_mask
         # tf.print(
         #     "NAN in dz: ",
         #     tf.reduce_any(tf.math.is_nan(dz)),
