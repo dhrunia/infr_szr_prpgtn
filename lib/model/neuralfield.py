@@ -531,7 +531,8 @@ class Epileptor2D:
         # # Remove -ve values from local coupling
         # local_cplng = tf.where(local_cplng > 0, local_cplng,
         #                        1e-5 + tf.zeros_like(local_cplng))
-        local_cplng = tf.keras.activations.gelu(local_cplng)
+        # local_cplng = tf.keras.activations.gelu(local_cplng)
+        local_cplng = 3.14128 * x_crtx_hat + local_cplng
         # tf.print(
         #     "lc_sum: ",
         #     tf.reduce_sum(local_cplng),
@@ -548,12 +549,12 @@ class Epileptor2D:
             axis=1)
         global_cplng_vrtcs = tf.gather(global_cplng_roi, self._rgn_map)
         dx = (1.0 - tf.math.pow(x, 3) - 2 * tf.math.pow(x, 2) - z +
-              I1) * self._unkown_roi_mask
+              I1 + gamma_lc * local_cplng) * self._unkown_roi_mask
         # tf.print(
         #     "NAN in dx: ",
         #     tf.reduce_any(tf.math.is_nan(dx)),
         #     output_stream='file:///workspaces/isp_neural_fields/debug.txt')
-        dz = ((1.0 / tau) * (4 * (x - x0) - z - global_cplng_vrtcs) -  gamma_lc * local_cplng) * self._unkown_roi_mask
+        dz = ((1.0 / tau) * (4 * (x - x0) - z - global_cplng_vrtcs)) * self._unkown_roi_mask
         # tf.print(
         #     "NAN in dz: ",
         #     tf.reduce_any(tf.math.is_nan(dz)),

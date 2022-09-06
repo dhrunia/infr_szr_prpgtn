@@ -19,7 +19,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = "results/exp71"
+results_dir = "results/exp72"
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
 os.makedirs(figs_dir, exist_ok=True)
@@ -36,7 +36,7 @@ dyn_mdl = lib.model.neuralfield.Epileptor2D(
     gain_irreg_rgn_map_path=
     "datasets/data_jd/id004_bj/tvb/gain_region_map_ico7.txt",
     L_MAX_PARAMS=16,
-    diff_coeff=0.01,
+    diff_coeff=0.00047108,
     alpha=2.0,
     theta=-1.0)
 
@@ -80,7 +80,7 @@ sampling_period = tf.constant(0.1, dtype=tf.float32)
 time_step = tf.constant(0.05, dtype=tf.float32)
 nsubsteps = tf.cast(tf.math.floordiv(sampling_period, time_step),
                     dtype=tf.int32)
-gamma_lc = 0.3
+gamma_lc = 1.2
 
 y_obs = dyn_mdl.simulate(nsteps, nsubsteps, time_step, y_init_true, x0_true,
                          tau_true, K_true, gamma_lc)
@@ -166,18 +166,17 @@ dyn_mdl.setup_inference(nsteps=nsteps,
                         obs_space='sensor',
                         prior_roi_weighted=False)
 # %%
-# initial_learning_rate = 1e-1
-# lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-#     initial_learning_rate, decay_steps=15, decay_rate=0.96, staircase=True)
+lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+    initial_learning_rate=1e-2, decay_steps=50, decay_rate=0.96, staircase=True)
 # lr_schedule = tf.keras.optimizers.schedules.InverseTimeDecay(
 #     initial_learning_rate, decay_steps=100, decay_rate=0.5)
 
-# optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2, clipnorm=10)
+optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=10)
+# optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3, clipnorm=10)
 # optimizer = tf.keras.optimizers.SGD(learning_rate=1e-7, momentum=0.9)
 # %%
 start_time = time.time()
-niters = tf.constant(500, dtype=tf.int32)
+niters = tf.constant(1000, dtype=tf.int32)
 # lr = tf.constant(1e-4, dtype=tf.float32)
 losses = train_loop(niters, optimizer)
 print(f"Elapsed {time.time() - start_time} seconds for {niters} iterations")
