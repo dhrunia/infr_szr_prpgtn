@@ -19,7 +19,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = "results/exp73"
+results_dir = "results/exp74"
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
 os.makedirs(figs_dir, exist_ok=True)
@@ -48,7 +48,7 @@ z_init_true = tf.constant(5.0, dtype=tf.float32) * tf.ones(
     dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32) * \
         dyn_mdl.unkown_roi_mask
 y_init_true = tf.concat((x_init_true, z_init_true), axis=0)
-tau_true = tf.constant(50, dtype=tf.float32, shape=())
+tau_true = tf.constant(25, dtype=tf.float32, shape=())
 K_true = tf.constant(1.0, dtype=tf.float32, shape=())
 # x0_true = tf.constant(tvb_syn_data['x0'], dtype=tf.float32)
 x0_true = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
@@ -75,12 +75,12 @@ lib.plots.neuralfield.spherical_spat_map(
     fig_name='x0_gt.png',
     dpi=100)
 # %%
-nsteps = tf.constant(500, dtype=tf.int32)
+nsteps = tf.constant(300, dtype=tf.int32)
 sampling_period = tf.constant(0.1, dtype=tf.float32)
 time_step = tf.constant(0.05, dtype=tf.float32)
 nsubsteps = tf.cast(tf.math.floordiv(sampling_period, time_step),
                     dtype=tf.int32)
-gamma_lc = 1.1
+gamma_lc = 1.2
 
 y_obs = dyn_mdl.simulate(nsteps, nsubsteps, time_step, y_init_true, x0_true,
                          tau_true, K_true, gamma_lc)
@@ -172,11 +172,11 @@ dyn_mdl.setup_inference(nsteps=nsteps,
 #     initial_learning_rate, decay_steps=100, decay_rate=0.5)
 
 # optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=10)
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, clipnorm=10)
+optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3, clipnorm=10)
 # optimizer = tf.keras.optimizers.SGD(learning_rate=1e-7, momentum=0.9)
 # %%
 start_time = time.time()
-niters = tf.constant(50, dtype=tf.int32)
+niters = tf.constant(1000, dtype=tf.int32)
 # lr = tf.constant(1e-4, dtype=tf.float32)
 losses = train_loop(niters, optimizer)
 print(f"Elapsed {time.time() - start_time} seconds for {niters} iterations")
