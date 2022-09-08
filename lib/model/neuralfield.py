@@ -531,8 +531,8 @@ class Epileptor2D:
         # # Remove -ve values from local coupling
         # local_cplng = tf.where(local_cplng > 0, local_cplng,
         #                        1e-5 + tf.zeros_like(local_cplng))
-        # local_cplng = tf.keras.activations.gelu(local_cplng)
         local_cplng = 3.14128 * x_crtx_hat + local_cplng
+        # local_cplng = tf.keras.activations.gelu(local_cplng)
         # tf.print(
         #     "lc_sum: ",
         #     tf.reduce_sum(local_cplng),
