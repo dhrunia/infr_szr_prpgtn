@@ -149,7 +149,7 @@ for j in range(n_sample_aug):
 obs_data_aug = obs_data_aug.stack()
 # %%
 x0_prior_mu = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
-# x0_prior_mu[ez_hyp_vrtcs] = -1.5
+x0_prior_mu[ez_hyp_vrtcs] = -1.5
 x0_prior_mu = tf.constant(x0_prior_mu,
                           dtype=tf.float32) * dyn_mdl.unkown_roi_mask
 
