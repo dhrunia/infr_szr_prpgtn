@@ -19,13 +19,13 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = "results/exp74"
+results_dir = "results/exp76"
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
 os.makedirs(figs_dir, exist_ok=True)
 
 dyn_mdl = lib.model.neuralfield.Epileptor2D(
-    L_MAX=100,
+    L_MAX=32,
     N_LAT=128,
     N_LON=256,
     verts_irreg_fname="datasets/data_jd/id004_bj/tvb/ico7/vertices.txt",
@@ -80,7 +80,7 @@ sampling_period = tf.constant(0.1, dtype=tf.float32)
 time_step = tf.constant(0.05, dtype=tf.float32)
 nsubsteps = tf.cast(tf.math.floordiv(sampling_period, time_step),
                     dtype=tf.int32)
-gamma_lc = 1.2
+gamma_lc = 1.0
 
 y_obs = dyn_mdl.simulate(nsteps, nsubsteps, time_step, y_init_true, x0_true,
                          tau_true, K_true, gamma_lc)
@@ -172,11 +172,11 @@ dyn_mdl.setup_inference(nsteps=nsteps,
 #     initial_learning_rate, decay_steps=100, decay_rate=0.5)
 
 # optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=10)
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3, clipnorm=10)
+optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2, clipnorm=10)
 # optimizer = tf.keras.optimizers.SGD(learning_rate=1e-7, momentum=0.9)
 # %%
 start_time = time.time()
-niters = tf.constant(1000, dtype=tf.int32)
+niters = tf.constant(500, dtype=tf.int32)
 # lr = tf.constant(1e-4, dtype=tf.float32)
 losses = train_loop(niters, optimizer)
 print(f"Elapsed {time.time() - start_time} seconds for {niters} iterations")
