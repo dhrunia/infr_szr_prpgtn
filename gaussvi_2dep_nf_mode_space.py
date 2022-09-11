@@ -19,65 +19,66 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = 'results/exp66'
+results_dir = 'results/exp77'
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f'{results_dir}/figures'
 os.makedirs(figs_dir, exist_ok=True)
 
 dyn_mdl = lib.model.neuralfield.Epileptor2D(
     L_MAX=32,
-    N_LAT=129,
-    N_LON=257,
-    verts_irreg_fname='datasets/data_jd/id002_sd/ico7/vertices.txt',
-    rgn_map_irreg_fname='datasets/data_jd/id002_sd/Cortex_region_map_ico7.txt',
-    conn_zip_path='datasets/data_jd/id002_sd/connectivity.vep.zip',
-    gain_irreg_path='datasets/data_jd/id002_sd/gain_inv_square_ico7.npz',
+    N_LAT=128,
+    N_LON=256,
+    verts_irreg_fname="datasets/data_jd/id004_bj/tvb/ico7/vertices.txt",
+    rgn_map_irreg_fname=
+    "datasets/data_jd/id004_bj/tvb/Cortex_region_map_ico7.txt",
+    conn_zip_path="datasets/data_jd/id004_bj/tvb/connectivity.vep.zip",
+    gain_irreg_path="datasets/data_jd/id004_bj/tvb/gain_inv_square_ico7.npz",
     gain_irreg_rgn_map_path=
-    'datasets/data_jd/id002_sd/gain_region_map_ico7.txt',
-    L_MAX_PARAMS=16)
+    "datasets/data_jd/id004_bj/tvb/gain_region_map_ico7.txt",
+    L_MAX_PARAMS=16,
+    diff_coeff=0.00047108,
+    alpha=2.0,
+    theta=-1.0)
 
 # %%
-x_init_true = tf.constant(-2.0, dtype=tf.float32) * \
-    tf.ones(dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32) * \
+x_init_true = tf.constant(-2.0, dtype=tf.float32) * tf.ones(
+    dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32) * \
         dyn_mdl.unkown_roi_mask
-z_init_true = tf.constant(5.0, dtype=tf.float32) * \
-    tf.ones(dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32) * \
+z_init_true = tf.constant(5.0, dtype=tf.float32) * tf.ones(
+    dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32) * \
         dyn_mdl.unkown_roi_mask
-y_init_true = tf.concat(values=(x_init_true, z_init_true), axis=0)
+y_init_true = tf.concat((x_init_true, z_init_true), axis=0)
 tau_true = tf.constant(25, dtype=tf.float32, shape=())
 K_true = tf.constant(1.0, dtype=tf.float32, shape=())
 # x0_true = tf.constant(tvb_syn_data['x0'], dtype=tf.float32)
 x0_true = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
-ez_hyp_roi_tvb = [54, 50, 49, 46, 135, 132]
+ez_hyp_roi_tvb = [116, 127]
 ez_hyp_roi = [dyn_mdl.roi_map_tvb_to_tfnf[roi] for roi in ez_hyp_roi_tvb]
 ez_hyp_vrtcs = np.concatenate(
     [np.nonzero(roi == dyn_mdl.rgn_map)[0] for roi in ez_hyp_roi])
 x0_true[ez_hyp_vrtcs] = -1.8
 x0_true = tf.constant(x0_true, dtype=tf.float32) * dyn_mdl.unkown_roi_mask
-# t = dyn_mdl.SC.numpy()
-# t[[94, 107], ez_hyp_roi] = 5.0
-# dyn_mdl.SC = tf.constant(t, dtype=tf.float32)
 # %%
-lib.plots.neuralfield.spatial_map(
-    x0_true.numpy(),
-    N_LAT=dyn_mdl.N_LAT.numpy(),
-    N_LON=dyn_mdl.N_LON.numpy(),
-    clim={
-        "min": -5.0,
-        "max": 0.0
-    },
-    unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
-    fig_dir=f"{figs_dir}/ground_truth",
-    fig_name="x0_gt.png")
+lib.plots.neuralfield.spherical_spat_map(x0_true.numpy(),
+                                         N_LAT=dyn_mdl.N_LAT.numpy(),
+                                         N_LON=dyn_mdl.N_LON.numpy(),
+                                         clim={
+                                             "min": -5.0,
+                                             "max": 0.0
+                                         },
+                                         fig_dir=f'{figs_dir}/ground_truth',
+                                         fig_name='x0_gt.png',
+                                         dpi=100)
 # %%
 nsteps = tf.constant(300, dtype=tf.int32)
 sampling_period = tf.constant(0.1, dtype=tf.float32)
 time_step = tf.constant(0.05, dtype=tf.float32)
 nsubsteps = tf.cast(tf.math.floordiv(sampling_period, time_step),
                     dtype=tf.int32)
+gamma_lc = 1.0
 
 y_obs = dyn_mdl.simulate(nsteps, nsubsteps, time_step, y_init_true, x0_true,
-                         tau_true, K_true)
+                         tau_true, K_true, gamma_lc)
 x_obs = y_obs[:, 0:dyn_mdl.nv + dyn_mdl.ns] * dyn_mdl.unkown_roi_mask
 slp_obs = dyn_mdl.project_sensor_space(x_obs)
 # %%
@@ -147,8 +148,18 @@ def train_loop(num_epochs, nsamples):
     def body(i, loss_at):
         loss_value, grads = get_loss_and_gradients(nsamples)
         loss_at = loss_at.write(i, loss_value)
-        tf.print("Epoch ", i, "loss: ", loss_value)
+        # tf.print(
+        #     "Epoch ",
+        #     i,
+        #     "loss: ",
+        #     loss_value,
+        #     output_stream='file:///workspaces/isp_neural_fields/debug.txt')
+        # tf.print(
+        #     "NAN in grads: ",
+        #     tf.reduce_any(tf.math.is_nan(grads)),
+        #     output_stream='file:///workspaces/isp_neural_fields/debug.txt')
         # training_loss.append(loss_value)
+        tf.print("Iter ", i + 1, "loss: ", loss_value)
         optimizer.apply_gradients(zip(grads, [loc, log_scale_diag]))
         return i + 1, loss_at
 
@@ -179,6 +190,7 @@ dyn_mdl.setup_inference(nsteps=nsteps,
                         y_init=y_init_true,
                         tau=tau_true,
                         K=K_true,
+                        gamma_lc=gamma_lc,
                         x0_prior_mu=x0_prior_mu,
                         obs_data=obs_data_aug,
                         param_space='mode',
@@ -189,11 +201,11 @@ dyn_mdl.setup_inference(nsteps=nsteps,
 # lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
 #     initial_learning_rate, decay_steps=100, decay_rate=0.96, staircase=True)
 # optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2, clipnorm=10)
+optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3, clipvalue=10)
 
 # %%
 start_time = time.time()
-losses = train_loop(num_epochs=tf.constant(1000, dtype=tf.int32),
+losses = train_loop(num_epochs=tf.constant(10, dtype=tf.int32),
                     nsamples=tf.constant(1, dtype=tf.uint32))
 print(f"Elapsed {time.time() - start_time} seconds")
 # %%
@@ -220,7 +232,7 @@ eps_mean = tf.reduce_mean(eps_samples, axis=0).numpy()
 eps_std = tf.math.reduce_std(eps_samples, axis=0).numpy()
 # %%
 y_ppc = dyn_mdl.simulate(nsteps, nsubsteps, time_step, y_init_true, x0_mean,
-                         tau_true, K_true)
+                         tau_true, K_true, gamma_lc)
 x_ppc = y_ppc[:, 0:dyn_mdl.nv + dyn_mdl.ns] * dyn_mdl.unkown_roi_mask
 slp_ppc = dyn_mdl.project_sensor_space(x_ppc)
 # %%
@@ -229,7 +241,7 @@ lib.plots.neuralfield.create_video(
     N_LAT=dyn_mdl.N_LAT.numpy(),
     N_LON=dyn_mdl.N_LON.numpy(),
     out_dir=f'{figs_dir}/infer',
-    movie_name='movie.mp4',
+    movie_name='source_activity.mp4',
     unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy())
 
 # %%
@@ -239,7 +251,7 @@ lib.plots.neuralfield.create_video(
     N_LAT=dyn_mdl.N_LAT.numpy(),
     N_LON=dyn_mdl.N_LON.numpy(),
     out_dir=f'{figs_dir}/ground_truth',
-    movie_name='movie.mp4',
+    movie_name='source_activity.mp4',
     unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy())
 
 # %%
@@ -249,20 +261,22 @@ lib.plots.neuralfield.create_video(
 #                                      dyn_mdl.N_LON.numpy(),
 #                                      dyn_mdl.unkown_roi_mask, figs_dir,
 #                                      fig_name)
-lib.plots.neuralfield.spatial_map(
+lib.plots.neuralfield.spherical_spat_map(
     x0_mean,
-    N_LAT=dyn_mdl.N_LAT,
-    N_LON=dyn_mdl.N_LON,
+    N_LAT=dyn_mdl.N_LAT.numpy(),
+    N_LON=dyn_mdl.N_LON.numpy(),
     unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
     fig_dir=f"{figs_dir}",
-    fig_name="x0_posterior_mean.png")
-lib.plots.neuralfield.spatial_map(
+    fig_name="x0_posterior_mean.png",
+    dpi=100)
+lib.plots.neuralfield.spherical_spat_map(
     x0_std,
-    N_LAT=dyn_mdl.N_LAT,
-    N_LON=dyn_mdl.N_LON,
+    N_LAT=dyn_mdl.N_LAT.numpy(),
+    N_LON=dyn_mdl.N_LON.numpy(),
     unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
     fig_dir=f"{figs_dir}",
-    fig_name="x0_posterior_std.png")
+    fig_name="x0_posterior_std.png",
+    dpi=100)
 # %%
 fig, axs = plt.subplots(1, 2, figsize=(10, 6), dpi=200)
 lib.plots.seeg.plot_slp(slp_obs.numpy(), ax=axs[0], title='Observed')
