@@ -19,7 +19,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = "results/exp76"
+results_dir = "results/exp78"
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
 os.makedirs(figs_dir, exist_ok=True)
@@ -49,7 +49,7 @@ z_init_true = tf.constant(5.0, dtype=tf.float32) * tf.ones(
         dyn_mdl.unkown_roi_mask
 y_init_true = tf.concat((x_init_true, z_init_true), axis=0)
 tau_true = tf.constant(25, dtype=tf.float32, shape=())
-K_true = tf.constant(1.0, dtype=tf.float32, shape=())
+# K_true = tf.constant(1.0, dtype=tf.float32, shape=())
 # x0_true = tf.constant(tvb_syn_data['x0'], dtype=tf.float32)
 x0_true = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
 ez_hyp_roi_tvb = [116, 127, 157]
@@ -57,10 +57,18 @@ ez_hyp_roi = [dyn_mdl.roi_map_tvb_to_tfnf[roi] for roi in ez_hyp_roi_tvb]
 ez_hyp_vrtcs = np.concatenate(
     [np.nonzero(roi == dyn_mdl.rgn_map)[0] for roi in ez_hyp_roi])
 x0_true[ez_hyp_vrtcs] = -1.8
+pz_hyp_roi_tvb = [114, 148]
+pz_hyp_roi = [dyn_mdl.roi_map_tvb_to_tfnf[roi] for roi in pz_hyp_roi_tvb]
+pz_hyp_vrtcs = np.concatenate(
+    [np.nonzero(roi == dyn_mdl.rgn_map)[0] for roi in pz_hyp_roi])
+# x0_true[pz_hyp_vrtcs] = -2.1
 x0_true = tf.constant(x0_true, dtype=tf.float32) * dyn_mdl.unkown_roi_mask
-# t = dyn_mdl.SC.numpy()
-# t[dyn_mdl.roi_map_tvb_to_tfnf[140], dyn_mdl.roi_map_tvb_to_tfnf[116]] = 5.0
-# dyn_mdl.SC = tf.constant(t, dtype=tf.float32)
+t = dyn_mdl.SC.numpy()
+t[dyn_mdl.roi_map_tvb_to_tfnf[114], dyn_mdl.roi_map_tvb_to_tfnf[116]] = 2.0
+t[dyn_mdl.roi_map_tvb_to_tfnf[148], dyn_mdl.roi_map_tvb_to_tfnf[127]] = 2.0
+K_true = t.max()
+t = t / t.max()
+dyn_mdl.SC = tf.constant(t, dtype=tf.float32)
 # %%
 lib.plots.neuralfield.spherical_spat_map(
     x0_true.numpy(),
@@ -99,8 +107,10 @@ x0 = -4.0 * tf.ones(dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32)
 #                  dtype=tf.float32)
 # x0 = x0_true
 eps = tf.constant(0.3, dtype=tf.float32, shape=(1, ))
+K = tf.constant(1.0, dtype=tf.float32, shape=(1, ))
 theta_init_val = dyn_mdl.inv_transformed_parameters(x0,
                                                     eps,
+                                                    K,
                                                     param_space="mode")
 theta = tf.Variable(initial_value=theta_init_val, dtype=tf.float32)
 # %%
@@ -172,7 +182,7 @@ dyn_mdl.setup_inference(nsteps=nsteps,
 #     initial_learning_rate, decay_steps=100, decay_rate=0.5)
 
 # optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=10)
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2, clipnorm=10)
+optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3, clipnorm=10)
 # optimizer = tf.keras.optimizers.SGD(learning_rate=1e-7, momentum=0.9)
 # %%
 start_time = time.time()
@@ -181,12 +191,12 @@ niters = tf.constant(500, dtype=tf.int32)
 losses = train_loop(niters, optimizer)
 print(f"Elapsed {time.time() - start_time} seconds for {niters} iterations")
 # %%
-x0_pred, eps_pred = dyn_mdl.transformed_parameters(theta, param_space="mode")
+x0_pred, eps_pred, K_pred = dyn_mdl.transformed_parameters(theta, param_space="mode")
 # x0_pred = x0_pred * dyn_mdl.unkown_roi_mask
 np.save(f"{results_dir}/x0_pred_lmax={dyn_mdl.L_MAX_PARAMS}.npy",
         x0_pred.numpy())
 y_pred = dyn_mdl.simulate(dyn_mdl.nsteps, dyn_mdl.nsubsteps, dyn_mdl.time_step,
-                          dyn_mdl._y_init, x0_pred, dyn_mdl._tau, dyn_mdl._K,
+                          dyn_mdl._y_init, x0_pred, dyn_mdl._tau, K_pred,
                           dyn_mdl._gamma_lc)
 x_pred = y_pred[:, 0:dyn_mdl.nv + dyn_mdl.ns] * dyn_mdl.unkown_roi_mask
 slp_pred = dyn_mdl.project_sensor_space(x_pred)
