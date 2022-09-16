@@ -326,6 +326,18 @@ class Epileptor2D:
         self._nmodes_params = tf.pow(self._L_MAX_PARAMS + 1, 2)
 
     @tf.function
+    def split_params(self, theta):
+        x0_hat_l_m = theta[0:4 * self._nmodes_params + self._ns]
+        eps_hat = theta[4 * self._nmodes_params + self._ns]
+        K_hat = theta[4 * self._nmodes_params + self._ns + 1]
+        return x0_hat_l_m, eps_hat, K_hat
+
+    @tf.function
+    def join_params(self, x0_hat_l_m, eps_hat, K_hat):
+        theta = tf.concat((x0_hat_l_m, eps_hat, K_hat), axis=0)
+        return theta
+
+    @tf.function
     def x0_trans_to_vrtx_space(self, theta):
         x0_lh = tfsht.synth(
             self._L_MAX_PARAMS, self._N_LON,
@@ -363,64 +375,62 @@ class Epileptor2D:
     @tf.function
     def K_bounded(self, K_hat):
         return lib.utils.tnsrflw.sigmoid_transform(K_hat, self._K_lb,
-                                                    self._K_ub)
+                                                   self._K_ub)
 
     @tf.function
     def K_unbounded(self, K):
-        return lib.utils.tnsrflw.inv_sigmoid_transform(
-            K, self._K_lb, self._K_ub)
+        return lib.utils.tnsrflw.inv_sigmoid_transform(K, self._K_lb,
+                                                       self._K_ub)
 
     @tf.function
-    def transformed_parameters(self, theta, param_space):
-        if param_space == 'mode':
-            x0_hat_crtx = self.x0_trans_to_vrtx_space(
-                theta[0:4 * self._nmodes_params])
-            x0_hat_subcrtx = theta[4 * self._nmodes_params:4 *
-                                   self._nmodes_params + self._ns]
-            x0_hat = tf.concat([x0_hat_crtx, x0_hat_subcrtx], axis=0)
-            # tf.print(x0_hat.shape)
-            x0 = self.x0_bounded(x0_hat)
-            eps_hat = theta[4 * self._nmodes_params + self._ns]
-            eps = self.eps_bounded(eps_hat)
-            K_hat = theta[4 * self._nmodes_params + self._ns + 1]
-            K = self.K_bounded(K_hat)
-        if param_space == 'vertex':
-            x0_hat = theta[0:self._nv + self._ns]
-            x0 = self.x0_bounded(x0_hat)
-            eps_hat = theta[self._nv + self._ns]
-            eps = self.eps_bounded(eps_hat)
-            K_hat = theta[self._nv + self._ns + 1]
-            K = self.K_bounded(K_hat)
+    def transformed_parameters(self, x0_hat_l_m, eps_hat, K_hat):
+        x0_hat_crtx = self.x0_trans_to_vrtx_space(
+            x0_hat_l_m[0:4 * self._nmodes_params])
+        x0_hat_subcrtx = x0_hat_l_m[4 * self._nmodes_params:4 *
+                                    self._nmodes_params + self._ns]
+        x0_hat = tf.concat([x0_hat_crtx, x0_hat_subcrtx], axis=0)
+        # tf.print(x0_hat.shape)
+        x0 = self.x0_bounded(x0_hat)
+        eps = self.eps_bounded(eps_hat)
+        K = self.K_bounded(K_hat)
+        # if param_space == 'vertex':
+        #     x0_hat = theta[0:self._nv + self._ns]
+        #     x0 = self.x0_bounded(x0_hat)
+        #     eps_hat = theta[self._nv + self._ns]
+        #     eps = self.eps_bounded(eps_hat)
+        #     K_hat = theta[self._nv + self._ns + 1]
+        #     K = self.K_bounded(K_hat)
         return x0, eps, K
 
     @tf.function
-    def inv_transformed_parameters(self, x0, eps, K, param_space):
-        if param_space == 'mode':
-            x0_hat = self.x0_unbounded(x0)
-            x0_crtx_lh = x0_hat[0:self._nvph]
-            x0_crtx_rh = x0_hat[self._nvph:self._nv]
-            x0_subcrtx = x0_hat[self._nv:self._nv + self._ns]
-            x0_crtx_lm_lh = tfsht.analys(self._L_MAX_PARAMS, self._N_LAT,
-                                         self._N_LON, x0_crtx_lh,
+    def inv_transformed_parameters(self, x0, eps, K):
+        # if param_space == 'mode':
+        x0_hat = self.x0_unbounded(x0)
+        x0_hat_crtx_lh = x0_hat[0:self._nvph]
+        x0_hat_crtx_rh = x0_hat[self._nvph:self._nv]
+        x0_hat_subcrtx = x0_hat[self._nv:self._nv + self._ns]
+        x0_hat_crtx_lm_lh = tfsht.analys(self._L_MAX_PARAMS, self._N_LAT,
+                                         self._N_LON, x0_hat_crtx_lh,
                                          self._glq_wts_params,
                                          self._P_l_m_costheta_params)
-            x0_crtx_lm_rh = tfsht.analys(self._L_MAX_PARAMS, self._N_LAT,
-                                         self._N_LON, x0_crtx_rh,
+        x0_hat_crtx_lm_rh = tfsht.analys(self._L_MAX_PARAMS, self._N_LAT,
+                                         self._N_LON, x0_hat_crtx_rh,
                                          self._glq_wts_params,
                                          self._P_l_m_costheta_params)
-            x0_lm = tf.concat(values=(tf.math.real(x0_crtx_lm_lh),
-                                      tf.math.imag(x0_crtx_lm_lh),
-                                      tf.math.real(x0_crtx_lm_rh),
-                                      tf.math.imag(x0_crtx_lm_rh), x0_subcrtx),
-                              axis=0)
-            eps_hat = self.eps_unbounded(eps)
-            K_hat = self.K_unbounded(K)
-            theta = tf.concat((x0_lm, eps_hat, K_hat), axis=0)
-        if param_space == 'vertex':
-            x0_hat = self.x0_unbounded(x0)
-            eps_hat = self.eps_unbounded(eps)
-            K_hat = self.K_unbounded(K)
-            theta = tf.concat((x0_hat, eps_hat, K_hat), axis=0)
+        x0_hat_l_m = tf.concat(values=(tf.math.real(x0_hat_crtx_lm_lh),
+                                       tf.math.imag(x0_hat_crtx_lm_lh),
+                                       tf.math.real(x0_hat_crtx_lm_rh),
+                                       tf.math.imag(x0_hat_crtx_lm_rh),
+                                       x0_hat_subcrtx),
+                               axis=0)
+        eps_hat = self.eps_unbounded(eps)
+        K_hat = self.K_unbounded(K)
+        theta = self.join_params(x0_hat_l_m, eps_hat, K_hat)
+        # if param_space == 'vertex':
+        #     x0_hat = self.x0_unbounded(x0)
+        #     eps_hat = self.eps_unbounded(eps)
+        #     K_hat = self.K_unbounded(K)
+        #     theta = tf.concat((x0_hat, eps_hat, K_hat), axis=0)
         return theta
 
     @tf.function
@@ -624,48 +634,84 @@ class Epileptor2D:
         slp = tf.math.log(tf.matmul(tf.math.exp(x), self._gain_reg))
         return slp
 
-    def setup_inference(self, nsteps, nsubsteps, time_step, y_init, tau, K,
-                        gamma_lc, x0_prior_mu, obs_data, param_space,
-                        obs_space, prior_roi_weighted):
+    def setup_inference(self, nsteps, nsubsteps, time_step, y_init, tau,
+                        gamma_lc, mean, std, obs_data, obs_space):
         # self._obs = obs_data
         self._nsteps = nsteps
         self._nsubsteps = nsubsteps
         self._time_step = time_step
         self._y_init = y_init
         self._tau = tau
-        self._K = K
+        # self._K = K
         self._gamma_lc = gamma_lc
-        self._x0_prior_mu = x0_prior_mu
-        self._x0_prior_mu = x0_prior_mu
+        # self._x0_prior_mu = x0_prior_mu
         self._obs_data = obs_data
-        self._param_space = param_space
+        # self._param_space = param_space
         self._obs_space = obs_space
-        self._prior_roi_weighted = prior_roi_weighted
+        # self._prior_roi_weighted = prior_roi_weighted
+        self._x0_prior, self._eps_hat_prior, self._K_hat_prior = self.build_priors(
+            mean, std)
 
-    # def _build_priors(self, x0_prior_loc, x0_prior_scale):
-    #     # self._x0_prior = tfd.MixtureSameFamily(
-    #     #     mixture_distribution=tfd.Categorical(probs=[0.9, 0.1]),
-    #     #     components_distribution=tfd.MultivariateNormalDiag(
-    #     #         loc=x0_prior_loc, scale_diag=x0_prior_scale))
-    #     self._x0_prior = tfd.Normal(loc=x0_prior_loc, scale=x0_prior_scale)
+    def build_priors(self, mean, std):
+        # x0 - Tissue Excitability
+        # x0 = tfd.TruncatedNormal(loc=mean['x0'],
+        #                          scale=std['x0'],
+        #                          low=self._x0_lb,
+        #                          high=self._x0_ub).sample(1000)
+        # eps = tf.constant(0.5, dtype=tf.float32, shape=(1, ))
+        # K = tf.constant(1.0, dtype=tf.float32, shape=(1, ))
+        # x0_hat_l_m = np.zeros((1000, 4 * self._nmodes_params + self._ns),
+        #                       dtype=np.float32)
+        # for i in range(x0_hat_l_m.shape[0]):
+        #     theta = self.inv_transformed_parameters(x0[i],
+        #                                             eps,
+        #                                             K)
+        #     x0_hat_l_m[i] = theta[0:4 * self._nmodes_params + self._ns]
+        # x0_hat_l_m_mean = tf.math.reduce_mean(x0_hat_l_m, axis=0)
+        # x0_hat_l_m_std = tf.math.reduce_std(x0_hat_l_m, axis=0) + 1e-4
+        # x0_hat_l_m_prior = tfd.Normal(loc=x0_hat_l_m_mean,
+        #                               scale=x0_hat_l_m_std)
+
+        # eps = tf.constant(0.5, dtype=tf.float32, shape=(1, ))
+        # K = tf.constant(1.0, dtype=tf.float32, shape=(1, ))
+        # x0_hat_l_m_mean = self.inv_transformed_parameters(mean['x0'], eps, K)[0:4 * self._nmodes_params + self._ns]
+        # x0_hat_l_m_std = 0.06 * tf.ones(4*self._nmodes_params, dtype=tf.float32)
+        # x0_subcrtx_std = 0.5 * tf.ones(self._ns, dtype=tf.float32)
+        # x0_hat_l_m_std = tf.concat([x0_hat_l_m_std, x0_subcrtx_std], axis=0)
+        # x0_hat_l_m_prior = tfd.Normal(loc=x0_hat_l_m_mean, scale=x0_hat_l_m_std)
+
+        x0_prior = tfd.Normal(loc=mean['x0'], scale=std['x0'])
+
+        # K - Global coupling
+        K = tfd.TruncatedNormal(loc=mean['K'],
+                                scale=std['K'],
+                                low=self._K_lb,
+                                high=self._K_ub).sample(5000)
+        K_hat = self.K_unbounded(K)
+        K_hat_mean = tf.math.reduce_mean(K_hat)
+        K_hat_std = tf.math.reduce_std(K_hat)
+        K_hat_prior = tfd.Normal(loc=K_hat_mean, scale=K_hat_std)
+
+        # eps - Observation Noise
+        eps = tfd.TruncatedNormal(loc=mean['eps'],
+                                  scale=std['eps'],
+                                  low=self._eps_lb,
+                                  high=self._eps_ub).sample(5000)
+        eps_hat = self.eps_unbounded(eps)
+        eps_hat_mean = tf.math.reduce_mean(eps_hat)
+        eps_hat_std = tf.math.reduce_std(eps_hat)
+        eps_hat_prior = tfd.Normal(loc=eps_hat_mean, scale=eps_hat_std)
+        return x0_prior, eps_hat_prior, K_hat_prior
 
     @tf.function
-    def _prior_log_prob(self, x0, eps_hat, K_hat, roi_weighted):
-        if roi_weighted:
-            x0_crtx_prior_lp = tf.reduce_sum(
-                tfd.Normal(loc=self._x0_prior_mu[0:self._nv],
-                           scale=0.5).log_prob(x0[0:self._nv]) *
-                self._vrtx_wts[0:self._nv])
-        else:
-            x0_crtx_prior_lp = tf.reduce_sum(
-                tfd.Normal(loc=self._x0_prior_mu[0:self._nv],
-                           scale=0.5).log_prob(x0[0:self._nv]))
-        x0_subcrtx_prior_lp = tf.reduce_sum(
-            tfd.Normal(loc=self._x0_prior_mu[self._nv:self._nv + self._ns],
-                       scale=0.5).log_prob(x0[self._nv:self._nv + self._ns]))
-        x0_prior_lp = x0_crtx_prior_lp + x0_subcrtx_prior_lp
-        eps_prior_lp = tfd.Normal(loc=-2.2, scale=1.0).log_prob(eps_hat)
-        K_prior_lp = tfd.Normal(loc=-0.7, scale=1.6).log_prob(K_hat)
+    def _prior_log_prob(self, x0, eps_hat, K_hat):
+        t1 = self._x0_ub - self._x0_lb
+        t2 = x0 - self._x0_lb / t1
+        jacob_adj = tf.math.log(tf.abs(t1 * t2 * (1 - t2)))
+        x0_prior_lp = tf.reduce_sum(
+            (self._x0_prior.log_prob(x0) + jacob_adj))
+        eps_prior_lp = self._eps_hat_prior.log_prob(eps_hat)
+        K_prior_lp = self._K_hat_prior.log_prob(K_hat)
         return x0_prior_lp + K_prior_lp + eps_prior_lp
 
     @tf.function
@@ -701,13 +747,15 @@ class Epileptor2D:
         def body(i, lp):
             # eps = tf.constant(0.1, dtype=tf.float32)
             # tf.print("nan in theta", tf.reduce_any(tf.math.is_nan(theta)))
-            x0, eps, K = self.transformed_parameters(theta[i],
-                                                     self._param_space)
+            # x0_hat_l_m = theta[i, 0:4 * self._nmodes_params + self._ns]
+            # eps_hat = theta[i, 4 * self._nmodes_params + self._ns]
+            # K_hat = theta[i, 4 * self._nmodes_params + self._ns + 1]
+            x0_hat_l_m, eps_hat, K_hat = self.split_params(theta[i])
+            x0, eps, K = self.transformed_parameters(x0_hat_l_m, eps_hat,
+                                                     K_hat)
+
+            prior_lp = self._prior_log_prob(x0, eps_hat, K_hat)
             x0_unkown_masked = x0 * self._unkown_roi_mask
-            eps_hat = theta[i, 4 * self._nmodes_params + self._ns]
-            K_hat = theta[i, 4 * self._nmodes_params + self._ns + 1]
-            prior_lp = self._prior_log_prob(x0_unkown_masked, eps_hat, K_hat,
-                                            self._prior_roi_weighted)
             likelihood_lp = self._likelihood_log_prob(x0_unkown_masked, eps, K,
                                                       self._obs_data,
                                                       self._obs_space)
