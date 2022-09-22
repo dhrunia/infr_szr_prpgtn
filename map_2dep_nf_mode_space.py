@@ -19,7 +19,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = "results/exp83"
+results_dir = "results/exp84"
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
 os.makedirs(figs_dir, exist_ok=True)
@@ -109,13 +109,15 @@ z_init = 4.5 * tf.ones(dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32)
 # x0 = tf.constant(np.load(f'{results_dir}/x0_pred_lmax=5.npy'),
 #                  dtype=tf.float32)
 # x0 = x0_true
-eps = tf.constant(0.3, dtype=tf.float32, shape=(1, ))
-K = tf.constant(1.0, dtype=tf.float32, shape=(1, ))
+eps = tf.constant(0.3, dtype=tf.float32)
+K = tf.constant(1.0, dtype=tf.float32)
+tau = tf.constant(50.0, dtype=tf.float32)
 theta_init_val = dyn_mdl.inv_transformed_parameters(x0,
                                                     x_init,
                                                     z_init,
                                                     eps,
                                                     K,
+                                                    tau,
                                                     param_space='mode')
 theta = tf.Variable(initial_value=theta_init_val, dtype=tf.float32)
 # %%
@@ -164,8 +166,10 @@ for j in range(n_sample_aug):
 obs_data_aug = obs_data_aug.stack()
 # %%
 x0_prior_mu = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
-x0_prior_mu[ez_hyp_vrtcs] = -1.5
+# x0_prior_mu[ez_hyp_vrtcs] = -1.5
 x0_prior_mu = tf.constant(x0_prior_mu, dtype=tf.float32)
+x0_prior_std = tf.concat(
+    (0.5 * tf.ones(dyn_mdl.nv), 0.1 * tf.ones(dyn_mdl.ns)), axis=0)
 x_init_prior_mu = -3.0 * tf.ones(dyn_mdl.nv + dyn_mdl.ns)
 z_init_prior_mu = 5.0 * tf.ones(dyn_mdl.nv + dyn_mdl.ns)
 
@@ -174,16 +178,24 @@ mean = {
     'x_init': x_init_prior_mu,
     'z_init': z_init_prior_mu,
     'eps': 0.1,
-    'K': 1.0
+    'K': 1.0,
+    # 'tau': 30
 }
-std = {'x0': 0.5, 'x_init': 0.5, 'z_init': 0.5, 'eps': 0.1, 'K': 5}
+std = {
+    'x0': x0_prior_std,
+    'x_init': 0.5,
+    'z_init': 0.5,
+    'eps': 0.1,
+    'K': 5,
+    # 'tau': 10
+}
 
 dyn_mdl.setup_inference(
     nsteps=nsteps,
     nsubsteps=nsubsteps,
     time_step=time_step,
     # y_init=y_init_true,
-    tau=tau_true,
+    # tau=tau_true,
     gamma_lc=gamma_lc,
     mean=mean,
     std=std,
@@ -201,67 +213,76 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3, clipnorm=10)
 # optimizer = tf.keras.optimizers.SGD(learning_rate=1e-7, momentum=0.9)
 # %%
 start_time = time.time()
-niters = tf.constant(1000, dtype=tf.int32)
+niters = tf.constant(500, dtype=tf.int32)
 # lr = tf.constant(1e-4, dtype=tf.float32)
 losses = train_loop(niters, optimizer)
 print(f"Elapsed {time.time() - start_time} seconds for {niters} iterations")
 # %%
-(x0_hat_l_m, x_init_hat_l_m, z_init_hat_l_m, eps_hat,
- K_hat) = dyn_mdl.split_params(theta)
-(x0_pred, x_init_pred, z_init_pred, eps_pred,
- K_pred) = dyn_mdl.transformed_parameters(x0_hat_l_m,
-                                          x_init_hat_l_m,
-                                          z_init_hat_l_m,
-                                          eps_hat,
-                                          K_hat,
-                                          param_space='mode')
-x0_pred = x0_pred * dyn_mdl.unkown_roi_mask
-x_init_pred = x_init_pred * dyn_mdl.unkown_roi_mask
-z_init_pred = z_init_pred * dyn_mdl.unkown_roi_mask
-y_init_pred = tf.concat((x_init_pred, z_init_pred), axis=0)
+(x0_hat_l_m, x_init_hat_l_m, z_init_hat_l_m, eps_hat, K_hat,
+ tau_hat) = dyn_mdl.split_params(theta)
+(x0_pred, x_init_pred, z_init_pred, eps_pred, K_pred,
+ tau_pred) = dyn_mdl.transformed_parameters(x0_hat_l_m,
+                                            x_init_hat_l_m,
+                                            z_init_hat_l_m,
+                                            eps_hat,
+                                            K_hat,
+                                            tau_hat,
+                                            param_space='mode')
+x0_pred = x0_pred
+x_init_pred = x_init_pred
+z_init_pred = z_init_pred
+y_init_pred = tf.concat((x_init_pred * dyn_mdl.unkown_roi_mask,
+                         z_init_pred * dyn_mdl.unkown_roi_mask),
+                        axis=0)
 
 np.save(f"{results_dir}/x0_pred_lmax={dyn_mdl.L_MAX_PARAMS}.npy",
         x0_pred.numpy())
 y_pred = dyn_mdl.simulate(dyn_mdl.nsteps, dyn_mdl.nsubsteps, dyn_mdl.time_step,
-                          y_init_pred, x0_pred, dyn_mdl._tau, K_pred,
-                          dyn_mdl._gamma_lc)
+                          y_init_pred, x0_pred * dyn_mdl.unkown_roi_mask,
+                          tau_pred, K_pred, dyn_mdl._gamma_lc)
 x_pred = y_pred[:, 0:dyn_mdl.nv + dyn_mdl.ns] * dyn_mdl.unkown_roi_mask
 slp_pred = dyn_mdl.project_sensor_space(x_pred)
-print(f"K_pred = {K_pred} \neps_pred = {eps_pred}")
+print(f"K_pred = {K_pred} \neps_pred = {eps_pred}\ntau_pred={tau_pred}")
 # %%
 fig, axs = plt.subplots(1, 2, figsize=(10, 6), dpi=200)
 lib.plots.seeg.plot_slp(slp_true.numpy(), ax=axs[0], title='Observed')
 lib.plots.seeg.plot_slp(slp_pred.numpy(), ax=axs[1], title='Predicted')
 fig.savefig(f'{figs_dir}/slp_obs_vs_pred.png', facecolor='white')
 # %%
-lib.plots.neuralfield.spherical_spat_map(
-    x0_pred.numpy(),
-    N_LAT=dyn_mdl.N_LAT.numpy(),
-    N_LON=dyn_mdl.N_LON.numpy(),
-    fig_dir=f'{figs_dir}/infer',
-    fig_name='x0_map_estim.png',
-    clim={
-        'max': 0.0,
-        'min': -5.0
-    },
-    unkown_roi_mask=dyn_mdl.unkown_roi_mask,
-    dpi=100)
-lib.plots.neuralfield.spherical_spat_map(
-    x_init_pred.numpy(),
-    N_LAT=dyn_mdl.N_LAT.numpy(),
-    N_LON=dyn_mdl.N_LON.numpy(),
-    fig_dir=f'{figs_dir}/infer',
-    fig_name='x_init_map_estim.png',
-    # unkown_roi_mask=dyn_mdl.unkown_roi_mask,
-    dpi=100)
-lib.plots.neuralfield.spherical_spat_map(
-    z_init_pred.numpy(),
-    N_LAT=dyn_mdl.N_LAT.numpy(),
-    N_LON=dyn_mdl.N_LON.numpy(),
-    fig_dir=f'{figs_dir}/infer',
-    fig_name='z_init_map_estim.png',
-    # unkown_roi_mask=dyn_mdl.unkown_roi_mask,
-    dpi=100)
+lib.plots.neuralfield.spat_map_infr_vs_pred(x0_true.numpy(),
+                                            x0_pred.numpy(),
+                                            dyn_mdl.N_LAT.numpy(),
+                                            dyn_mdl.N_LON.numpy(),
+                                            clim={
+                                                'min': dyn_mdl.x0_lb,
+                                                'max': dyn_mdl.x0_ub
+                                            },
+                                            dpi=100,
+                                            fig_dir=figs_dir,
+                                            fig_name='x0_gt_vs_infr.png')
+lib.plots.neuralfield.spat_map_infr_vs_pred(x_init_true.numpy(),
+                                            x_init_pred.numpy(),
+                                            dyn_mdl.N_LAT.numpy(),
+                                            dyn_mdl.N_LON.numpy(),
+                                            clim={
+                                                'min': dyn_mdl._x_init_lb,
+                                                'max': dyn_mdl._x_init_ub,
+                                            },
+                                            dpi=100,
+                                            fig_dir=figs_dir,
+                                            fig_name='x_init_gt_vs_infr.png')
+lib.plots.neuralfield.spat_map_infr_vs_pred(z_init_true.numpy(),
+                                            z_init_pred.numpy(),
+                                            dyn_mdl.N_LAT.numpy(),
+                                            dyn_mdl.N_LON.numpy(),
+                                            clim={
+                                                'min': dyn_mdl._z_init_lb,
+                                                'max': dyn_mdl._z_init_ub,
+                                            },
+                                            dpi=100,
+                                            fig_dir=figs_dir,
+                                            fig_name='z_init_gt_vs_infr.png')
+
 # %%
 lib.plots.neuralfield.create_video(
     x_pred.numpy(),
@@ -286,9 +307,10 @@ tmp_z_init = tf.constant(tmp_z_init)
 theta_true = dyn_mdl.inv_transformed_parameters(tmp_x0,
                                                 tmp_x_init,
                                                 tmp_z_init,
-                                                tf.constant(0.1, shape=(1, )),
-                                                tf.constant(K_true,
-                                                            shape=(1, )),
+                                                tf.constant(0.1,
+                                                            dtype=tf.float32),
+                                                K_true,
+                                                tau_true,
                                                 param_space='mode')
 loss_gt = -1.0 * dyn_mdl.log_prob(theta_true)
 print(f"loss_gt = {loss_gt}")
