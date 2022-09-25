@@ -1,4 +1,3 @@
-from threading import local
 import tensorflow as tf
 import lib.utils.sht as tfsht
 import lib.utils.projector
@@ -180,6 +179,13 @@ class Epileptor2D:
         self._vrtx_wts = tf.cast(tf.gather(1 / self._nv_per_roi,
                                            self._rgn_map),
                                  dtype=tf.float32)
+        # Upscaling constant for x0 prior on subcortical regions
+        nv_mean = tf.cast(tf.reduce_mean(self._nv_per_roi), dtype=tf.float32)
+        self._x0_prior_subcrtx_scaling = tf.concat(
+            (tf.ones(self._nv, dtype=tf.float32),
+             nv_mean * tf.ones(self._ns, dtype=tf.float32)),
+            axis=0)
+
         # Bounds for parameters
         if param_bounds is None:
             param_bounds = dict()
@@ -207,6 +213,14 @@ class Epileptor2D:
             param_bounds['tau'] = dict()
             param_bounds['tau']['lb'] = tf.constant(20.0, dtype=tf.float32)
             param_bounds['tau']['ub'] = tf.constant(100.0, dtype=tf.float32)
+        if 'amp' not in param_bounds.keys():
+            param_bounds['amp'] = dict()
+            param_bounds['amp']['lb'] = tf.constant(0.0, dtype=tf.float32)
+            param_bounds['amp']['ub'] = tf.constant(10.0, dtype=tf.float32)
+        if 'offset' not in param_bounds.keys():
+            param_bounds['offset'] = dict()
+            param_bounds['offset']['lb'] = tf.constant(-10.0, dtype=tf.float32)
+            param_bounds['offset']['ub'] = tf.constant(10.0, dtype=tf.float32)
 
         self._x0_lb = param_bounds['x0']['lb']
         self._x0_ub = param_bounds['x0']['ub']
@@ -220,6 +234,10 @@ class Epileptor2D:
         self._z_init_ub = param_bounds['z_init']['ub']
         self._tau_lb = param_bounds['tau']['lb']
         self._tau_ub = param_bounds['tau']['ub']
+        self._amp_lb = param_bounds['amp']['lb']
+        self._amp_ub = param_bounds['amp']['ub']
+        self._offset_lb = param_bounds['offset']['lb']
+        self._offset_ub = param_bounds['offset']['ub']
 
     @property
     def L_MAX(self):
@@ -343,7 +361,7 @@ class Epileptor2D:
                                                    self._N_LAT, self._N_LON)
         self._nmodes_params = tf.pow(self._L_MAX_PARAMS + 1, 2)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def split_params(self, theta):
         t = 4 * self._nmodes_params + self._ns
         x0_hat_l_m = theta[0:t]
@@ -352,19 +370,22 @@ class Epileptor2D:
         eps_hat = theta[3 * t]
         K_hat = theta[3 * t + 1]
         tau_hat = theta[3 * t + 2]
+        amp_hat = theta[3 * t + 3]
+        offset_hat = theta[3 * t + 4]
         return (x0_hat_l_m, x_init_hat_l_m, z_init_hat_l_m, eps_hat, K_hat,
-                tau_hat)
+                tau_hat, amp_hat, offset_hat)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def join_params(self, x0_hat_l_m, x_init_hat_l_m, z_init_hat_l_m, eps_hat,
-                    K_hat, tau_hat):
+                    K_hat, tau_hat, amp_hat, offset_hat):
         theta = tf.concat(
             (x0_hat_l_m, x_init_hat_l_m, z_init_hat_l_m, eps_hat[tf.newaxis],
-             K_hat[tf.newaxis], tau_hat[tf.newaxis]),
+             K_hat[tf.newaxis], tau_hat[tf.newaxis], amp_hat[tf.newaxis],
+             offset_hat[tf.newaxis]),
             axis=0)
         return theta
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def mode_space_to_vrtx_space(self, y_l_m):
         y_lh = tfsht.synth(
             self._L_MAX_PARAMS, self._N_LON,
@@ -379,7 +400,7 @@ class Epileptor2D:
         y = tf.concat([y_lh, y_rh], axis=0)
         return y
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def vrtx_space_to_mode_space(self, y):
         y_crtx_lh = y[0:self._nvph]
         y_crtx_rh = y[self._nvph:self._nv]
@@ -399,69 +420,90 @@ class Epileptor2D:
                           axis=0)
         return y_l_m
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def x0_bounded(self, x0_hat):
         return lib.utils.tnsrflw.sigmoid_transform(x0_hat, self._x0_lb,
                                                    self._x0_ub)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def x0_unbounded(self, x0):
         return lib.utils.tnsrflw.inv_sigmoid_transform(x0, self._x0_lb,
                                                        self._x0_ub)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def x_init_bounded(self, x_init_hat):
         return lib.utils.tnsrflw.sigmoid_transform(x_init_hat, self._x_init_lb,
                                                    self._x_init_ub)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def x_init_unbounded(self, x_init):
         return lib.utils.tnsrflw.inv_sigmoid_transform(x_init, self._x_init_lb,
                                                        self._x_init_ub)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def z_init_bounded(self, z_init_hat):
         return lib.utils.tnsrflw.sigmoid_transform(z_init_hat, self._z_init_lb,
                                                    self._z_init_ub)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def z_init_unbounded(self, z_init):
         return lib.utils.tnsrflw.inv_sigmoid_transform(z_init, self._z_init_lb,
                                                        self._z_init_ub)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def eps_bounded(self, eps_hat):
         return lib.utils.tnsrflw.sigmoid_transform(eps_hat, self._eps_lb,
                                                    self._eps_ub)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def eps_unbounded(self, eps):
         return lib.utils.tnsrflw.inv_sigmoid_transform(eps, self._eps_lb,
                                                        self._eps_ub)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def K_bounded(self, K_hat):
         return lib.utils.tnsrflw.sigmoid_transform(K_hat, self._K_lb,
                                                    self._K_ub)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def K_unbounded(self, K):
         return lib.utils.tnsrflw.inv_sigmoid_transform(K, self._K_lb,
                                                        self._K_ub)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def tau_bounded(self, tau_hat):
         return lib.utils.tnsrflw.sigmoid_transform(tau_hat, self._tau_lb,
                                                    self._tau_ub)
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def tau_unbounded(self, tau):
         return lib.utils.tnsrflw.inv_sigmoid_transform(tau, self._tau_lb,
                                                        self._tau_ub)
 
-    @tf.function
+    @tf.function(jit_compile=True)
+    def amp_bounded(self, amp_hat):
+        return lib.utils.tnsrflw.sigmoid_transform(amp_hat, self._amp_lb,
+                                                   self._amp_ub)
+
+    @tf.function(jit_compile=True)
+    def amp_unbounded(self, amp):
+        return lib.utils.tnsrflw.inv_sigmoid_transform(amp, self._amp_lb,
+                                                       self._amp_ub)
+
+    @tf.function(jit_compile=True)
+    def offset_bounded(self, offset_hat):
+        return lib.utils.tnsrflw.sigmoid_transform(offset_hat, self._offset_lb,
+                                                   self._offset_ub)
+
+    @tf.function(jit_compile=True)
+    def offset_unbounded(self, offset):
+        return lib.utils.tnsrflw.inv_sigmoid_transform(offset, self._offset_lb,
+                                                       self._offset_ub)
+
+    @tf.function(jit_compile=True)
     def transformed_parameters(self, x0_hat, x_init_hat, z_init_hat, eps_hat,
-                               K_hat, tau_hat, param_space):
+                               K_hat, tau_hat, amp_hat, offset_hat,
+                               param_space):
         if param_space == 'mode':
             t1 = 4 * self._nmodes_params
             t2 = t1 + self._ns
@@ -492,11 +534,15 @@ class Epileptor2D:
         K = self.K_bounded(K_hat)
         # tau - Time scale
         tau = self.tau_bounded(tau_hat)
-        return x0, x_init, z_init, eps, K, tau
+        # amp - Amplitude scaling
+        amp = self.amp_bounded(amp_hat)
+        # offset - Observation offset
+        offset = self.offset_bounded(offset_hat)
+        return x0, x_init, z_init, eps, K, tau, amp, offset
 
-    @tf.function
-    def inv_transformed_parameters(self, x0, x_init, z_init, eps, K, tau,
-                                   param_space):
+    @tf.function(jit_compile=True)
+    def inv_transformed_parameters(self, x0, x_init, z_init, eps, K, tau, amp,
+                                   offset, param_space):
         if param_space == 'mode':
             # x0 in vrtx space -> x0 in mode space
             x0_hat = self.x0_unbounded(x0)
@@ -510,12 +556,14 @@ class Epileptor2D:
         if param_space == 'vertex':
             x0_hat = self.x0_unbounded(x0)
             x_init_hat = self.x_init_unbounded(x_init)
-            z_init_hat = self.z_init_unboundd(z_init)
+            z_init_hat = self.z_init_unbounded(z_init)
         eps_hat = self.eps_unbounded(eps)
         K_hat = self.K_unbounded(K)
         tau_hat = self.tau_unbounded(tau)
+        amp_hat = self.amp_unbounded(amp)
+        offset_hat = self.offset_unbounded(offset)
         theta = self.join_params(x0_hat_l_m, x_init_hat_l_m, z_init_hat_l_m,
-                                 eps_hat, K_hat, tau_hat)
+                                 eps_hat, K_hat, tau_hat, amp_hat, offset_hat)
         return theta
 
     @tf.function
@@ -714,7 +762,7 @@ class Epileptor2D:
                                      maximum_iterations=nsteps)
         return y.stack()
 
-    @tf.function
+    @tf.function(jit_compile=True)
     def project_sensor_space(self, x):
         slp = tf.math.log(tf.matmul(tf.math.exp(x), self._gain_reg))
         return slp
@@ -735,8 +783,9 @@ class Epileptor2D:
         self._obs_space = obs_space
         # self._prior_roi_weighted = prior_roi_weighted
         (self._x0_prior, self._x_init_prior, self._z_init_prior,
-         self._eps_hat_prior, self._K_hat_prior,
-         self._tau_prior) = self.build_priors(mean, std)
+         self._eps_hat_prior, self._K_hat_prior, self._tau_prior,
+         self._amp_hat_prior,
+         self._offset_hat_prior) = self.build_priors(mean, std)
 
     def build_priors(self, mean, std):
         # x0 - Tissue Excitability
@@ -799,51 +848,71 @@ class Epileptor2D:
         # tau_hat_mean = tf.math.reduce_mean(tau_hat)
         # tau_hat_std = tf.math.reduce_std(tau_hat)
         tau_prior = tfd.Uniform(low=self._tau_lb, high=self._tau_ub)
+        # amp_prior = tfd.TruncatedNormal(loc=mean['amp'],
+        #                                 scale=std['amp'],
+        #                                 low=self._amp_lb,
+        #                                 high=self._amp_ub)
+
+        # offset_prior = tfd.Normal(loc=mean['offset'], scale=std['offset'])
+        amp_hat_prior = tfd.Normal(loc=0.0, scale=1.0)
+        offset_hat_prior = tfd.Normal(loc=0.0, scale=1.0)
 
         return (x0_prior, x_init_prior, z_init_prior, eps_hat_prior,
-                K_hat_prior, tau_prior)
+                K_hat_prior, tau_prior, amp_hat_prior, offset_hat_prior)
 
-    @tf.function
-    def _bounded_trans_log_det_jac(self, y, lb, ub):
+    @tf.function(jit_compile=True)
+    def _bounded_trans_jacob_adj(self, y, lb, ub):
         t1 = ub - lb
         t2 = y - lb / t1
-        log_det_jac = tf.reduce_sum(tf.math.log(tf.abs(t1 * t2 * (1 - t2))))
+        log_det_jac = tf.math.log(tf.abs(t1 * t2 * (1 - t2)))
         return log_det_jac
 
-    @tf.function
-    def _prior_log_prob(self, x0, x_init, z_init, eps_hat, K_hat, tau):
+    @tf.function(jit_compile=True)
+    def _prior_log_prob(self, x0, x_init, z_init, eps_hat, K_hat, tau, amp_hat,
+                        offset_hat):
 
-        x0_jacob_adj = self._bounded_trans_log_det_jac(x0, self._x0_lb,
-                                                       self._x0_ub)
-        x0_prior_lp = tf.reduce_sum(self._x0_prior.log_prob(x0)) + x0_jacob_adj
+        x0_jacob_adj = self._bounded_trans_jacob_adj(x0, self._x0_lb,
+                                                     self._x0_ub)
+        x0_prior_lp = tf.reduce_sum(
+            (self._x0_prior.log_prob(x0) + x0_jacob_adj) *
+            self._x0_prior_subcrtx_scaling,
+            axis=0)
 
-        x_init_jacob_adj = self._bounded_trans_log_det_jac(
+        x_init_jacob_adj = self._bounded_trans_jacob_adj(
             x_init, self._x_init_lb, self._x_init_ub)
-        x_init_prior_lp = tf.reduce_sum(
-            self._x_init_prior.log_prob(x_init)) + x_init_jacob_adj
+        x_init_prior_lp = tf.reduce_sum(self._x_init_prior.log_prob(x_init) +
+                                        x_init_jacob_adj,
+                                        axis=0)
 
-        z_init_jacob_adj = self._bounded_trans_log_det_jac(
+        z_init_jacob_adj = self._bounded_trans_jacob_adj(
             z_init, self._z_init_lb, self._z_init_ub)
-        z_init_prior_lp = tf.reduce_sum(
-            self._z_init_prior.log_prob(z_init)) + z_init_jacob_adj
+        z_init_prior_lp = tf.reduce_sum(self._z_init_prior.log_prob(z_init) +
+                                        z_init_jacob_adj,
+                                        axis=0)
 
         eps_prior_lp = self._eps_hat_prior.log_prob(eps_hat)
+
         K_prior_lp = self._K_hat_prior.log_prob(K_hat)
-        tau_jacob_adj = self._bounded_trans_log_det_jac(
-            tau, self._tau_lb, self._tau_ub)
+
+        tau_jacob_adj = self._bounded_trans_jacob_adj(tau, self._tau_lb,
+                                                      self._tau_ub)
         tau_prior_lp = self._tau_prior.log_prob(tau) + tau_jacob_adj
-        return x0_prior_lp + x_init_prior_lp + z_init_prior_lp + K_prior_lp + eps_prior_lp + tau_prior_lp
+
+        amp_prior_lp = self._amp_hat_prior.log_prob(amp_hat)
+
+        offset_prior_lp = self._offset_hat_prior.log_prob(offset_hat)
+        return x0_prior_lp + x_init_prior_lp + z_init_prior_lp + K_prior_lp + eps_prior_lp + tau_prior_lp + amp_prior_lp + offset_prior_lp
 
     @tf.function
-    def _likelihood_log_prob(self, x0, x_init, z_init, eps, K, tau, obs_data,
-                             obs_space):
+    def _likelihood_log_prob(self, x0, x_init, z_init, eps, K, tau, amp,
+                             offset, obs_data, obs_space):
         y_init = tf.concat((x_init, z_init), axis=0)
         y_pred = self.simulate(self._nsteps, self._nsubsteps, self._time_step,
                                y_init, x0, tau, K, self._gamma_lc)
         x_pred = y_pred[:, 0:self._nv + self._ns] * self._unkown_roi_mask
         # tf.print("nan in x_pred", tf.reduce_any(tf.math.is_nan(x_pred)))
         if (obs_space == 'sensor'):
-            slp_mu = self.project_sensor_space(x_pred)
+            slp_mu = amp * self.project_sensor_space(x_pred) + offset
             # # tf.print("Nan in x_mu", tf.reduce_any(tf.math.is_nan(x_mu)))
             llp = tf.reduce_mean(
                 tf.reduce_sum(tfd.Normal(loc=slp_mu,
@@ -856,10 +925,10 @@ class Epileptor2D:
         return llp
 
     @tf.function
-    def log_prob(self, theta):
+    def log_prob(self, theta, nsamples):
         if theta.shape.ndims == 1:
             theta = theta[tf.newaxis, :]
-        nsamples = theta.shape[0]
+        # nsamples = theta.shape[0]
         lp = tf.TensorArray(dtype=tf.float32, size=nsamples)
         i = tf.constant(0)
 
@@ -868,23 +937,29 @@ class Epileptor2D:
 
         def body(i, lp):
             (x0_hat_l_m, x_init_hat_l_m, z_init_hat_l_m, eps_hat, K_hat,
-             tau_hat) = self.split_params(theta[i])
-            x0, x_init, z_init, eps, K, tau = self.transformed_parameters(
-                x0_hat_l_m, x_init_hat_l_m, z_init_hat_l_m, eps_hat, K_hat,
-                tau_hat, self._param_space)
+             tau_hat, amp_hat, offset_hat) = self.split_params(theta[i])
+            (x0, x_init, z_init, eps, K, tau, amp,
+             offset) = self.transformed_parameters(x0_hat_l_m, x_init_hat_l_m,
+                                                   z_init_hat_l_m, eps_hat,
+                                                   K_hat, tau_hat, amp_hat,
+                                                   offset_hat,
+                                                   self._param_space)
 
             prior_lp = self._prior_log_prob(x0, x_init, z_init, eps_hat, K_hat,
-                                            tau)
+                                            tau, amp_hat, offset_hat)
             x0_unkown_masked = x0 * self._unkown_roi_mask
             x_init_unkown_masked = x_init * self._unkown_roi_mask
             z_init_unkown_masked = z_init * self._unkown_roi_mask
             likelihood_lp = self._likelihood_log_prob(
                 x0_unkown_masked, x_init_unkown_masked, z_init_unkown_masked,
-                eps, K, tau, self._obs_data, self._obs_space)
+                eps, K, tau, amp, offset, self._obs_data, self._obs_space)
             lp_i = prior_lp + likelihood_lp
             tf.print("likelihood = ", likelihood_lp, "prior = ", prior_lp)
             lp = lp.write(i, lp_i)
             return i + 1, lp
 
-        i, lp = tf.while_loop(cond=cond, body=body, loop_vars=(i, lp))
+        i, lp = tf.while_loop(cond=cond,
+                              body=body,
+                              loop_vars=(i, lp),
+                              maximum_iterations=nsamples)
         return lp.stack()

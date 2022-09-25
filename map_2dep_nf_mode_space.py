@@ -19,7 +19,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = "results/exp84"
+results_dir = "results/exp85"
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
 os.makedirs(figs_dir, exist_ok=True)
@@ -69,6 +69,9 @@ t[dyn_mdl.roi_map_tvb_to_tfnf[148], dyn_mdl.roi_map_tvb_to_tfnf[127]] = 2.0
 K_true = t.max()
 t = t / t.max()
 dyn_mdl.SC = tf.constant(t, dtype=tf.float32)
+amp_true = dyn_mdl.amp_bounded(tfd.Normal(loc=0.0, scale=1.0).sample())
+offset_true = dyn_mdl.offset_bounded(tfd.Normal(loc=0.0, scale=1.0).sample())
+eps_true = 0.1
 # %%
 lib.plots.neuralfield.spherical_spat_map(
     x0_true.numpy(),
@@ -93,7 +96,7 @@ gamma_lc = 1.0
 y_obs = dyn_mdl.simulate(nsteps, nsubsteps, time_step, y_init_true, x0_true,
                          tau_true, K_true, gamma_lc)
 x_obs = y_obs[:, 0:dyn_mdl.nv + dyn_mdl.ns] * dyn_mdl.unkown_roi_mask
-slp_true = dyn_mdl.project_sensor_space(x_obs)
+slp_true = amp_true * dyn_mdl.project_sensor_space(x_obs) + offset_true
 # %%
 lib.plots.seeg.plot_slp(slp_true.numpy(),
                         save_dir=f"{figs_dir}/ground_truth",
@@ -112,12 +115,16 @@ z_init = 4.5 * tf.ones(dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32)
 eps = tf.constant(0.3, dtype=tf.float32)
 K = tf.constant(1.0, dtype=tf.float32)
 tau = tf.constant(50.0, dtype=tf.float32)
+amp = tf.constant(1.0, dtype=tf.float32)
+offset = tf.constant(0.0, dtype=tf.float32)
 theta_init_val = dyn_mdl.inv_transformed_parameters(x0,
                                                     x_init,
                                                     z_init,
                                                     eps,
                                                     K,
                                                     tau,
+                                                    amp,
+                                                    offset,
                                                     param_space='mode')
 theta = tf.Variable(initial_value=theta_init_val, dtype=tf.float32)
 # %%
@@ -126,7 +133,7 @@ theta = tf.Variable(initial_value=theta_init_val, dtype=tf.float32)
 @tf.function
 def get_loss_and_gradients():
     with tf.GradientTape() as tape:
-        loss = -1.0 * dyn_mdl.log_prob(theta)
+        loss = -1.0 * dyn_mdl.log_prob(theta, 1)
     return loss, tape.gradient(loss, [theta])
 
 
@@ -161,15 +168,14 @@ n_sample_aug = 50
 obs_data_aug = tf.TensorArray(dtype=tf.float32, size=n_sample_aug)
 for j in range(n_sample_aug):
     data_noised = slp_true + \
-        tf.random.normal(shape=slp_true.shape, mean=0, stddev=0.1)
+        tf.random.normal(shape=slp_true.shape, mean=0, stddev=eps_true)
     obs_data_aug = obs_data_aug.write(j, data_noised)
 obs_data_aug = obs_data_aug.stack()
 # %%
 x0_prior_mu = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
-# x0_prior_mu[ez_hyp_vrtcs] = -1.5
+x0_prior_mu[ez_hyp_vrtcs] = -1.5
 x0_prior_mu = tf.constant(x0_prior_mu, dtype=tf.float32)
-x0_prior_std = tf.concat(
-    (0.5 * tf.ones(dyn_mdl.nv), 0.1 * tf.ones(dyn_mdl.ns)), axis=0)
+x0_prior_std = 0.5 * tf.ones(dyn_mdl.nv + dyn_mdl.ns)
 x_init_prior_mu = -3.0 * tf.ones(dyn_mdl.nv + dyn_mdl.ns)
 z_init_prior_mu = 5.0 * tf.ones(dyn_mdl.nv + dyn_mdl.ns)
 
@@ -179,7 +185,6 @@ mean = {
     'z_init': z_init_prior_mu,
     'eps': 0.1,
     'K': 1.0,
-    # 'tau': 30
 }
 std = {
     'x0': x0_prior_std,
@@ -187,7 +192,6 @@ std = {
     'z_init': 0.5,
     'eps': 0.1,
     'K': 5,
-    # 'tau': 10
 }
 
 dyn_mdl.setup_inference(
@@ -213,24 +217,24 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3, clipnorm=10)
 # optimizer = tf.keras.optimizers.SGD(learning_rate=1e-7, momentum=0.9)
 # %%
 start_time = time.time()
-niters = tf.constant(500, dtype=tf.int32)
+niters = tf.constant(1000, dtype=tf.int32)
 # lr = tf.constant(1e-4, dtype=tf.float32)
 losses = train_loop(niters, optimizer)
 print(f"Elapsed {time.time() - start_time} seconds for {niters} iterations")
 # %%
-(x0_hat_l_m, x_init_hat_l_m, z_init_hat_l_m, eps_hat, K_hat,
- tau_hat) = dyn_mdl.split_params(theta)
-(x0_pred, x_init_pred, z_init_pred, eps_pred, K_pred,
- tau_pred) = dyn_mdl.transformed_parameters(x0_hat_l_m,
-                                            x_init_hat_l_m,
-                                            z_init_hat_l_m,
-                                            eps_hat,
-                                            K_hat,
-                                            tau_hat,
-                                            param_space='mode')
-x0_pred = x0_pred
-x_init_pred = x_init_pred
-z_init_pred = z_init_pred
+(x0_hat_l_m, x_init_hat_l_m, z_init_hat_l_m, eps_hat, K_hat, tau_hat, amp_hat,
+ offset_hat) = dyn_mdl.split_params(theta)
+(x0_pred, x_init_pred, z_init_pred, eps_pred, K_pred, tau_pred, amp_pred,
+ offset_pred) = dyn_mdl.transformed_parameters(x0_hat_l_m,
+                                               x_init_hat_l_m,
+                                               z_init_hat_l_m,
+                                               eps_hat,
+                                               K_hat,
+                                               tau_hat,
+                                               amp_hat,
+                                               offset_hat,
+                                               param_space='mode')
+x0_pred_masked = x0_pred * dyn_mdl.unkown_roi_mask
 y_init_pred = tf.concat((x_init_pred * dyn_mdl.unkown_roi_mask,
                          z_init_pred * dyn_mdl.unkown_roi_mask),
                         axis=0)
@@ -238,11 +242,16 @@ y_init_pred = tf.concat((x_init_pred * dyn_mdl.unkown_roi_mask,
 np.save(f"{results_dir}/x0_pred_lmax={dyn_mdl.L_MAX_PARAMS}.npy",
         x0_pred.numpy())
 y_pred = dyn_mdl.simulate(dyn_mdl.nsteps, dyn_mdl.nsubsteps, dyn_mdl.time_step,
-                          y_init_pred, x0_pred * dyn_mdl.unkown_roi_mask,
+                          y_init_pred, x0_pred_masked,
                           tau_pred, K_pred, dyn_mdl._gamma_lc)
 x_pred = y_pred[:, 0:dyn_mdl.nv + dyn_mdl.ns] * dyn_mdl.unkown_roi_mask
 slp_pred = dyn_mdl.project_sensor_space(x_pred)
-print(f"K_pred = {K_pred} \neps_pred = {eps_pred}\ntau_pred={tau_pred}")
+print(f"Param \tGround Truth \tPrediction\n\
+K \t{K_true:.2f} \t{K_pred:.2f}\n\
+eps \t{eps_true:.2f} \t{eps_pred:.2f}\n\
+tau \t{tau_true:.2f} \t{tau_pred:.2f}\n\
+amp \t{amp_true:.2f} \t{amp_pred:.2f}\n\
+offset \t{offset_true:.2f} \t{offset_pred:.2f}")
 # %%
 fig, axs = plt.subplots(1, 2, figsize=(10, 6), dpi=200)
 lib.plots.seeg.plot_slp(slp_true.numpy(), ax=axs[0], title='Observed')
@@ -288,8 +297,8 @@ lib.plots.neuralfield.create_video(
     x_pred.numpy(),
     N_LAT=dyn_mdl.N_LAT.numpy(),
     N_LON=dyn_mdl.N_LON.numpy(),
-    out_dir=f"{figs_dir}/infer",
-    movie_name="source_activity.mp4",
+    out_dir=figs_dir,
+    movie_name="source_activity_infr.mp4",
     unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
     vis_type='spherical',
     dpi=100,

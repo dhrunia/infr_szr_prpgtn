@@ -419,7 +419,7 @@ def spat_map_infr_vs_pred(y_gt,
                           fig_dir=None,
                           fig_name=None,
                           dpi=200):
-    fig = plt.figure(figsize=(10, 10), constrained_layout=True)
+    fig = plt.figure(figsize=(10, 10))
     fig.set_facecolor('0.75')
     subfigs = fig.subfigures(1, 2)
     subfigs[0].suptitle('Ground Truth', fontsize='large')
