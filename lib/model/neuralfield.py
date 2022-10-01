@@ -1,6 +1,7 @@
 import tensorflow as tf
 import lib.utils.sht as tfsht
 import lib.utils.projector
+import lib.utils.tnsrflw
 import numpy as np
 import tensorflow_probability as tfp
 import lib.io.tvb
@@ -110,7 +111,8 @@ class Epileptor2D:
         # Constants cached for computing gradients of local coupling
         delta_phi = tf.constant(2.0 * np.pi / self._N_LON.numpy(),
                                 dtype=tf.float32)
-        phi = tf.range(0, 2.0 * np.pi, delta_phi, dtype=tf.float32)
+        phi = tf.range(0, 2.0 * np.pi, delta_phi,
+                       dtype=tf.float32)[0:self._N_LON]
         phi_db = phi[:, tf.newaxis] - phi[tf.newaxis, :]
         m = tf.range(0, self._L_MAX + 1, dtype=tf.float32)
         self._cos_m_phidb = 2.0 * tf.math.cos(tf.einsum(
@@ -292,6 +294,22 @@ class Epileptor2D:
         return self._x0_ub
 
     @property
+    def x_init_lb(self):
+        return self._x_init_lb
+
+    @property
+    def x_init_ub(self):
+        return self._x_init_ub
+
+    @property
+    def z_init_lb(self):
+        return self._z_init_lb
+
+    @property
+    def z_init_ub(self):
+        return self._z_init_ub
+
+    @property
     def eps_lb(self):
         return self._eps_lb
 
@@ -346,6 +364,18 @@ class Epileptor2D:
     @property
     def time_step(self):
         return self._time_step
+
+    @property
+    def x0_prior(self):
+        return self._x0_prior
+
+    @property
+    def x_init_prior(self):
+        return self._x_init_prior
+
+    @property
+    def z_init_prior(self):
+        return self._z_init_prior
 
     @tf.function
     def _build_rgn_map(self, rgn_map_reg_tvb):
@@ -663,7 +693,7 @@ class Epileptor2D:
         return local_cplng, grad
 
     @tf.function
-    def _ode_fn(self, y, x0, tau, K, gamma_lc):
+    def _ode_fn(self, y, x0, tau, K):
         print("epileptor2d_nf_ode_fn()...")
         x = y[0:self._nv + self._ns]
         # x_subcort = y[self._nv:self._nv + self._ns]
@@ -719,7 +749,7 @@ class Epileptor2D:
         #     tf.reduce_any(tf.math.is_nan(dx)),
         #     output_stream='file:///workspaces/isp_neural_fields/debug.txt')
         dz = ((1.0 / tau) * (4 * (x - x0) - z - global_cplng_vrtcs -
-                             gamma_lc * local_cplng)) * self._unkown_roi_mask
+                             local_cplng)) * self._unkown_roi_mask
         # tf.print(
         #     "NAN in dz: ",
         #     tf.reduce_any(tf.math.is_nan(dz)),
@@ -727,8 +757,7 @@ class Epileptor2D:
         return tf.concat((dx, dz), axis=0)
 
     @tf.function
-    def simulate(self, nsteps, nsubsteps, time_step, y_init, x0, tau, K,
-                 gamma_lc):
+    def simulate(self, nsteps, nsubsteps, time_step, y_init, x0, tau, K):
         print("euler_integrator()...")
         y = tf.TensorArray(dtype=tf.float32, size=nsteps)
         y_next = y_init
@@ -743,8 +772,7 @@ class Epileptor2D:
                 return tf.less(j, nsubsteps)
 
             def body2(j, y_next):
-                y_next = y_next + time_step * self._ode_fn(
-                    y_next, x0, tau, K, gamma_lc)
+                y_next = y_next + time_step * self._ode_fn(y_next, x0, tau, K)
                 return j + 1, y_next
 
             j, y_next = tf.while_loop(cond2,
@@ -767,21 +795,14 @@ class Epileptor2D:
         slp = tf.math.log(tf.matmul(tf.math.exp(x), self._gain_reg))
         return slp
 
-    def setup_inference(self, nsteps, nsubsteps, time_step, gamma_lc, mean,
-                        std, obs_data, param_space, obs_space):
-        # self._obs = obs_data
+    def setup_inference(self, nsteps, nsubsteps, time_step, mean, std,
+                        obs_data, param_space, obs_space):
         self._nsteps = nsteps
         self._nsubsteps = nsubsteps
         self._time_step = time_step
-        # self._y_init = y_init
-        # self._tau = tau
-        # self._K = K
-        self._gamma_lc = gamma_lc
-        # self._x0_prior_mu = x0_prior_mu
         self._obs_data = obs_data
         self._param_space = param_space
         self._obs_space = obs_space
-        # self._prior_roi_weighted = prior_roi_weighted
         (self._x0_prior, self._x_init_prior, self._z_init_prior,
          self._eps_hat_prior, self._K_hat_prior, self._tau_prior,
          self._amp_hat_prior,
@@ -864,7 +885,7 @@ class Epileptor2D:
     def _bounded_trans_jacob_adj(self, y, lb, ub):
         t1 = ub - lb
         t2 = y - lb / t1
-        log_det_jac = tf.math.log(tf.abs(t1 * t2 * (1 - t2)))
+        log_det_jac = tf.math.log(tf.abs(t1 * t2 * (1 - t2)) + 1e-10)
         return log_det_jac
 
     @tf.function(jit_compile=True)
@@ -908,7 +929,7 @@ class Epileptor2D:
                              offset, obs_data, obs_space):
         y_init = tf.concat((x_init, z_init), axis=0)
         y_pred = self.simulate(self._nsteps, self._nsubsteps, self._time_step,
-                               y_init, x0, tau, K, self._gamma_lc)
+                               y_init, x0, tau, K)
         x_pred = y_pred[:, 0:self._nv + self._ns] * self._unkown_roi_mask
         # tf.print("nan in x_pred", tf.reduce_any(tf.math.is_nan(x_pred)))
         if (obs_space == 'sensor'):

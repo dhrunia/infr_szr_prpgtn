@@ -1,12 +1,13 @@
 import scipy.spatial
 import numpy as np
-import tensorflow as tf
 
 
 def find_rgn_map_reg(N_LAT, N_LON, cos_theta, verts_irreg_fname,
                      rgn_map_irreg_fname):
     theta = np.arccos(cos_theta)
-    phi = np.arange(0, 2 * np.pi, 2 * np.pi / N_LON)
+    # NOTE: Indexed phi from [0:N_LON] because np.arange can return
+    # N_LON + 1 values when the step is a float
+    phi = np.arange(0, 2 * np.pi, 2 * np.pi / N_LON)[0:N_LON]
     theta_grid, phi_grid = np.meshgrid(theta, phi, indexing='ij')
     verts_reg = np.zeros((N_LAT * N_LON, 3))
     verts_reg[:, 0] = (np.cos(phi_grid) * np.sin(theta_grid)).flatten()
@@ -35,14 +36,9 @@ def find_rgn_map_reg(N_LAT, N_LON, cos_theta, verts_irreg_fname,
 
 def find_nbrs_irreg_sphere(N_LAT, N_LON, cos_theta, verts_irreg_fname):
     theta = np.arccos(cos_theta)
-    phi = np.arange(0, 2 * np.pi, 2 * np.pi / N_LON)
-    theta_grid, phi_grid = np.meshgrid(theta, phi, indexing='ij')
-    verts_reg = np.zeros((N_LAT * N_LON, 3))
-    verts_reg[:, 0] = (np.cos(phi_grid) * np.sin(theta_grid)).flatten()
-    verts_reg[:, 1] = (np.sin(phi_grid) * np.sin(theta_grid)).flatten()
-    verts_reg[:, 2] = np.cos(theta_grid).flatten()
-    theta = np.arccos(cos_theta)
-    phi = np.arange(0, 2 * np.pi, 2 * np.pi / N_LON)
+    # NOTE: Indexed phi from [0:N_LON] because np.arange can return
+    # N_LON + 1 values when the step is a float
+    phi = np.arange(0, 2 * np.pi, 2 * np.pi / N_LON)[0:N_LON]
     theta_grid, phi_grid = np.meshgrid(theta, phi, indexing='ij')
     verts_reg = np.zeros((N_LAT * N_LON, 3))
     verts_reg[:, 0] = (np.cos(phi_grid) * np.sin(theta_grid)).flatten()
