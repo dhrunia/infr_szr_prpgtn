@@ -278,6 +278,10 @@ class Epileptor2D:
         return self._unkown_roi_mask
 
     @property
+    def unkown_roi_idcs(self):
+        return self._unkown_roi_idcs
+
+    @property
     def nmodes_params(self):
         return self._nmodes_params
 

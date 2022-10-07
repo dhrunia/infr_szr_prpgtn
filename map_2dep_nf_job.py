@@ -12,12 +12,15 @@ tfb = tfp.bijectors
 data_dir = sys.argv[1]
 results_dir = sys.argv[2]
 N_LAT = int(sys.argv[3])
-RUNID = int(sys.argv[4])
+L_MAX = int(sys.argv[4])
+L_MAX_PARAMS = int(sys.argv[5])
+RUNID = int(sys.argv[6])
+
 N_LON = 2 * N_LAT
 os.makedirs(results_dir, exist_ok=True)
 
 dyn_mdl = lib.model.neuralfield.Epileptor2D(
-    L_MAX=32,
+    L_MAX=L_MAX,
     N_LAT=N_LAT,
     N_LON=N_LON,
     verts_irreg_fname=f"{data_dir}/vertices.txt",
@@ -25,7 +28,7 @@ dyn_mdl = lib.model.neuralfield.Epileptor2D(
     conn_zip_path=f"{data_dir}/connectivity.vep.zip",
     gain_irreg_path=f"{data_dir}/gain_inv_square_ico7.npz",
     gain_irreg_rgn_map_path=f"{data_dir}/gain_region_map_ico7.txt",
-    L_MAX_PARAMS=16,
+    L_MAX_PARAMS=L_MAX_PARAMS,
     diff_coeff=0.00047108,
     alpha=2.0,
     theta=-1.0)
@@ -122,6 +125,7 @@ def train_loop(num_iters, optimizer):
                                parallel_iterations=1)
     return loss_at.stack()
 
+
 boundaries = [500, 8000]
 values = [1e-2, 1e-3, 1e-4]
 lr_schedule = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
@@ -130,7 +134,44 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=10)
 start_time = time.time()
 niters = tf.constant(10000, dtype=tf.int32)
 losses = train_loop(niters, optimizer)
-np.savez(f'{results_dir}/res_N_LAT{N_LAT}_run{RUNID}.npz',
-         theta=theta.numpy(),
-         losses=losses)
+
+(x0_hat_l_m, x_init_hat_l_m, z_init_hat_l_m, eps_hat, K_hat, tau_hat, amp_hat,
+ offset_hat) = dyn_mdl.split_params(theta)
+(x0_pred, x_init_pred, z_init_pred, eps_pred, K_pred, tau_pred, amp_pred,
+ offset_pred) = dyn_mdl.transformed_parameters(x0_hat_l_m,
+                                               x_init_hat_l_m,
+                                               z_init_hat_l_m,
+                                               eps_hat,
+                                               K_hat,
+                                               tau_hat,
+                                               amp_hat,
+                                               offset_hat,
+                                               param_space='mode')
+x0_pred_masked = x0_pred * dyn_mdl.unkown_roi_mask
+y_init_pred = tf.concat((x_init_pred * dyn_mdl.unkown_roi_mask,
+                         z_init_pred * dyn_mdl.unkown_roi_mask),
+                        axis=0)
+y_pred = dyn_mdl.simulate(dyn_mdl.nsteps, dyn_mdl.nsubsteps, dyn_mdl.time_step,
+                          y_init_pred, x0_pred_masked, tau_pred, K_pred)
+x_pred = y_pred[:, 0:dyn_mdl.nv + dyn_mdl.ns]
+z_pred = y_pred[:, dyn_mdl.nv + dyn_mdl.ns:2 * (dyn_mdl.nv + dyn_mdl.ns)]
+
+slp_pred = amp_pred * dyn_mdl.project_sensor_space(
+    x_pred * dyn_mdl.unkown_roi_mask) + offset_pred
+
+np.savez(
+    f'{results_dir}/res_N_LAT{N_LAT:d}_L_MAX{L_MAX:d}_L_MAX_PARAMS{L_MAX_PARAMS:d}_run{RUNID:d}.npz',
+    theta=theta.numpy(),
+    losses=losses,
+    x0=x0_pred.numpy(),
+    x_init=x_init_pred.numpy(),
+    z_init=z_init_pred.numpy(),
+    eps=eps_pred.numpy(),
+    K=K_pred.numpy(),
+    tau=tau_pred.numpy(),
+    amp=amp_pred.numpy(),
+    offset=offset_pred.numpy(),
+    x=x_pred.numpy(),
+    z=z_pred.numpy(),
+    slp=slp_pred.numpy())
 print(f"Elapsed {time.time() - start_time} seconds for {niters} iterations")
