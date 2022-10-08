@@ -388,7 +388,7 @@ def setup_spherical_coords(N_LAT, N_LON):
 
 def setup_spherical_spat_map_axs(fig=None, dpi=200):
     if fig is None:
-        fig = plt.figure(figsize=(3, 7), dpi=dpi, constrained_layout=False)
+        fig = plt.figure(figsize=(3, 7), dpi=dpi)
     fig.set_facecolor('0.75')
     gs = fig.add_gridspec(8,
                           3,
@@ -401,10 +401,18 @@ def setup_spherical_spat_map_axs(fig=None, dpi=200):
                           bottom=0)
     ax = {}
     ax['subcrtx_lh'] = fig.add_subplot(gs[1:3, 0])
-    ax['crtx_lh_front'] = fig.add_subplot(gs[0:2, 1], projection='3d', facecolor='0.75')
-    ax['crtx_lh_back'] = fig.add_subplot(gs[2:4, 1], projection='3d', facecolor='0.75')
-    ax['crtx_rh_front'] = fig.add_subplot(gs[4:6, 1], projection='3d', facecolor='0.75')
-    ax['crtx_rh_back'] = fig.add_subplot(gs[6:8, 1], projection='3d', facecolor='0.75')
+    ax['crtx_lh_front'] = fig.add_subplot(gs[0:2, 1],
+                                          projection='3d',
+                                          facecolor='0.75')
+    ax['crtx_lh_back'] = fig.add_subplot(gs[2:4, 1],
+                                         projection='3d',
+                                         facecolor='0.75')
+    ax['crtx_rh_front'] = fig.add_subplot(gs[4:6, 1],
+                                          projection='3d',
+                                          facecolor='0.75')
+    ax['crtx_rh_back'] = fig.add_subplot(gs[6:8, 1],
+                                         projection='3d',
+                                         facecolor='0.75')
     ax['subcrtx_rh'] = fig.add_subplot(gs[5:7, 0])
     ax['clr_bar'] = fig.add_subplot(gs[2:6, 2])
     return fig, ax
@@ -426,22 +434,20 @@ def spat_map_infr_vs_pred(y_gt,
     subfigs[1].suptitle('Inferred', fontsize='large')
     _, ax_gt = setup_spherical_spat_map_axs(fig=subfigs[0])
     _, ax_infr = setup_spherical_spat_map_axs(fig=subfigs[1])
-    spherical_spat_map(
-        y_gt,
-        N_LAT=N_LAT,
-        N_LON=N_LON,
-        clim=clim,
-        unkown_roi_mask=unkown_roi_mask,
-        ax=ax_gt,
-        dpi=dpi)
-    spherical_spat_map(
-        y_infr,
-        N_LAT=N_LAT,
-        N_LON=N_LON,
-        clim=clim,
-        unkown_roi_mask=unkown_roi_mask,
-        ax=ax_infr,
-        dpi=dpi)
+    spherical_spat_map(y_gt,
+                       N_LAT=N_LAT,
+                       N_LON=N_LON,
+                       clim=clim,
+                       unkown_roi_mask=unkown_roi_mask,
+                       ax=ax_gt,
+                       dpi=dpi)
+    spherical_spat_map(y_infr,
+                       N_LAT=N_LAT,
+                       N_LON=N_LON,
+                       clim=clim,
+                       unkown_roi_mask=unkown_roi_mask,
+                       ax=ax_infr,
+                       dpi=dpi)
     if fig_dir is not None:
         os.makedirs(fig_dir, exist_ok=True)
     if fig_name is not None:

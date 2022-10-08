@@ -46,7 +46,8 @@ def compute_slp_syn(data,
     # high pass filter to remove baseline shift
     data_hpf = bfilt(data, samp_rate, hpf, 'highpass', axis=0)
     # compute the log power over a sliding window
-    data_lpwr = seeg_log_power(data_hpf, win_len) if logtransform else mov_avg(data_hpf**2, win_len)
+    data_lpwr = seeg_log_power(data_hpf, win_len) if logtransform else mov_avg(
+        data_hpf**2, win_len)
     # low pass filter the log power for smoothing
     data_lpwr = bfilt(data_lpwr, samp_rate, lpf, 'lowpass', axis=0)
     return data_lpwr
@@ -65,24 +66,14 @@ def compute_slp(seeg, hpf=10.0, lpf=1.0, filter_order=5.0):
     return slp
 
 
-def prepare_data(data_dir, meta_data_fname, raw_seeg_fname, hpf=10.0, lpf=1.0, parcellation='destrieux'):
-    try:
-        with zipfile.ZipFile(
-                f'{data_dir}/tvb/connectivity.{parcellation}.zip') as sczip:
-            with sczip.open('weights.txt') as weights:
-                SC = np.loadtxt(weights)
-                SC[np.diag_indices(SC.shape[0])] = 0
-                SC = SC / SC.max()
-    except FileNotFoundError as err:
-        print(f'Structural connectivity not found for {data_dir}')
-        return
+def prepare_data(data_dir, meta_data_fname, raw_seeg_fname, hpf=10.0, lpf=1.0):
     # Read SEEG data from fif files
     raw_data = lib.io.seeg.read_one_seeg(data_dir, meta_data_fname,
                                          raw_seeg_fname)
-    gain = lib.io.seeg.read_gain(data_dir, raw_data['picks'], parcellation)
+    snsr_picks = raw_data['picks']
     # Compute seeg log power
     slp = compute_slp(raw_data, hpf, lpf)
-    data = {'SC': SC, 'gain': gain, 'slp': slp}
+    data = {'slp': slp, 'snsr_picks': snsr_picks}
     return data
 
 
@@ -90,41 +81,46 @@ def find_bst_szr_slp(data_dir, hpf, lpf, npoints):
     szr_max_var = ''
     max_snsr_pwr_var = 0
     pat_data_dir = os.path.join(data_dir)
-    for fif_path in glob.glob(os.path.join(data_dir, 'seeg/fif')+'/*.json'):
+    for fif_path in glob.glob(os.path.join(data_dir, 'seeg/fif') + '/*.json'):
         szr_name = os.path.splitext(os.path.basename(fif_path))[0]
         raw_seeg_fname = f'{szr_name}.raw.fif'
         meta_data_fname = f'{szr_name}.json'
         try:
-            data = lib.preprocess.envelope.prepare_data(pat_data_dir, meta_data_fname, raw_seeg_fname, hpf, lpf)
-        except (FileNotFoundError, Exception):
+            data = prepare_data(pat_data_dir, meta_data_fname, raw_seeg_fname,
+                                hpf, lpf)
+        except (FileNotFoundError, lib.io.seeg.BadSeizure) as error:
+            print(f"{szr_name}\n\t {error}")
             continue
-        ds_freq = int(data['slp'].shape[0]/npoints)
+        ds_freq = int(data['slp'].shape[0] / npoints)
         data['slp'] = data['slp'][0:-1:ds_freq]
         data['slp'] = data['slp'] - data['slp'].mean(axis=0)
         snsr_pwr = (data['slp']**2).mean(axis=0)
         snsr_pwr_var = snsr_pwr.var()
-        if(snsr_pwr_var > max_snsr_pwr_var):
+        if (snsr_pwr_var > max_snsr_pwr_var):
             szr_max_var = szr_name
             max_snsr_pwr_var = snsr_pwr_var
         # print('\t', szr_name, snsr_pwr_var)
     return (szr_max_var, max_snsr_pwr_var)
 
+
 def find_bst_szr_raw(data_dir):
     szr_max_var = ''
     max_snsr_pwr_var = 0
-    for fif_path in glob.glob(os.path.join(data_dir, 'seeg/fif')+'/*.json'):
+    for fif_path in glob.glob(os.path.join(data_dir, 'seeg/fif') + '/*.json'):
         szr_name = os.path.splitext(os.path.basename(fif_path))[0]
         raw_seeg_fname = f'{szr_name}.raw.fif'
         meta_data_fname = f'{szr_name}.json'
         raw_data = lib.io.seeg.read_one_seeg(data_dir, meta_data_fname,
-                                         raw_seeg_fname)
-        start_idx = int(raw_data['onset'] * raw_data['sfreq']) - int(raw_data['sfreq'])
-        end_idx = int(raw_data['offset'] * raw_data['sfreq']) + int(raw_data['sfreq'])
+                                             raw_seeg_fname)
+        start_idx = int(raw_data['onset'] * raw_data['sfreq']) - int(
+            raw_data['sfreq'])
+        end_idx = int(raw_data['offset'] * raw_data['sfreq']) + int(
+            raw_data['sfreq'])
         seeg = seeg['time_series'][start_idx:end_idx]
         seeg = seeg - seeg.mean(axis=0)
         snsr_pwr = (seeg**2).mean(axis=0)
         snsr_pwr_var = snsr_pwr.var()
-        if(snsr_pwr_var > max_snsr_pwr_var):
+        if (snsr_pwr_var > max_snsr_pwr_var):
             szr_max_var = szr_name
             max_snsr_pwr_var = snsr_pwr_var
         print('\t', szr_name, snsr_pwr_var)

@@ -3,6 +3,7 @@ from .dmeeg import EEG
 import json
 import mne
 import os
+import glob
 
 class BadSeizure(Exception):
     '''
@@ -31,13 +32,13 @@ def load_eeg(fname, proj_bip=None):
     return _maybe_bip(seeg, time, proj_bip)
 
 
-def read_contacts(cntcts_file, type='dict'):
+def read_contacts(cntcts_file, dtype='dict'):
     cntcts = zip(
         np.loadtxt(cntcts_file, usecols=[0], dtype='str'),
         np.loadtxt(cntcts_file, usecols=[1, 2, 3]))
-    if (type == 'dict'):
+    if (dtype == 'dict'):
         return dict(cntcts)
-    elif (type == 'list'):
+    elif (dtype == 'list'):
         return list(cntcts)
 
 
@@ -80,7 +81,7 @@ def find_picks(json_fnames):
             picks.append(ch_names - set(exclude))
         else:
             raise BadSeizure()
-    return set.intersection(*picks)
+    return sorted(tuple(set.intersection(*picks)))
 
 
 def read_one_seeg(data_dir, meta_data_fname, raw_seeg_fname):
@@ -96,9 +97,7 @@ def read_one_seeg(data_dir, meta_data_fname, raw_seeg_fname):
             verbose='WARNING',
             preload=True)
         assert meta_data['onset'] is not None and meta_data['termination'] is not None
-        raw.pick_types(meg=False, eeg=True)
-        raw.pick_channels(picks)
-        raw.reorder_channels(picks)
+        raw = raw.pick_channels(picks, ordered=True)
         seeg['fname'] = f'{fname_wo_xtnsn}'
         seeg['onset'] = meta_data['onset']
         seeg['offset'] = meta_data['termination']

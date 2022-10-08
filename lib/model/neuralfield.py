@@ -341,6 +341,10 @@ class Epileptor2D:
     def gain(self):
         return self._gain_reg
 
+    @gain.setter
+    def gain(self, gain_mat):
+        self._gain_reg = gain_mat
+
     @property
     def nroi(self):
         return self._nroi
@@ -380,6 +384,12 @@ class Epileptor2D:
     @property
     def z_init_prior(self):
         return self._z_init_prior
+
+    def update_gain(self, data_dir, snsr_picks):
+        seeg_xyz = lib.io.seeg.read_seeg_xyz(data_dir)
+        snsr_lbls = [lbl for lbl, _ in seeg_xyz]
+        gain_idxs = [snsr_lbls.index(lbl) for lbl in snsr_picks]
+        self._gain_reg = tf.gather(self._gain_reg, indices=gain_idxs, axis=1)
 
     @tf.function
     def _build_rgn_map(self, rgn_map_reg_tvb):
