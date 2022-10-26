@@ -418,15 +418,15 @@ def setup_spherical_spat_map_axs(fig=None, dpi=200):
     return fig, ax
 
 
-def spat_map_infr_vs_pred(y_gt,
-                          y_infr,
-                          N_LAT,
-                          N_LON,
-                          unkown_roi_mask=None,
-                          clim=None,
-                          fig_dir=None,
-                          fig_name=None,
-                          dpi=200):
+def spat_map_hyp_vs_pred(y_gt,
+                         y_infr,
+                         N_LAT,
+                         N_LON,
+                         unkown_roi_mask=None,
+                         clim=None,
+                         fig_dir=None,
+                         fig_name=None,
+                         dpi=200):
     fig = plt.figure(figsize=(10, 10))
     fig.set_facecolor('0.75')
     subfigs = fig.subfigures(1, 2)
@@ -440,6 +440,52 @@ def spat_map_infr_vs_pred(y_gt,
                        clim=clim,
                        unkown_roi_mask=unkown_roi_mask,
                        ax=ax_gt,
+                       dpi=dpi)
+    spherical_spat_map(y_infr,
+                       N_LAT=N_LAT,
+                       N_LON=N_LON,
+                       clim=clim,
+                       unkown_roi_mask=unkown_roi_mask,
+                       ax=ax_infr,
+                       dpi=dpi)
+    if fig_dir is not None:
+        os.makedirs(fig_dir, exist_ok=True)
+    if fig_name is not None:
+        plt.savefig(f'{fig_dir}/{fig_name}', facecolor='white')
+
+
+def spat_map_hyp_vs_rsctn_vs_pred(y_hyp,
+                                  y_rsctn,
+                                  y_infr,
+                                  N_LAT,
+                                  N_LON,
+                                  unkown_roi_mask=None,
+                                  clim=None,
+                                  fig_dir=None,
+                                  fig_name=None,
+                                  dpi=200):
+    fig = plt.figure(figsize=(10, 10))
+    fig.set_facecolor('0.75')
+    subfigs = fig.subfigures(1, 3)
+    subfigs[0].suptitle('Hypothesis', fontsize='large')
+    subfigs[1].suptitle('Resection', fontsize='large')
+    subfigs[2].suptitle('Inferred', fontsize='large')
+    _, ax_hyp = setup_spherical_spat_map_axs(fig=subfigs[0])
+    _, ax_rsctn = setup_spherical_spat_map_axs(fig=subfigs[1])
+    _, ax_infr = setup_spherical_spat_map_axs(fig=subfigs[2])
+    spherical_spat_map(y_hyp,
+                       N_LAT=N_LAT,
+                       N_LON=N_LON,
+                       clim=clim,
+                       unkown_roi_mask=unkown_roi_mask,
+                       ax=ax_hyp,
+                       dpi=dpi)
+    spherical_spat_map(y_rsctn,
+                       N_LAT=N_LAT,
+                       N_LON=N_LON,
+                       clim=clim,
+                       unkown_roi_mask=unkown_roi_mask,
+                       ax=ax_rsctn,
                        dpi=dpi)
     spherical_spat_map(y_infr,
                        N_LAT=N_LAT,

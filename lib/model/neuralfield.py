@@ -5,6 +5,7 @@ import lib.utils.tnsrflw
 import numpy as np
 import tensorflow_probability as tfp
 import lib.io.tvb
+import lib.io.seeg
 
 tfd = tfp.distributions
 
@@ -632,7 +633,7 @@ class Epileptor2D:
         P_l_m_Dll,
         cos_m_phidb,
     ):
-        print("local_coupling()...")
+        # print("local_coupling()...")
         x_hat_lh = tf.stop_gradient(x[0:N_LAT * N_LON])
         x_hat_rh = tf.stop_gradient(x[N_LAT * N_LON:])
         x_lm_lh = tf.stop_gradient(
@@ -998,3 +999,58 @@ class Epileptor2D:
                               loop_vars=(i, lp),
                               maximum_iterations=nsamples)
         return lp.stack()
+
+    # Objective function for computing Fixed Points
+    def fp_obj_fn(self, x):
+        print('fp_obj_fn()...')
+        I1 = tf.constant(4.1, dtype=tf.float32)
+        x_crtx_hat = tf.math.sigmoid(
+            self._alpha *
+            (x[0:self._nv] - self._theta)) * self._unkown_roi_mask[0:self._nv]
+
+        local_cplng = self._local_coupling(
+            x_crtx_hat,
+            self._glq_wts,
+            self._P_l_m_costheta,
+            self._Dll,
+            self._L_MAX,
+            self._N_LAT,
+            self._N_LON,
+            self._P_l_m_Dll,
+            self._cos_m_phidb,
+        )
+
+        local_cplng = 3.14128 * x_crtx_hat + local_cplng
+
+        # Append zeros for subcortical regions
+        local_cplng = tf.concat(
+            [local_cplng, tf.zeros(self._ns, dtype=tf.float32)], axis=0)
+        x_sorted = tf.gather(x, self._rgn_map_argsort)
+
+        x_roi = tfp.stats.windowed_mean(x_sorted, self._low_idcs,
+                                        self._high_idcs)
+        global_cplng_roi = tf.reduce_sum(
+            self._K * self._SC * (x_roi[tf.newaxis, :] - x_roi[:, tf.newaxis]),
+            axis=1)
+        global_cplng_vrtcs = tf.gather(global_cplng_roi, self._rgn_map)
+        z = (1.0 - tf.math.pow(x, 3) - 2 * tf.math.pow(x, 2) + I1)
+        dz = 4 * (x - self._x0) - z - global_cplng_vrtcs - local_cplng
+        return dz
+
+    def find_fp(self, x0, K):
+        self._x0 = x0
+        self._K = K
+        I1 = tf.constant(4.1, dtype=tf.float32)
+        # root_res = tfp.math.find_root_chandrupatla(self.fp_obj_fn,
+        #                                            low=-5.0 * tf.ones_like(x0),
+        #                                            high=2.0 * tf.ones_like(x0),
+        #                                            validate_args=True,
+        #                                            max_iterations=10000)
+        init_pos = -2.0 * tf.ones_like(x0)
+        root_res = tfp.math.find_root_secant(tf.function(self.fp_obj_fn),
+                                             init_pos,
+                                             max_iterations=10000)
+        val_at_est_root = root_res.objective_at_estimated_root
+        x_fp = root_res.estimated_root
+        z_fp = (1.0 - tf.math.pow(x_fp, 3) - 2 * tf.math.pow(x_fp, 2) + I1)
+        return (x_fp.numpy(), z_fp.numpy(), val_at_est_root.numpy())
