@@ -1,0 +1,28 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.238.0/containers/ubuntu
+{
+	"name": "neural_mass",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"mounts": [
+		"source=/home/anirudh/OneDrive/Academia/Projects/Neural fields inversion/datasets,target=/workspaces/isp_nfvi_nmm/datasets_hi_res,type=bind,consistency=cached",
+		"source=/home/anirudh/OneDrive/Academia/Projects/vep/datasets,target=/workspaces/isp_nfvi_nmm/datasets_low_res,type=bind,consistency=cached",
+		"source=/home/anirudh/OneDrive/Academia/Projects/Neural fields inversion/results,target=/workspaces/isp_nfvi_nmm/results,type=bind,consistency=cached"
+	],
+	"runArgs": [
+		"--gpus=all",
+		"--name=neural_mass",
+		"--env=DISPLAY",
+		"--volume=/tmp/.X11-unix:/tmp/.X11-unix"
+	],
+	"customizations": {
+		// Configure properties specific to VS Code.
+		"vscode": {
+			// Add the IDs of extensions you want installed when the container is created.
+			"extensions": [
+				"ms-python.python"
+			]
+		}
+	}
+}
