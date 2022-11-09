@@ -18,8 +18,8 @@ class Epileptor2D():
 
         # Read Gain matrix
         gain = np.loadtxt(gain_path)
-        self._gain = tf.constant(gain, dtype=tf.float32)
-        
+        self._gain = tf.constant(gain.T, dtype=tf.float32)
+
         # Bounds for parameters
         if param_bounds is None:
             param_bounds = dict()
@@ -72,6 +72,54 @@ class Epileptor2D():
         self._amp_ub = param_bounds['amp']['ub']
         self._offset_lb = param_bounds['offset']['lb']
         self._offset_ub = param_bounds['offset']['ub']
+
+    @property
+    def num_roi(self):
+        return self._num_roi
+
+    @property
+    def SC(self):
+        return self._SC
+
+    @SC.setter
+    def SC(self, conn):
+        self._SC = conn
+
+    @property
+    def gain(self):
+        return self._gain
+
+    @gain.setter
+    def gain(self, gain_mat):
+        self._gain = gain_mat
+
+    @property
+    def roi_names(self):
+        return self._roi_names
+
+    @property
+    def x0_lb(self):
+        return self._x0_lb
+
+    @property
+    def x0_ub(self):
+        return self._x0_ub
+
+    @property
+    def x_init_lb(self):
+        return self._x_init_lb
+
+    @property
+    def x_init_ub(self):
+        return self._x_init_ub
+
+    @property
+    def z_init_lb(self):
+        return self._z_init_lb
+
+    @property
+    def z_init_ub(self):
+        return self._z_init_ub
 
     @tf.function(jit_compile=True)
     def x0_bounded(self, x0_hat):
@@ -169,8 +217,9 @@ class Epileptor2D():
     @tf.function(jit_compile=True)
     def join_params(self, x0_hat, x_init_hat, z_init_hat, tau_hat, K_hat,
                     amp_hat, offset_hat, eps_hat):
-        theta = tf.concat((x0_hat, x_init_hat, z_init_hat, tau_hat, K_hat,
-                           amp_hat, offset_hat, eps_hat),
+        theta = tf.concat((x0_hat, x_init_hat, z_init_hat, tau_hat[tf.newaxis],
+                           K_hat[tf.newaxis], amp_hat[tf.newaxis],
+                           offset_hat[tf.newaxis], eps_hat[tf.newaxis]),
                           axis=0)
         return theta
 
@@ -355,9 +404,11 @@ class Epileptor2D():
                                          scale=eps).log_prob(obs_data),
                               axis=[1, 2]))
         if (obs_space == 'source'):
-            llp = tf.reduce_sum(
-                tfd.Normal(loc=x_pred, scale=eps).log_prob(obs_data) *
-                self._vrtx_wts)
+            x_pred = amp * x_pred + offset
+            llp = tf.reduce_mean(
+                tf.reduce_sum(tfd.Normal(loc=x_pred,
+                                         scale=eps).log_prob(obs_data),
+                              axis=[1, 2]))
         return llp
 
     @tf.function
@@ -372,21 +423,23 @@ class Epileptor2D():
 
         def body(i, lp):
             (x0_hat, x_init_hat, z_init_hat, tau_hat, K_hat, amp_hat,
-             offset_hat, eps_hat) = self.split_params(theta)
+             offset_hat, eps_hat) = self.split_params(theta[i])
             (x0, x_init, z_init, tau, K, amp, offset,
              eps) = self.transformed_parameters(x0_hat, x_init_hat, z_init_hat,
                                                 tau_hat, K_hat, amp_hat,
                                                 offset_hat, eps_hat)
             # Compute Likelihood
             likelihood_lp = self._likelihood_log_prob(x0, x_init, z_init, tau,
-                                                      K, amp, offset, eps)
+                                                      K, amp, offset, eps,
+                                                      self._obs_data,
+                                                      self._obs_space)
 
             # Compute Prior probability
             prior_lp = self._prior_log_prob(x0, x_init, z_init, tau, K_hat,
                                             amp_hat, offset_hat, eps_hat)
             # Posterior log. probability
             lp_i = likelihood_lp + prior_lp
-            tf.print("likelihood = ", likelihood_lp, "prior = ", prior_lp)
+            # tf.print("likelihood = ", likelihood_lp, "prior = ", prior_lp)
             lp = lp.write(i, lp_i)
             return i + 1, lp
 
