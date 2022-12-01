@@ -3,23 +3,33 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 import lib.io.tvb
 import lib.utils.tnsrflw
+import lib.io.seeg
+
 
 tfd = tfp.distributions
 
 
 class Epileptor2D():
 
-    def __init__(self, conn_path, gain_path, param_bounds=None):
+    def __init__(self,
+                 conn_path,
+                 gain_path,
+                 gain_rgn_map_path,
+                 seeg_xyz_path,
+                 gain_mat_res='high',
+                 param_bounds=None):
         # Read structural connectivity
-        SC, _, roi_names = lib.io.tvb.read_conn(conn_path)
-        self._SC = tf.constant(SC, dtype=tf.float32)
-        self._num_roi = self._SC.shape[0]
-        self._roi_names = roi_names
+        self._SC, self._num_roi, self._roi_names = self.read_sc(
+            conn_path=conn_path)
+        # Read electrode names
+        seeg_xyz = lib.io.seeg.read_seeg_xyz(seeg_xyz_path)
+        self._snsr_lbls_all = [lbl for lbl, _ in seeg_xyz]
+        self._num_snsrs_all = len(self._snsr_lbls_all)
 
         # Read Gain matrix
-        gain = np.loadtxt(gain_path)
-        self._gain = tf.constant(gain.T, dtype=tf.float32)
-
+        self._gain = self.read_gain(gain_path,
+                                    gain_mat_res,
+                                    gain_rgn_map_path=gain_rgn_map_path)
         # Bounds for parameters
         if param_bounds is None:
             param_bounds = dict()
@@ -96,6 +106,14 @@ class Epileptor2D():
     @property
     def roi_names(self):
         return self._roi_names
+
+    @property
+    def snsr_lbls_all(self):
+        return self._snsr_lbls_all
+
+    @property
+    def snsr_lbls_picks(self):
+        return self._snsr_lbls_picks
 
     @property
     def x0_lb(self):
@@ -201,6 +219,39 @@ class Epileptor2D():
         return lib.utils.tnsrflw.inv_sigmoid_transform(offset, self._offset_lb,
                                                        self._offset_ub)
 
+    def read_sc(self, conn_path):
+        SC, _, roi_names = lib.io.tvb.read_conn(conn_path)
+        # NOTE: Indexing from 1 to remove the unkown ROI
+        SC = tf.constant(SC[1:, 1:], dtype=tf.float32)
+        num_roi = SC.shape[0]
+        roi_names = roi_names[1:]
+        return SC, num_roi, roi_names
+
+    def read_gain(self, gain_path, gain_mat_res, gain_rgn_map_path=None):
+        if gain_mat_res == 'high':
+            gain_hr = np.load(gain_path)['gain_inv_square']
+            gain_rgn_map = np.loadtxt(gain_rgn_map_path)
+            assert self._num_snsrs_all == gain_hr.shape[0]
+            gain_lr_avg_hr = np.zeros((self._num_snsrs_all, self._num_roi))
+            for roi in range(1, self._num_roi + 1):
+                #NOTE: looping from 1 to num_roi + 1 to ignore the unkown roi
+                # which is included in high resolution gain matrix as roi 0
+                idcs = np.nonzero(gain_rgn_map == roi)[0]
+                gain_lr_avg_hr[:, roi - 1] = np.sum(gain_hr[:, idcs], axis=1)
+                gain = tf.constant(gain_lr_avg_hr.T, dtype=tf.float32)
+        elif gain_mat_res == 'low':
+            gain = np.loadtxt(gain_path)
+            gain = tf.constant(gain.T, dtype=tf.float32)
+        else:
+            raise ValueError("gain_mat_res should be either 'low' or 'high'")
+        return gain
+
+    def update_gain(self, snsr_picks):
+        gain_idxs = [self._snsr_lbls_all.index(lbl) for lbl in snsr_picks]
+        self._gain = tf.gather(self._gain, indices=gain_idxs, axis=1)
+        self._snsr_lbls_picks = snsr_picks
+        self._num_snsr_picks = len(snsr_picks)
+
     @tf.function(jit_compile=True)
     def split_params(self, theta):
         x0_hat = theta[0:self._num_roi]
@@ -251,7 +302,7 @@ class Epileptor2D():
                 offset_hat, eps_hat)
 
     @tf.function
-    def _derivative_fn(self, y, x0, tau, K):
+    def _ode_fn(self, y, x0, tau, K):
         I1 = tf.constant(4.1, dtype=tf.float32)
         x = y[0:self._num_roi]
         z = y[self._num_roi:2 * self._num_roi]
@@ -278,8 +329,7 @@ class Epileptor2D():
                 return tf.less(j, nsubsteps)
 
             def body2(j, y_next):
-                y_next = y_next + time_step * self._derivative_fn(
-                    y_next, x0, tau, K)
+                y_next = y_next + time_step * self._ode_fn(y_next, x0, tau, K)
                 return j + 1, y_next
 
             j, y_next = tf.while_loop(cond2,

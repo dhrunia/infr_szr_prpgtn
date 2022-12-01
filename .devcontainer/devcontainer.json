@@ -6,9 +6,8 @@
 		"dockerfile": "Dockerfile"
 	},
 	"mounts": [
-		"source=/home/anirudh/OneDrive/Academia/Projects/Neural fields inversion/datasets,target=/workspaces/isp_nfvi_nmm/datasets_hi_res,type=bind,consistency=cached",
-		"source=/home/anirudh/OneDrive/Academia/Projects/vep/datasets,target=/workspaces/isp_nfvi_nmm/datasets_low_res,type=bind,consistency=cached",
-		"source=/home/anirudh/OneDrive/Academia/Projects/Neural fields inversion/results,target=/workspaces/isp_nfvi_nmm/results,type=bind,consistency=cached"
+		"source=/home/anirudh/OneDrive/Academia/Projects/Neural fields inversion/datasets,target=/workspaces/isp_nfvi_nmm/datasets,type=bind,consistency=cached",
+		"source=/home/anirudh/OneDrive/Academia/Projects/vep/results,target=/workspaces/isp_nfvi_nmm/results,type=bind,consistency=cached"
 	],
 	"runArgs": [
 		"--gpus=all",

@@ -4,12 +4,15 @@ import json
 import mne
 import os
 
+
 class BadSeizure(Exception):
     '''
     Excpetion to raise when the seizure is not a spontaneous seizure
     '''
+
     def __init__(self):
         super().__init__('Not a spontaneous seizure')
+
 
 def _maybe_bip(seeg, time, proj_bip=None):
     if proj_bip is not None:
@@ -32,19 +35,17 @@ def load_eeg(fname, proj_bip=None):
 
 
 def read_contacts(cntcts_file, type='dict'):
-    cntcts = zip(
-        np.loadtxt(cntcts_file, usecols=[0], dtype='str'),
-        np.loadtxt(cntcts_file, usecols=[1, 2, 3]))
+    cntcts = zip(np.loadtxt(cntcts_file, usecols=[0], dtype='str'),
+                 np.loadtxt(cntcts_file, usecols=[1, 2, 3]))
     if (type == 'dict'):
         return dict(cntcts)
     elif (type == 'list'):
         return list(cntcts)
 
 
-def read_seeg_xyz(data_dir):
+def read_seeg_xyz(seeg_xyz_path):
     lines = []
-    fname = os.path.join(data_dir, 'elec/seeg.xyz')
-    with open(fname, 'r') as fd:
+    with open(seeg_xyz_path, 'r') as fd:
         for line in fd.readlines():
             name, *sxyz = line.strip().split()
             xyz = [float(_) for _ in sxyz]
@@ -75,12 +76,12 @@ def find_picks(json_fnames):
             exclude = meta_data['bad_channels'] + meta_data['non_seeg_channels']
             ch_names = set(
                 mne.io.read_info(
-                    f'{os.path.dirname(fname)}/{fname_wo_xtnsn}.raw.fif')[
-                        'ch_names'])
+                    f'{os.path.dirname(fname)}/{fname_wo_xtnsn}.raw.fif')
+                ['ch_names'])
             picks.append(ch_names - set(exclude))
         else:
             raise BadSeizure()
-    return set.intersection(*picks)
+    return sorted(tuple(set.intersection(*picks)))
 
 
 def read_one_seeg(data_dir, meta_data_fname, raw_seeg_fname):
@@ -91,11 +92,11 @@ def read_one_seeg(data_dir, meta_data_fname, raw_seeg_fname):
     with open(os.path.join(data_dir, 'seeg', 'fif', meta_data_fname)) as fd:
         meta_data = json.load(fd)
     if (meta_data['type'].lower() == "spontaneous seizure"):
-        raw = mne.io.Raw(
-            os.path.join(data_dir, 'seeg', 'fif', raw_seeg_fname),
-            verbose='WARNING',
-            preload=True)
-        assert meta_data['onset'] is not None and meta_data['termination'] is not None
+        raw = mne.io.Raw(os.path.join(data_dir, 'seeg', 'fif', raw_seeg_fname),
+                         verbose='WARNING',
+                         preload=True)
+        assert meta_data['onset'] is not None and meta_data[
+            'termination'] is not None
         raw.pick_types(meg=False, eeg=True)
         raw.pick_channels(picks)
         raw.reorder_channels(picks)
@@ -125,11 +126,11 @@ def read_seeg(data_dir):
         with open(fname) as fd:
             meta_data = json.load(fd)
         if (meta_data['type'].lower() == "spontaneous seizure"):
-            raw = mne.io.Raw(
-                f'{data_dir}/seeg/fif/{fname_wo_xtnsn}.raw.fif',
-                verbose='WARNING',
-                preload=True)
-            assert meta_data['onset'] is not None and meta_data['termination'] is not None
+            raw = mne.io.Raw(f'{data_dir}/seeg/fif/{fname_wo_xtnsn}.raw.fif',
+                             verbose='WARNING',
+                             preload=True)
+            assert meta_data['onset'] is not None and meta_data[
+                'termination'] is not None
             #         raw.crop(tmin=meta_data['onset'], tmax=meta_data['termination'])
             raw.pick_types(meg=False, eeg=True)
             raw.pick_channels(picks)
@@ -153,5 +154,5 @@ def find_szr_len(data_dir, szr_name):
     start_idx = int(seeg['onset'] * seeg['sfreq']) - int(seeg['sfreq'])
     end_idx = int(seeg['offset'] * seeg['sfreq']) + int(seeg['sfreq'])
     seeg_trunc = seeg['time_series'][start_idx:end_idx]
-    szr_len = seeg_trunc.shape[0]/seeg['sfreq']
+    szr_len = seeg_trunc.shape[0] / seeg['sfreq']
     return szr_len
