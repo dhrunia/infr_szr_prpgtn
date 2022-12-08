@@ -14,12 +14,14 @@ RUN groupadd --gid $USER_GID $USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
 
 RUN sudo apt-get update && sudo apt-get install -y git ffmpeg \
-    python3-tk wget libfftw3-3 libfftw3-bin libfftw3-dev
+    python3-tk wget libfftw3-3 libfftw3-bin libfftw3-dev \
+    texlive-xetex texlive-fonts-recommended texlive-plain-generic
 
 RUN pip install --upgrade pip
 
 RUN pip install --upgrade tensorflow-probability==0.17.0 pyshtools==4.10 \
-    mne ffmpeg-python matplotlib pylint yapf black ipykernel autopep8 ipympl
+    mne ffmpeg-python matplotlib pylint yapf black ipykernel autopep8 ipympl \
+    nbconvert
 
 # [Optional] Set the default user. Omit if you want to keep the default as root.
 USER $USERNAME

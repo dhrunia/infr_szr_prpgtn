@@ -159,33 +159,3 @@ def plot_gain(gain_mat):
     plt.gca().set_title('Gain Matrix', fontsize=13.0)
     plt.xlabel('Node')
     plt.ylabel('Sensor')
-
-
-def plot_slp(slp,
-             save_dir=None,
-             fig_name=None,
-             ax=None,
-             figsize=(7, 6),
-             title='SEEG log power',
-             clim=None):
-    import matplotlib.pyplot as plt
-    import lib.utils.consts as consts
-    import os
-
-    if ax is None:
-        fig, ax = plt.subplots(figsize=figsize, dpi=120)
-    if clim is None:
-        clim = {'min': np.min(slp), 'max': np.max(slp)}
-    fig = ax.get_figure()
-    im = ax.imshow(slp.T, interpolation=None, aspect='auto', cmap='inferno')
-    im.set_clim(clim['min'], clim['max'])
-    ax.set_title(title, fontsize=consts.FS_LARGE)
-    ax.set_xlabel('Time', fontsize=consts.FS_LARGE)
-    ax.set_ylabel('Sensor', fontsize=consts.FS_LARGE)
-    ax.tick_params(labelsize=consts.FS_MED)
-    cbar = fig.colorbar(im, ax=ax, shrink=0.5, fraction=0.1)
-    cbar.ax.tick_params(labelsize=consts.FS_MED)
-    if fig_name is not None:
-        if(not os.path.exists(save_dir)):
-            os.makedirs(save_dir, exist_ok=True)
-        plt.savefig(f'{save_dir}/{fig_name}', facecolor='white')

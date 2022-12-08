@@ -25,10 +25,12 @@ class Epileptor2D:
                  diff_coeff,
                  alpha,
                  theta,
+                 gamma_lc=3.14128,
                  param_bounds=None):
         self._L_MAX = L_MAX
         self._alpha = alpha
         self._theta = theta
+        self._gamma_lc = gamma_lc
         (self._N_LAT, self._N_LON, self._cos_theta, self._glq_wts,
          self._P_l_m_costheta) = tfsht.prep(L_MAX, N_LAT, N_LON)
         self._D = tf.constant(diff_coeff, dtype=tf.float32)
@@ -386,6 +388,13 @@ class Epileptor2D:
     def z_init_prior(self):
         return self._z_init_prior
 
+    @property
+    def idcs_nbrs_irreg(self):
+        return self._idcs_nbrs_irreg
+
+    def apply_mask(self, mask):
+        self._unkown_roi_mask = self._unkown_roi_mask * mask
+
     def update_gain(self, data_dir, snsr_picks):
         seeg_xyz = lib.io.seeg.read_seeg_xyz(data_dir)
         snsr_lbls = [lbl for lbl, _ in seeg_xyz]
@@ -740,7 +749,7 @@ class Epileptor2D:
         #     tf.reduce_any(tf.math.is_nan(local_cplng)),
         #     output_stream='file:///workspaces/isp_neural_fields/debug.txt')
 
-        local_cplng = 3.14128 * x_crtx_hat + local_cplng
+        local_cplng = self._gamma_lc * x_crtx_hat + local_cplng
         # tf.print(
         #     "lc_sum: ",
         #     tf.reduce_sum(local_cplng),
