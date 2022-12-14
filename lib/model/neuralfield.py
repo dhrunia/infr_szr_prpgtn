@@ -22,15 +22,15 @@ class Epileptor2D:
                  gain_irreg_path,
                  gain_irreg_rgn_map_path,
                  L_MAX_PARAMS,
-                 gamma_lc,
-                 alpha,
-                 theta,
+                 gamma_lc=1.0,
+                 alpha=2.0,
+                 theta=-1.0,
                  diff_coeff=0.00047108,
                  norm_coeff=3.14128,
                  param_bounds=None):
         self._L_MAX = L_MAX
-        self._alpha = alpha
-        self._theta = theta
+        self._alpha = tf.constant(alpha, dtype=tf.float32)
+        self._theta = tf.constant(theta, dtype=tf.float32)
         self._gamma_lc = tf.constant(gamma_lc, dtype=tf.float32)
         (self._N_LAT, self._N_LON, self._cos_theta, self._glq_wts,
          self._P_l_m_costheta) = tfsht.prep(L_MAX, N_LAT, N_LON)
