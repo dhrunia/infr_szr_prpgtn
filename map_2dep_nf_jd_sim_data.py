@@ -21,7 +21,7 @@ tfb = tfp.bijectors
 
 # %%
 data_dir = 'datasets/syn_data_jd'
-results_dir = "results/exp98"
+results_dir = "results/exp96"
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
 os.makedirs(figs_dir, exist_ok=True)
@@ -39,7 +39,7 @@ dyn_mdl = lib.model.neuralfield.Epileptor2D(
     diff_coeff=0.00047108,
     alpha=2.0,
     theta=-1.0,
-    gamma_lc=0.0)
+    gamma_lc=1.0)
 
 # %%
 sim_src = np.load(f"{data_dir}/simu_src.npz")['data_tavg']
@@ -206,7 +206,7 @@ tau \t{tau_pred:.2f}\n\
 amp \t{amp_pred:.2f}\n\
 offset \t{offset_pred:.2f}")
 # %%
-np.savez(f"{results_dir}/map_estim_run1.npz",
+np.savez(f"{results_dir}/map_estim_run2.npz",
          x0=x0_pred.numpy(),
          x_init=x_init_pred.numpy(),
          z_init=z_init_pred,
@@ -243,7 +243,7 @@ lib.plots.neuralfield.spherical_spat_map(z_init_pred_masked.numpy(),
 # %%
 _x_pred = x_pred.numpy()
 _x_pred[:, dyn_mdl.unkown_roi_idcs] = -2.0
-ez_pred, pz_pred = acrcy.find_ez(_x_pred, 0.0, 10)
+ez_pred, pz_pred = acrcy.find_ez(_x_pred, 0.0, 5)
 
 ez_pred_vrtx_idcs = np.nonzero(ez_pred)[0]
 ez_pred_roi_idcs = np.unique(dyn_mdl.rgn_map.numpy()[ez_pred_vrtx_idcs])
@@ -277,10 +277,10 @@ print(
     f"EZ ground truth: {ez_irreg_roi_lbls}\nPZ ground truth: {pz_irreg_roi_lbls}"
 )
 # %%
-t = np.load('results/exp96/map_estim_run1.npz')
+t = np.load('results/exp98/map_estim_run1.npz')
 vrtx_idcs = np.where(dyn_mdl.rgn_map == 45)[0]
 fig = plt.figure(figsize=(7,4), dpi=200)
 ax = fig.add_subplot(1,1,1)
-ax.hist(x0_pred.numpy()[vrtx_idcs], color='blue', alpha=0.5, label='without local coupling')
-ax.hist(t['x0'][vrtx_idcs], color='red', alpha=0.5, label='with local coupling')
+ax.hist(t['x0'][vrtx_idcs], color='red', alpha=0.5, label='without local coupling')
+ax.hist(x0_pred.numpy()[vrtx_idcs], color='blue', alpha=0.5, label='with local coupling')
 ax.legend()
