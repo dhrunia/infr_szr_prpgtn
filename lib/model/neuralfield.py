@@ -22,18 +22,20 @@ class Epileptor2D:
                  gain_irreg_path,
                  gain_irreg_rgn_map_path,
                  L_MAX_PARAMS,
-                 diff_coeff,
+                 gamma_lc,
                  alpha,
                  theta,
-                 gamma_lc=3.14128,
+                 diff_coeff=0.00047108,
+                 norm_coeff=3.14128,
                  param_bounds=None):
         self._L_MAX = L_MAX
         self._alpha = alpha
         self._theta = theta
-        self._gamma_lc = gamma_lc
+        self._gamma_lc = tf.constant(gamma_lc, dtype=tf.float32)
         (self._N_LAT, self._N_LON, self._cos_theta, self._glq_wts,
          self._P_l_m_costheta) = tfsht.prep(L_MAX, N_LAT, N_LON)
         self._D = tf.constant(diff_coeff, dtype=tf.float32)
+        self._N = tf.constant(norm_coeff, dtype=tf.float32)
         l = tf.range(0, self._L_MAX + 1, dtype=tf.float32)
         Dll = self._D * l * (l + 1)
         Dll = tf.reshape(tf.repeat(Dll, self._L_MAX + 1),
@@ -749,7 +751,7 @@ class Epileptor2D:
         #     tf.reduce_any(tf.math.is_nan(local_cplng)),
         #     output_stream='file:///workspaces/isp_neural_fields/debug.txt')
 
-        local_cplng = self._gamma_lc * x_crtx_hat + local_cplng
+        local_cplng = self._N * x_crtx_hat + local_cplng
         # tf.print(
         #     "lc_sum: ",
         #     tf.reduce_sum(local_cplng),
@@ -772,8 +774,9 @@ class Epileptor2D:
         #     "NAN in dx: ",
         #     tf.reduce_any(tf.math.is_nan(dx)),
         #     output_stream='file:///workspaces/isp_neural_fields/debug.txt')
-        dz = ((1.0 / tau) * (4 * (x - x0) - z - global_cplng_vrtcs -
-                             local_cplng)) * self._unkown_roi_mask
+        dz = ((1.0 / tau) *
+              (4 * (x - x0) - z - global_cplng_vrtcs -
+               self._gamma_lc * local_cplng)) * self._unkown_roi_mask
         # tf.print(
         #     "NAN in dz: ",
         #     tf.reduce_any(tf.math.is_nan(dz)),

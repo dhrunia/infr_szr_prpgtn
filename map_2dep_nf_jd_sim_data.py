@@ -21,7 +21,7 @@ tfb = tfp.bijectors
 
 # %%
 data_dir = 'datasets/syn_data_jd'
-results_dir = "results/exp97"
+results_dir = "results/exp98"
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
 os.makedirs(figs_dir, exist_ok=True)
@@ -200,7 +200,7 @@ y_pred = dyn_mdl.simulate(dyn_mdl.nsteps, dyn_mdl.nsubsteps, dyn_mdl.time_step,
 x_pred = y_pred[:, 0:dyn_mdl.nv + dyn_mdl.ns] * dyn_mdl.unkown_roi_mask
 slp_pred = dyn_mdl.project_sensor_space(x_pred)
 print(f"Scalar Parameters\n\
-K \t{K_pred:.2f}\n\gamma_lc
+K \t{K_pred:.2f}\n\
 eps \t{eps_pred:.2f}\n\
 tau \t{tau_pred:.2f}\n\
 amp \t{amp_pred:.2f}\n\
@@ -243,7 +243,7 @@ lib.plots.neuralfield.spherical_spat_map(z_init_pred_masked.numpy(),
 # %%
 _x_pred = x_pred.numpy()
 _x_pred[:, dyn_mdl.unkown_roi_idcs] = -2.0
-ez_pred, pz_pred = acrcy.find_ez(_x_pred, 0.0, 5)
+ez_pred, pz_pred = acrcy.find_ez(_x_pred, 0.0, 10)
 
 ez_pred_vrtx_idcs = np.nonzero(ez_pred)[0]
 ez_pred_roi_idcs = np.unique(dyn_mdl.rgn_map.numpy()[ez_pred_vrtx_idcs])
@@ -277,24 +277,10 @@ print(
     f"EZ ground truth: {ez_irreg_roi_lbls}\nPZ ground truth: {pz_irreg_roi_lbls}"
 )
 # %%
-lib.plots.neuralfield.create_video(
-    x_pred.numpy(),
-    N_LAT=dyn_mdl.N_LAT.numpy(),
-    N_LON=dyn_mdl.N_LON.numpy(),
-    out_dir=figs_dir,
-    movie_name="source_activity_infr.mp4",
-    unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
-    vis_type='spherical',
-    dpi=100,
-    ds_freq=3)
-# %%
-lib.plots.neuralfield.create_video(
-    x_obs.numpy(),
-    N_LAT=dyn_mdl.N_LAT.numpy(),
-    N_LON=dyn_mdl.N_LON.numpy(),
-    out_dir=f"{figs_dir}/ground_truth",
-    movie_name="source_activity.mp4",
-    unkown_roi_mask=dyn_mdl.unkown_roi_mask.numpy(),
-    vis_type='spherical',
-    dpi=100,
-    ds_freq=3)
+t = np.load('results/exp96/map_estim_run1.npz')
+vrtx_idcs = np.where(dyn_mdl.rgn_map == 45)[0]
+fig = plt.figure(figsize=(7,4), dpi=200)
+ax = fig.add_subplot(1,1,1)
+ax.hist(x0_pred.numpy()[vrtx_idcs], color='blue', alpha=0.5, label='without local coupling')
+ax.hist(t['x0'][vrtx_idcs], color='red', alpha=0.5, label='with local coupling')
+ax.legend()
