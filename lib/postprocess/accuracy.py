@@ -1,4 +1,5 @@
 import numpy as np
+import os
 
 
 def teps_to_wndwsz(szr_len, t_eps, npoints):
@@ -19,17 +20,32 @@ def find_bst_szr(pat_id, szr_names, data_dir):
     return bst_szr
 
 
-def find_best_map_run(res_dir, pat_id, szr_name, num_runs):
+def find_best_map_run_retro(res_dir, pat_id, szr_name, num_runs):
+    map_estim_paths = [
+        os.path.join(res_dir, pat_id, f"map_estimate_{szr_name}_run{i:d}.npz")
+        for i in range(1, num_runs + 1)
+    ]
+    return find_best_map_run(map_estim_paths)
+
+
+def find_best_map_run_syn(res_dir, fname_prefix, num_runs):
+    map_estim_paths = [
+        os.path.join(res_dir, f"{fname_prefix}_run{i:d}.npz")
+        for i in range(1, num_runs + 1)
+    ]
+    return find_best_map_run(map_estim_paths)
+
+
+def find_best_map_run(map_estim_paths):
     losses = []
-    for i in range(1, num_runs + 1):
-        map_estim = np.load(
-            f'{res_dir}/{pat_id}/map_estimate_{szr_name}_run{i:d}.npz')
+    for _path in map_estim_paths:
+        map_estim = np.load(_path)
         l = map_estim['losses'][-1, 0]
         if np.isnan(l):
             l = np.inf
         losses.append(l)
-    best_map_run = np.argmin(losses) + 1
-    return best_map_run, losses[best_map_run - 1]
+    best_map_run_idx = np.argmin(losses)
+    return map_estim_paths[best_map_run_idx], losses[best_map_run_idx]
 
 
 def find_onsets(ts, thrshld):
