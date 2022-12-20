@@ -19,7 +19,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = "results/exp100"
+results_dir = "results/exp101"
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
 os.makedirs(figs_dir, exist_ok=True)
@@ -94,9 +94,12 @@ y_obs = dyn_mdl.simulate(nsteps, nsubsteps, time_step, y_init_true, x0_true,
 x_obs = y_obs[:, 0:dyn_mdl.nv + dyn_mdl.ns] * dyn_mdl.unkown_roi_mask
 slp_true = amp_true * dyn_mdl.project_sensor_space(x_obs) + offset_true
 slp_noised = slp_true + tfd.Normal(
-    loc=tf.zeros_like(slp_true), scale=3.0 * tf.ones_like(slp_true)).sample()
+    loc=tf.zeros_like(slp_true), scale=0.5 * tf.ones_like(slp_true)).sample()
 # %%
-epplot.plot_slp(slp_true.numpy(), save_dir=figs_dir, fig_name="slp_obs.png")
+epplot.plot_slp(slp_true.numpy(), save_dir=figs_dir, fig_name="slp_true.png")
+epplot.plot_slp(slp_noised.numpy(),
+                save_dir=figs_dir,
+                fig_name="slp_noised.png")
 # %%
 x0 = -4.0 * tf.ones(dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32)
 x_init = -3.0 * tf.ones(dyn_mdl.nv + dyn_mdl.ns, dtype=tf.float32)
@@ -282,10 +285,10 @@ nfplot.spat_map_hyp_vs_pred(z_init_true.numpy(),
 
 # %%
 t_obs = x_obs.numpy()
-t_obs[:,dyn_mdl.unkown_roi_idcs] = -3.0
+t_obs[:, dyn_mdl.unkown_roi_idcs] = -3.0
 t_pred = x_pred.numpy()
-t_pred[:,dyn_mdl.unkown_roi_idcs] = -3.0
-ows = 50
+t_pred[:, dyn_mdl.unkown_roi_idcs] = -3.0
+ows = 20
 ez_pred, pz_pred = acrcy.find_ez(t_pred, src_thrshld=0.0, onst_wndw_sz=ows)
 ez_obs, pz_obs = acrcy.find_ez(t_obs, src_thrshld=0.0, onst_wndw_sz=ows)
 nfplot.spat_map_hyp_vs_pred(ez_obs,
@@ -293,8 +296,13 @@ nfplot.spat_map_hyp_vs_pred(ez_obs,
                             dyn_mdl.N_LAT.numpy(),
                             dyn_mdl.N_LON.numpy(),
                             dpi=100)
-p,r = acrcy.precision_recall(ez_hyp=ez_obs, ez_pred=ez_pred)
+p, r = acrcy.precision_recall(ez_hyp=ez_obs, ez_pred=ez_pred)
 print(f"Precision: {p}\t Recall: {r}")
+# %%
+fig, axs = plt.subplots(1, 2, figsize=(10, 6), dpi=200)
+epplot.plot_src(t_obs, ax=axs[0], title='Observed')
+epplot.plot_src(t_pred, ax=axs[1], title='Predicted')
+fig.savefig(f'{figs_dir}/src_obs_vs_pred.png', facecolor='white')
 # %%
 lib.plots.neuralfield.create_video(
     x_pred.numpy(),
