@@ -19,7 +19,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = "results/exp101"
+results_dir = "results/exp102"
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
 os.makedirs(figs_dir, exist_ok=True)
@@ -94,7 +94,7 @@ y_obs = dyn_mdl.simulate(nsteps, nsubsteps, time_step, y_init_true, x0_true,
 x_obs = y_obs[:, 0:dyn_mdl.nv + dyn_mdl.ns] * dyn_mdl.unkown_roi_mask
 slp_true = amp_true * dyn_mdl.project_sensor_space(x_obs) + offset_true
 slp_noised = slp_true + tfd.Normal(
-    loc=tf.zeros_like(slp_true), scale=0.5 * tf.ones_like(slp_true)).sample()
+    loc=tf.zeros_like(slp_true), scale=0.1 * tf.ones_like(slp_true)).sample()
 # %%
 epplot.plot_slp(slp_true.numpy(), save_dir=figs_dir, fig_name="slp_true.png")
 epplot.plot_slp(slp_noised.numpy(),
