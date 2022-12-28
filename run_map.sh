@@ -14,10 +14,11 @@ LOGS_DIR=$3
 N_LAT=$4
 L_MAX=$5
 L_MAX_PARAMS=$6
+SNR=$7
 module load daint-gpu
 
 for i in $(seq 1 10);
 do
-    srun --nodes=1 --ntasks-per-node=1 --exact python map_2dep_nf_job.py $DATA_DIR $RES_DIR $N_LAT $L_MAX $L_MAX_PARAMS $i > "${LOGS_DIR}/map_N_LAT${N_LAT}_L_MAX${L_MAX}_L_MAX_PARAMS${L_MAX_PARAMS}_run${i}.log" 2>&1 &
+    srun --nodes=1 --ntasks-per-node=1 --exact python map_2dep_nf_job.py $DATA_DIR $RES_DIR $N_LAT $L_MAX $L_MAX_PARAMS $SNR $i > "${LOGS_DIR}/map_N_LAT${N_LAT}_L_MAX${L_MAX}_L_MAX_PARAMS${L_MAX_PARAMS}_SNR${SNR}_run${i}.log" 2>&1 &
 done
 wait
