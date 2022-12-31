@@ -53,7 +53,7 @@ for j in range(N_SAMPLE_AUG):
     obs_data_aug = obs_data_aug.write(j, _slp)
 obs_data_aug = obs_data_aug.stack()
 
-ez_hyp_roi = ez_true_roi
+ez_hyp_roi = [10, 18, 34]
 ez_hyp_vrtcs = np.concatenate(
     [np.nonzero(roi == dyn_mdl.rgn_map)[0] for roi in ez_hyp_roi])
 x0_prior_mu = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
