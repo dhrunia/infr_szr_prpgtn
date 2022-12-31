@@ -146,13 +146,13 @@ def train_loop(num_iters, optimizer):
     return loss_at.stack()
 
 
-boundaries = [500, 8000]
+boundaries = [500, 3000]
 values = [1e-2, 1e-3, 1e-4]
 lr_schedule = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
     boundaries, values)
 optmzr = tf.keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=10)
 start_time = time.time()
-niters = tf.constant(10000, dtype=tf.int32)
+niters = tf.constant(4000, dtype=tf.int32)
 losses = train_loop(niters, optmzr)
 
 (x0_hat_l_m, x_init_hat_l_m, z_init_hat_l_m, eps_hat, K_hat, tau_hat, amp_hat,
@@ -183,17 +183,5 @@ np.savez(
     f'{RESULTS_DIR}/res_N_LAT{N_LAT:d}_L_MAX{L_MAX:d}_L_MAX_PARAMS{L_MAX_PARAMS:d}_SNR{SNR_DB:.1f}_run{RUNID:d}.npz',
     theta=theta.numpy(),
     losses=losses,
-    x0=x0_pred.numpy(),
-    x_init=x_init_pred.numpy(),
-    z_init=z_init_pred.numpy(),
-    eps=eps_pred.numpy(),
-    K=K_pred.numpy(),
-    tau=tau_pred.numpy(),
-    amp=amp_pred.numpy(),
-    offset=offset_pred.numpy(),
-    x=x_pred.numpy(),
-    z=z_pred.numpy(),
-    slp=slp_pred.numpy(),
-    ez_hyp_roi=ez_hyp_roi,
-    ez_hyp_vrtcs=ez_hyp_vrtcs)
+    ez_hyp_roi=ez_hyp_roi)
 print(f"Elapsed {time.time() - start_time} seconds for {niters} iterations")

@@ -2,7 +2,7 @@
 #SBATCH --account="ich042"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=anirudh-nihalani.vattikonda@univ-amu.fr
-#SBATCH --time=20:00:00
+#SBATCH --time=10:00:00
 #SBATCH --nodes=10
 #SBATCH --partition=normal
 #SBATCH --constraint=gpu
