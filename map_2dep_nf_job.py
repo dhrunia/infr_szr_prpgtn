@@ -32,7 +32,8 @@ dyn_mdl = lib.model.neuralfield.Epileptor2D(
     L_MAX_PARAMS=L_MAX_PARAMS)
 
 sim_data = np.load(f'{DATA_DIR}/sim_N_LAT{N_LAT}.npz')
-ez_true_roi = sim_data['ez_roi']
+ez_true_roi_tvb = sim_data['ez_roi_tvb']
+ez_true_roi = [dyn_mdl.roi_map_tvb_to_tfnf[roi] for roi in ez_true_roi_tvb]
 dyn_mdl.SC = tf.constant(sim_data['SC'], dtype=tf.float32)
 
 slp = tf.constant(sim_data['slp'], dtype=tf.float32)
@@ -53,7 +54,7 @@ for j in range(N_SAMPLE_AUG):
     obs_data_aug = obs_data_aug.write(j, _slp)
 obs_data_aug = obs_data_aug.stack()
 
-ez_hyp_roi = [10, 18, 34]
+ez_hyp_roi = [95, 140]
 ez_hyp_vrtcs = np.concatenate(
     [np.nonzero(roi == dyn_mdl.rgn_map)[0] for roi in ez_hyp_roi])
 x0_prior_mu = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
