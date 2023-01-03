@@ -1,7 +1,7 @@
 #!/bin/bash
 
-DATA_DIR="$PWD/datasets/syn_data/id022_te/LMAX_lc_32"
-RES_DIR="$PWD/results/exp109"
+DATA_DIR="$PWD/datasets/syn_data/id004_bj/LMAX_lc_32"
+RES_DIR="$PWD/results/exp112"
 LOGS_DIR="${RES_DIR}/logs"
 N_LAT=128
 L_MAX=32

@@ -54,7 +54,7 @@ for j in range(N_SAMPLE_AUG):
     obs_data_aug = obs_data_aug.write(j, _slp)
 obs_data_aug = obs_data_aug.stack()
 
-ez_hyp_roi = [95, 140]
+ez_hyp_roi = ez_true_roi
 ez_hyp_vrtcs = np.concatenate(
     [np.nonzero(roi == dyn_mdl.rgn_map)[0] for roi in ez_hyp_roi])
 x0_prior_mu = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
@@ -147,13 +147,13 @@ def train_loop(num_iters, optimizer):
     return loss_at.stack()
 
 
-boundaries = [500, 3000]
+boundaries = [500, 8000]
 values = [1e-2, 1e-3, 1e-4]
 lr_schedule = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
     boundaries, values)
 optmzr = tf.keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=10)
 start_time = time.time()
-niters = tf.constant(4000, dtype=tf.int32)
+niters = tf.constant(10000, dtype=tf.int32)
 losses = train_loop(niters, optmzr)
 
 (x0_hat_l_m, x_init_hat_l_m, z_init_hat_l_m, eps_hat, K_hat, tau_hat, amp_hat,
