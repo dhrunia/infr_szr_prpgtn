@@ -720,7 +720,7 @@ class Epileptor2D:
 
     @tf.function
     def _ode_fn(self, y, x0, tau, K):
-        print("epileptor2d_nf_ode_fn()...")
+        # print("epileptor2d_nf_ode_fn()...")
         x = y[0:self._nv + self._ns]
         # x_subcort = y[self._nv:self._nv + self._ns]
         z = y[self._nv + self._ns:2 * (self._nv + self._ns)]
@@ -1002,7 +1002,7 @@ class Epileptor2D:
                 x0_unkown_masked, x_init_unkown_masked, z_init_unkown_masked,
                 eps, K, tau, amp, offset, self._obs_data, self._obs_space)
             lp_i = prior_lp + likelihood_lp
-            tf.print("likelihood = ", likelihood_lp, "prior = ", prior_lp)
+            # tf.print("likelihood = ", likelihood_lp, "prior = ", prior_lp)
             lp = lp.write(i, lp_i)
             return i + 1, lp
 
