@@ -19,8 +19,8 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = "results/tmp/id004_bj"
-data_dir = '/home/anirudh/Downloads/id004_bj'
+results_dir = "results/exp113"
+data_dir = 'datasets/data_jd/id004_bj'
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
 os.makedirs(figs_dir, exist_ok=True)
@@ -29,11 +29,11 @@ dyn_mdl = lib.model.neuralfield.Epileptor2D(
     L_MAX=32,
     N_LAT=128,
     N_LON=256,
-    verts_irreg_fname=f"{data_dir}/vertices.txt",
-    rgn_map_irreg_fname=f"{data_dir}/Cortex_region_map_ico7.txt",
-    conn_zip_path=f"{data_dir}/connectivity.vep.zip",
-    gain_irreg_path=f"{data_dir}/gain_inv_square_ico7.npz",
-    gain_irreg_rgn_map_path=f"{data_dir}/gain_region_map_ico7.txt",
+    verts_irreg_fname=f"{data_dir}/tvb/ico7/vertices.txt",
+    rgn_map_irreg_fname=f"{data_dir}/tvb/Cortex_region_map_ico7.txt",
+    conn_zip_path=f"{data_dir}/tvb/connectivity.vep.zip",
+    gain_irreg_path=f"{data_dir}/tvb/gain_inv_square_ico7.npz",
+    gain_irreg_rgn_map_path=f"{data_dir}/tvb/gain_region_map_ico7.txt",
     L_MAX_PARAMS=16)
 
 # %%
@@ -95,11 +95,11 @@ epplot.plot_slp(slp_noised.numpy(),
                 fig_name="slp_noised.png")
 # %%
 
-# ez_hyp_roi = ez_true_roi
-# ez_hyp_vrtcs = np.concatenate(
-#     [np.nonzero(roi == dyn_mdl.rgn_map)[0] for roi in ez_hyp_roi])
+ez_hyp_roi = ez_true_roi
+ez_hyp_vrtcs = np.concatenate(
+    [np.nonzero(roi == dyn_mdl.rgn_map)[0] for roi in ez_hyp_roi])
 x0_prior_mu = -3.0 * np.ones(dyn_mdl.nv + dyn_mdl.ns)
-# x0_prior_mu[ez_hyp_vrtcs] = -1.5
+x0_prior_mu[ez_hyp_vrtcs] = -1.5
 x0_prior_mu = tf.constant(x0_prior_mu, dtype=tf.float32)
 x0_prior_std = 0.5 * tf.ones(dyn_mdl.nv + dyn_mdl.ns)
 x_init_prior_mu = -3.0 * tf.ones(dyn_mdl.nv + dyn_mdl.ns)
@@ -209,7 +209,7 @@ dyn_mdl.setup_inference(nsteps=nsteps,
 #     initial_learning_rate, decay_steps=100, decay_rate=0.5)
 
 # optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=10)
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2, clipnorm=10)
+optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3, clipnorm=10)
 # optimizer = tf.keras.optimizers.SGD(learning_rate=1e-7, momentum=0.9)
 # %%
 start_time = time.time()
@@ -302,6 +302,7 @@ nfplot.spat_map_hyp_vs_pred(ez_obs,
                             dpi=100)
 p, r = acrcy.precision_recall(ez_hyp=ez_obs, ez_pred=ez_pred)
 print(f"Precision: {p}\t Recall: {r}")
+np.savez(f"{results_dir}/ez_pz_pred.npz", ez=ez_pred, pz=pz_pred)
 # %%
 fig, axs = plt.subplots(1, 2, figsize=(10, 6), dpi=200, layout='tight')
 epplot.plot_src(t_obs, ax=axs[0], title='Observed')
