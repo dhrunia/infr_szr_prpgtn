@@ -7,7 +7,8 @@
 	},
 	"mounts": [
 		"source=/home/anirudh/OneDrive/Academia/Projects/Neural fields inversion/datasets,target=/workspaces/isp_neural_fields/datasets,type=bind,consistency=cached",
-		"source=/home/anirudh/OneDrive/Academia/Projects/Neural fields inversion/results,target=/workspaces/isp_neural_fields/results,type=bind,consistency=cached"
+		"source=/home/anirudh/OneDrive/Academia/Projects/Neural fields inversion/results,target=/workspaces/isp_neural_fields/results,type=bind,consistency=cached",
+		"source=/home/anirudh/Downloads,target=/home/anirudh/Downloads,type=bind,consistency=cached"
 	],
 	"runArgs": [
 		"--gpus=all",
