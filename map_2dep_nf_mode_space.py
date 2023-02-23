@@ -19,7 +19,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = "results/exp113"
+results_dir = "results/exp113.3"
 data_dir = 'datasets/data_jd/id004_bj'
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
@@ -57,18 +57,17 @@ amp_true = dyn_mdl.amp_bounded(tfd.Normal(loc=0.0, scale=1.0).sample())
 offset_true = dyn_mdl.offset_bounded(tfd.Normal(loc=0.0, scale=1.0).sample())
 eps_true = 0.1
 # %%
-lib.plots.neuralfield.spherical_spat_map(
-    x0_true.numpy(),
-    N_LAT=dyn_mdl.N_LAT.numpy(),
-    N_LON=dyn_mdl.N_LON.numpy(),
-    clim={
-        "min": -5.0,
-        "max": 0.0
-    },
-    unkown_roi_mask=dyn_mdl.unkown_roi_mask,
-    fig_dir=figs_dir,
-    fig_name='x0_gt.png',
-    dpi=100)
+nfplot.spherical_spat_map(x0_true.numpy(),
+                          N_LAT=dyn_mdl.N_LAT.numpy(),
+                          N_LON=dyn_mdl.N_LON.numpy(),
+                          clim={
+                              "min": -5.0,
+                              "max": 0.0
+                          },
+                          unkown_roi_mask=dyn_mdl.unkown_roi_mask,
+                          fig_dir=figs_dir,
+                          fig_name='x0_gt.png',
+                          dpi=100)
 # %%
 nsteps = tf.constant(300, dtype=tf.int32)
 sampling_period = tf.constant(0.1, dtype=tf.float32)
@@ -135,8 +134,10 @@ z_init = tfd.TruncatedNormal(loc=prior_mean['z_init'],
 eps = tf.constant(0.3, dtype=tf.float32)
 K = tf.constant(1.0, dtype=tf.float32)
 tau = tf.constant(50.0, dtype=tf.float32)
-amp = tf.constant(1.0, dtype=tf.float32)
-offset = tf.constant(0.0, dtype=tf.float32)
+# amp = tf.constant(1.0, dtype=tf.float32)
+amp = dyn_mdl.amp_bounded(tfd.Normal(loc=0.0, scale=1.0).sample())
+# offset = tf.constant(0.0, dtype=tf.float32)
+offset = dyn_mdl.offset_bounded(tfd.Normal(loc=0.0, scale=1.0).sample())
 
 theta_init_val = dyn_mdl.inv_transformed_parameters(x0,
                                                     x_init,
@@ -217,6 +218,7 @@ niters = tf.constant(500, dtype=tf.int32)
 # lr = tf.constant(1e-4, dtype=tf.float32)
 losses = train_loop(niters, optimizer)
 print(f"Elapsed {time.time() - start_time} seconds for {niters} iterations")
+np.save(os.path.join(results_dir, 'theta.npy'), theta.numpy())
 # %%
 (x0_hat_l_m, x_init_hat_l_m, z_init_hat_l_m, eps_hat, K_hat, tau_hat, amp_hat,
  offset_hat) = dyn_mdl.split_params(theta)
