@@ -701,7 +701,7 @@ def surface_hyp_vs_pred(spat_map_hyp: np.ndarray,
         clim['min'] = np.min(spat_map_hyp.min(), spat_map_pred.min()),
 
     if 'max' not in clim:
-        clim['max'] = np.min(spat_map_hyp.min(), spat_map_pred.min()),
+        clim['max'] = np.min(spat_map_hyp.max(), spat_map_pred.max()),
 
     if cmap is None:
         cmap = plt.get_cmap('hot')
