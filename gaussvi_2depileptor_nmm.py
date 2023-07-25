@@ -18,7 +18,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 # %%
-results_dir = "results/temp"
+results_dir = "results/exp91"
 os.makedirs(results_dir, exist_ok=True)
 figs_dir = f"{results_dir}/figures"
 os.makedirs(figs_dir, exist_ok=True)
@@ -59,7 +59,7 @@ eps_obs_true = 0.1
 # %%
 nsteps = tf.constant(300, dtype=tf.int32)
 sampling_period = tf.constant(0.1, dtype=tf.float32)
-time_step = tf.constant(0.05, dtype=tf.float32)
+time_step = tf.constant(0.1, dtype=tf.float32)
 nsubsteps = tf.cast(tf.math.floordiv(sampling_period, time_step),
                     dtype=tf.int32)
 y = dyn_mdl.simulate(nsteps, nsubsteps, time_step, y_init_true, x0_true,
@@ -89,9 +89,12 @@ std = {
     'x0': 0.1,
     'x_init': 0.1,
     'z_init': 0.1,
-    'eps': 0.1,
+    'eps': 0.01,
     'K': 5,
 }
+
+#%%
+nparams = 3 * dyn_mdl.num_roi + 5
 x0 = tfd.TruncatedNormal(loc=mean['x0'],
                          scale=std['x0'],
                          low=dyn_mdl.x0_lb,
@@ -107,22 +110,32 @@ z_init = tfd.TruncatedNormal(loc=mean['z_init'],
 
 tau = tf.constant(50.0, dtype=tf.float32)
 K = tf.constant(1.0, dtype=tf.float32)
-amp = dyn_mdl.amp_bounded(tfd.Normal(
-    loc=0.0, scale=1.0).sample())  #tf.constant(1.0, dtype=tf.float32)
-offset = dyn_mdl.offset_bounded(tfd.Normal(
-    loc=0.0, scale=1.0).sample())  #tf.constant(0.0, dtype=tf.float32)
+amp = tf.constant(1.0, dtype=tf.float32)
+offset = tf.constant(0.0, dtype=tf.float32)
 eps = tf.constant(0.3, dtype=tf.float32)
-theta_init_val = dyn_mdl.join_params(*dyn_mdl.inv_transformed_parameters(
+loc_init_val = dyn_mdl.join_params(*dyn_mdl.inv_transformed_parameters(
     x0, x_init, z_init, tau, K, amp, offset, eps))
-theta = tf.Variable(initial_value=theta_init_val, dtype=tf.float32)
+loc = tf.Variable(initial_value=loc_init_val)
+log_scale_diag = tf.Variable(initial_value=-1.0 * tf.ones(nparams))
+
 # %%
 
 
 @tf.function
-def get_loss_and_gradients():
+def get_loss_and_gradients(nsamples):
     with tf.GradientTape() as tape:
-        loss = -1.0 * dyn_mdl.log_prob(theta, 1)
-    return loss, tape.gradient(loss, [theta])
+        scale_diag = tf.exp(log_scale_diag)
+        theta = tfd.MultivariateNormalDiag(
+            loc=loc, scale_diag=scale_diag).sample(nsamples)
+        gm_log_prob = dyn_mdl.log_prob(theta, nsamples)
+        posterior_approx_log_prob = tfd.MultivariateNormalDiag(
+            loc=loc, scale_diag=scale_diag).log_prob(theta)
+        tf.print("\tgm_log_prob:", tf.reduce_mean(gm_log_prob),
+                 "\tposterior_approx_log_prob:",
+                 tf.reduce_mean(posterior_approx_log_prob))
+        loss = tf.reduce_mean(posterior_approx_log_prob - gm_log_prob, axis=0)
+    grads = tape.gradient(loss, [loc, log_scale_diag])
+    return loss, grads
 
 
 # %%
@@ -136,11 +149,11 @@ def train_loop(num_iters, optimizer):
         return tf.less(i, num_iters)
 
     def body(i, loss_at):
-        loss_value, grads = get_loss_and_gradients()
+        loss_value, grads = get_loss_and_gradients(1)
         # tf.print("NAN in grads: ", tf.reduce_any(tf.math.is_nan(grads)), output_stream='file:///workspaces/isp_neural_fields/debug.txt')
         loss_at = loss_at.write(i, loss_value)
         tf.print("Iter ", i + 1, "loss: ", loss_value)
-        optimizer.apply_gradients(zip(grads, [theta]))
+        optimizer.apply_gradients(zip(grads, [loc, log_scale_diag]))
         return i + 1, loss_at
 
     i = tf.constant(0, dtype=tf.int32)
@@ -157,8 +170,6 @@ obs_data_aug = tf.TensorArray(dtype=tf.float32, size=n_sample_aug)
 for j in range(n_sample_aug):
     data_noised = slp_true + \
         tf.random.normal(shape=slp_true.shape, mean=0, stddev=eps_obs_true)
-    # data_noised = (amp_true * x_true  + offset_true) + \
-    #     tf.random.normal(shape=x_true.shape, mean=0, stddev=eps_obs_true)
     obs_data_aug = obs_data_aug.write(j, data_noised)
 obs_data_aug = obs_data_aug.stack()
 # %%
@@ -177,15 +188,19 @@ dyn_mdl.setup_inference(nsteps=nsteps,
 #     initial_learning_rate, decay_steps=100, decay_rate=0.5)
 
 # optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=10)
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2, clipnorm=10)
+optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, clipnorm=10)
 # optimizer = tf.keras.optimizers.SGD(learning_rate=1e-7, momentum=0.9)
 # %%
 start_time = time.time()
-niters = tf.constant(500, dtype=tf.int32)
+niters = tf.constant(1000, dtype=tf.int32)
 # lr = tf.constant(1e-4, dtype=tf.float32)
 losses = train_loop(niters, optimizer)
 print(f"Elapsed {time.time() - start_time} seconds for {niters} iterations")
 # %%
+scale_diag = tf.exp(log_scale_diag)
+theta = tf.reduce_mean(tfd.MultivariateNormalDiag(
+    loc=loc, scale_diag=scale_diag).sample(100),
+                       axis=0)
 (x0_pred, x_init_pred, z_init_pred, tau_pred, K_pred, amp_pred, offset_pred,
  eps_pred) = dyn_mdl.transformed_parameters(*dyn_mdl.split_params(theta))
 
@@ -213,8 +228,8 @@ lib.plots.seeg.plot_slp(x_true.numpy(), ax=axs[0], title='Observed')
 lib.plots.seeg.plot_slp(x_pred.numpy(), ax=axs[1], title='Predicted')
 fig.savefig(f'{figs_dir}/slp_obs_vs_pred.png', facecolor='white')
 # %%
-theta_true = dyn_mdl.join_params(*dyn_mdl.inv_transformed_parameters(
+theta_true = theta = dyn_mdl.join_params(*dyn_mdl.inv_transformed_parameters(
     x0_true, x_init_true, z_init_true, tau_true, K_true, amp_true, offset_true,
-    eps_obs_true))
+    eps))
 loss_gt = -1.0 * dyn_mdl.log_prob(theta_true, 1)
 print(f"loss_gt = {loss_gt}")
