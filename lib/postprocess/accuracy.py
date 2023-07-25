@@ -89,7 +89,7 @@ def find_ez_x_fp(x, lb, ub):
     return ez_pred
 
 
-def precision_recall(ez_hyp, ez_pred):
+def precision_recall(ez_hyp, ez_pred, ignore_errors=False):
     tp = fp = fn = 0
     for a, b in zip(ez_hyp, ez_pred):
         if (a == 1 and b == 1):
@@ -98,7 +98,14 @@ def precision_recall(ez_hyp, ez_pred):
             fn += 1
         elif (a == 0 and b == 1):
             fp += 1
-    precision = tp / (tp + fp)
+    try:
+        precision = tp / (tp + fp)
+    except ZeroDivisionError:
+        print("Predicted EZ has no regions in EZ")
+        if ignore_errors:
+            precision = 0
+        else:
+            raise Exception("Predicted EZ has no regions in EZ")
     recall = tp / (tp + fn)
     return precision, recall
 
