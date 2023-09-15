@@ -19,7 +19,8 @@ def find_rgn_map_reg(N_LAT, N_LON, cos_theta, verts_irreg_fname,
     verts_irreg -= verts_irreg.mean(axis=0)
     mean_radius = np.sqrt((verts_irreg**2).sum(axis=1)).mean()
     verts_irreg /= mean_radius
-
+    if np.sqrt((verts_irreg**2).sum(axis=1)).std() > 0.1:
+        print('!! this may be a folded surface not a spherical one')
     # No.of vertices per hemisphere in the irregular sphere
     nvph_irreg = verts_irreg.shape[0] // 2
     kdtree = scipy.spatial.KDTree(verts_irreg[0:nvph_irreg, :])
@@ -31,6 +32,12 @@ def find_rgn_map_reg(N_LAT, N_LON, cos_theta, verts_irreg_fname,
 
     rgn_map_irreg = np.loadtxt(rgn_map_irreg_fname, dtype=np.int32)
     rgn_map_reg = rgn_map_irreg[idcs]
+
+    dropped = np.setxor1d(np.unique(rgn_map_irreg),
+                          np.unique(rgn_map_reg))
+    if dropped.size > 0:
+        print('!! at least one ROI dropped from irreg to reg reg map; indices',
+              dropped)
 
     return rgn_map_reg
 
